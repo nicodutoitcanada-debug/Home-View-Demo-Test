@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>HOME VIEW DEMO</title>
+  <style>
+    /* HEADER */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 40px;
+      background: transparent;
+      z-index: 20;
+      font-family: "Futura PT", sans-serif;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+    }
+
+    .header.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .header button {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.669);
+      font-size: 14px;
+      text-transform: uppercase;
+      opacity: 0.7;
+      cursor: pointer;
+      transition: opacity 0.3s ease, font-weight 0.3s ease, transform 0.2s ease;
+      font-weight: 400;
+      letter-spacing: 1px;
+    }
+
+    .header button:hover {
+      opacity: 1;
+      font-weight: 600;
+      transform: scale(1.05);
+    }
+
+    /* Close (Quit) Button */
+    .header .closeGameButton {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: opacity 0.3s ease, transform 0.2s ease;
+    }
+
+    .header .closeGameButton:hover {
+      opacity: 1;
+      color: rgb(255, 80, 80);
+      transform: scale(1.05);
+    }
+
+    /* GENERAL */
+    body {
+      background-color: rgb(208, 208, 208);
+      margin: 0;
+      overflow: hidden;
+    }
+
+    #video-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* EDIT BUTTON */
+    .editButton {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      border: none;
+      background-color: rgba(0, 0, 0, 0.646);
+      width: 35px;
+      height: 35px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      z-index: 10;
+      transition: bottom 0.5s ease-in-out, opacity 0.5s ease-in-out;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .editButton.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .editButton:hover {
+      background-color: rgba(98, 8, 8, 0.646);
+    }
+
+    .editButton.hidden {
+      bottom: -80px;
+      opacity: 0;
+    }
+
+    button:focus {
+      outline: none;
+    }
+
+    button::-moz-focus-inner {
+      border: 0;
+    }
+
+    :focus-visible {
+      outline: 2px solid white;
+    }
+
+    button:focus:not(:focus-visible) {
+      outline: none;
+    }
+
+    #fullscreen-btn {
+      background-color: rgba(0, 0, 0, 0.358) !important;
+      border-radius: 60px !important;
+    }
+
+    #fullscreen-btn:hover {
+      background-color: rgba(255, 0, 0, 0.358) !important;
+      border-radius: 60px !important;
+    }
+
+    #fullscreen-btn svg path {
+      stroke: rgb(255, 255, 255) !important;
+      fill: rgb(255, 255, 255) !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="video-container"></div>
+
+  <div class="header">
+    <button onclick="handleSendCommand({screenshot: 'save'})">TAKE SCREENSHOT</button>
+    <button onclick="handleSendCommand({cameraSettings: 'open'})">ADJUST CAMERA</button>
+    <button onclick="handleSendCommand({cameraSettings: 'touch'})">LAUNCH TOUCH CONTROL</button>
+    <button onclick="handleSendCommand({cameraSettings: 'movie'})">PLAY MOVIE</button>
+    <button class="closeGameButton" onclick="handleSendCommand({game: 'quit'})">X</button>
+  </div>
+
+  <!-- <button class="editButton">
+    <img data-src="edit.png" style="width: 25px;">
+  </button> -->
+
+  <script>
+    // Change this when moving between VS Code and Elementor
+    let templateLink = "images-lux/";
+  </script>
+
+  <script>
+    document.querySelectorAll("img[data-src]").forEach(img => {
+      img.src = templateLink + img.dataset.src;
+    });
+  </script>
+
+  <script type="module">
+    import * as PixelStreamingWebSdk from "https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@latest/index.esm.js";
+
+    let Application;
+    let screenshotCounter = 1;
+
+    (async () => {
+      const { ArcwareInit } = PixelStreamingWebSdk;
+
+      const initResult = new ArcwareInit(
+        {
+          shareId: "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
+        },
+        {
+          initialSettings: {
+            StartVideoMuted: false,
+            AutoConnect: true,
+            AutoPlayVideo: true,
+          },
+          settings: {
+            infoButton: false,
+            micButton: false,
+            audioButton: false,
+            fullscreenButton: true,
+            settingsButton: false,
+            connectionStrengthIcon: false,
+          },
+        }
+      );
+
+      Application = initResult.Application;
+
+      // === Listen for messages from Unreal ===
+      Application.getApplicationResponse((response) => {
+        console.log("ApplicationResponse", response);
+
+        try {
+          const parsed = JSON.parse(response);
+
+          if (parsed.created === "editButton") {
+            showInterface();
+          }
+
+          if (parsed.remove === "editButton") {
+            hideInterface();
+          }
+
+          // ✅ Auto-load homeView level when Unreal signals the game is ready
+          if (parsed.home === "loaded") {
+            console.log("Home loaded — sending level change to homeView");
+            Application.emitUIInteraction({ level: "homeView" });
+          }
+        } catch (e) {
+          // Ignore invalid JSON
+        }
+
+        if (response.startsWith("CreateScreenshot")) createFile(window.file);
+      });
+
+      // Wait for initialization before attaching video
+      setTimeout(() => {
+        document
+          .getElementById("video-container")
+          .appendChild(Application.rootElement);
+      }, 200);
+
+      window.file = Application.webRtcController.file;
+    })();
+
+    // === Commands sent to Unreal ===
+    window.handleSendCommand = function (command) {
+      if (Application) {
+        console.log("Sending command to Unreal:", command);
+        Application.emitUIInteraction(command);
+      }
+
+      if (command.cameraSettings === "movie") {
+        hideInterface();
+      }
+    };
+
+    // === Screenshot Saving ===
+    function createFile(file) {
+      const blob = new Blob(file.data, { type: file.mimetype });
+      const counterString = String(screenshotCounter).padStart(2, "0");
+      const fileName = `screenshot${counterString}${file.extension}`;
+
+      if (window.showSaveFilePicker) {
+        const saveScreenshot = async () => {
+          try {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: fileName,
+              types: [{ description: "PNG Image", accept: { "image/png": [".png"] } }],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            console.log("Screenshot saved!");
+          } catch (err) {
+            console.error("Error saving screenshot:", err);
+          }
+        };
+        saveScreenshot();
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      screenshotCounter++;
+    }
+
+    // === UI Visibility ===
+    const header = document.querySelector('.header');
+    const editButton = document.querySelector('.editButton');
+
+    function showInterface() {
+      header.classList.add('show');
+      editButton.classList.add('show');
+    }
+
+    function hideInterface() {
+      header.classList.remove('show');
+      editButton.classList.remove('show');
+    }
+
+    // === Safe Event Handling (no null crashes) ===
+    const footer = document.querySelector('.footer');
+    const closeButton = document.querySelector('.closeButton');
+
+    if (editButton && footer) {
+      editButton.addEventListener('click', () => {
+        footer?.classList.add('show');
+        editButton.classList.add('hidden');
+      });
+    }
+
+    if (closeButton && footer && editButton) {
+      closeButton.addEventListener('click', () => {
+        footer?.classList.remove('show');
+        setTimeout(() => {
+          editButton.classList.remove('hidden');
+        }, 500);
+      });
+    }
+
+    // === Fullscreen Handling ===
+    function moveUIInto(element) {
+      [header, editButton].forEach(el => {
+        if (!el) return;
+        if (!element.contains(el)) element.appendChild(el);
+        el.style.position = 'fixed';
+        el.style.zIndex = '9999';
+        el.style.pointerEvents = 'auto';
+      });
+    }
+
+    function moveUIBackToBody() {
+      [header, editButton].forEach(el => {
+        if (!el) return;
+        if (!document.body.contains(el)) document.body.appendChild(el);
+        el.style.position = 'fixed';
+        el.style.zIndex = '1000';
+        el.style.pointerEvents = 'auto';
+      });
+    }
+
+    function onFullscreenChange() {
+      const fsElem =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement ||
+        null;
+
+      if (fsElem) {
+        moveUIInto(fsElem);
+      } else {
+        moveUIBackToBody();
+      }
+    }
+
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+    document.addEventListener('mozfullscreenchange', onFullscreenChange);
+    document.addEventListener('MSFullscreenChange', onFullscreenChange);
+  </script>
+</body>
+</html>
