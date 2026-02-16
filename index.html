@@ -1,108 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <title>HOME VIEW DEMO</title>
+  <meta charset="UTF-8" />
+  <title>Pixel Streaming</title>
   <style>
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: black;
       overflow: hidden;
-      background-color: black;
     }
-
-    #video-container {
-      width: 100vw;
-      height: 100vh;
+    #player {
+      width: 100%;
+      height: 100%;
     }
   </style>
 </head>
 
 <body>
-  <div id="video-container"></div>
+  <div id="player"></div>
 
   <script type="module">
-    // ✅ SELF-HOSTED SDK (NO CORS ISSUES)
-    import * as PixelStreamingWebSdk from "./js/pixelstreaming-websdk.esm.js";
+    import { PixelStreaming } from "https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/dist/index.esm.js";
 
-    let Application;
-    let screenshotCounter = 1;
-
-    (async () => {
-      const { ArcwareInit } = PixelStreamingWebSdk;
-
-      const initResult = new ArcwareInit(
-        {
-          shareId: "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
-        },
-        {
-          initialSettings: {
-            StartVideoMuted: false,
-            AutoConnect: true,
-            AutoPlayVideo: true,
-          },
-          settings: {
-            infoButton: false,
-            micButton: false,
-            audioButton: false,
-            fullscreenButton: false,
-            settingsButton: false,
-            connectionStrengthIcon: false,
-          },
-        }
-      );
-
-      Application = initResult.Application;
-
-      // === Listen for messages from Unreal ===
-      Application.getApplicationResponse((response) => {
-        console.log("ApplicationResponse", response);
-
-        if (response.startsWith("CreateScreenshot")) {
-          createFile(window.file);
-        }
-      });
-
-      // Attach video element
-      document
-        .getElementById("video-container")
-        .appendChild(Application.rootElement);
-
-      window.file = Application.webRtcController.file;
-    })();
-
-    // === Screenshot Saving ===
-    function createFile(file) {
-      const blob = new Blob(file.data, { type: file.mimetype });
-      const counterString = String(screenshotCounter).padStart(2, "0");
-      const fileName = `screenshot${counterString}${file.extension}`;
-
-      if (window.showSaveFilePicker) {
-        const saveScreenshot = async () => {
-          try {
-            const handle = await window.showSaveFilePicker({
-              suggestedName: fileName,
-              types: [
-                { description: "PNG Image", accept: { "image/png": [".png"] } }
-              ],
-            });
-            const writable = await handle.createWritable();
-            await writable.write(blob);
-            await writable.close();
-          } catch (err) {
-            console.error("Error saving screenshot:", err);
-          }
-        };
-        saveScreenshot();
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(url);
+    const config = {
+      useUrlParams: true,
+      initialSettings: {
+        AutoConnect: true,
+        AutoPlayVideo: true,
+        StartVideoMuted: true
       }
+    };
 
-      screenshotCounter++;
-    }
+    const pixelStreaming = new PixelStreaming(config);
+
+    pixelStreaming.connect();
   </script>
 </body>
 </html>
+
