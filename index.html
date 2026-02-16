@@ -4,6 +4,65 @@
 <title>HOME VIEW DEMO</title>
 
 <style>
+/* HEADER */
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    background: transparent;
+    z-index: 20;
+    font-family: "Futura PT", sans-serif;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+}
+.header.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+.header button {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.669);
+    font-size: 14px;
+    text-transform: uppercase;
+    opacity: 0.7;
+    cursor: pointer;
+    transition: opacity 0.3s ease, font-weight 0.3s ease, transform 0.2s ease;
+    font-weight: 400;
+    letter-spacing: 1px;
+}
+.header button:hover {
+    opacity: 1;
+    font-weight: 600;
+    transform: scale(1.05);
+}
+.header .closeGameButton {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: opacity 0.3s ease, transform 0.2s ease;
+}
+.header .closeGameButton:hover {
+    opacity: 1;
+    color: rgb(255, 80, 80);
+    transform: scale(1.05);
+}
+
+/* GENERAL */
 body {
     background-color: rgb(208, 208, 208);
     margin: 0;
@@ -13,6 +72,56 @@ body {
     width: 100vw;
     height: 100vh;
     position: relative;
+    z-index: 1;
+}
+
+/* EDIT BUTTON */
+.editButton {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    border: none;
+    background-color: rgba(0, 0, 0, 0.646);
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: bottom 0.5s ease-in-out, opacity 0.5s ease-in-out;
+    opacity: 0;
+    pointer-events: none;
+}
+.editButton.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+.editButton:hover {
+    background-color: rgba(98, 8, 8, 0.646);
+}
+.editButton.hidden {
+    bottom: -80px;
+    opacity: 0;
+}
+
+button:focus { outline: none; }
+button::-moz-focus-inner { border: 0; }
+:focus-visible { outline: 2px solid white; }
+button:focus:not(:focus-visible) { outline: none; }
+
+#fullscreen-btn {
+    background-color: rgba(0, 0, 0, 0.358) !important;
+    border-radius: 60px !important;
+}
+#fullscreen-btn:hover {
+    background-color: rgba(255, 0, 0, 0.358) !important;
+}
+#fullscreen-btn svg path {
+    stroke: rgb(255, 255, 255) !important;
+    fill: rgb(255, 255, 255) !important;
 }
 </style>
 </head>
@@ -21,17 +130,33 @@ body {
 
 <div id="video-container"></div>
 
-<!-- ✅ Use UMD build instead of ESM -->
-<script src="https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/dist/index.umd.js"></script>
+<div class="header">
+    <button onclick="handleSendCommand({screenshot: 'save'})">TAKE SCREENSHOT</button>
+    <button onclick="handleSendCommand({cameraSettings: 'open'})">ADJUST CAMERA</button>
+    <button onclick="handleSendCommand({cameraSettings: 'touch'})">LAUNCH TOUCH CONTROL</button>
+    <button onclick="handleSendCommand({cameraSettings: 'movie'})">PLAY MOVIE</button>
+    <button class="closeGameButton" onclick="handleSendCommand({game: 'quit'})">X</button>
+</div>
 
 <script>
+let templateLink = "images-lux/";
+document.querySelectorAll("img[data-src]").forEach(img => {
+    img.src = templateLink + img.dataset.src;
+});
+</script>
+
+<!-- ✅ JSDELIVR VERSION (CORS SAFE) -->
+<script type="module">
+
+import * as PixelStreamingWebSdk from 
+"https://cdn.jsdelivr.net/npm/@arcware-cloud/pixelstreaming-websdk@1.3.32/dist/index.esm.js";
 
 let Application;
 let screenshotCounter = 1;
 
 (async () => {
 
-    const { ArcwareInit } = window.ArcwarePixelStreamingWebSdk;
+    const { ArcwareInit } = PixelStreamingWebSdk;
 
     const initResult = new ArcwareInit(
         {
@@ -58,8 +183,18 @@ let screenshotCounter = 1;
 
     Application.getApplicationResponse((response) => {
 
+        console.log("ApplicationResponse", response);
+
         try {
             const parsed = JSON.parse(response);
+
+            if (parsed.created === "editButton") {
+                showInterface();
+            }
+
+            if (parsed.remove === "editButton") {
+                hideInterface();
+            }
 
             if (parsed.home === "loaded") {
                 Application.emitUIInteraction({ level: "homeView" });
@@ -82,6 +217,16 @@ let screenshotCounter = 1;
 
 })();
 
+window.handleSendCommand = function (command) {
+    if (Application) {
+        Application.emitUIInteraction(command);
+    }
+
+    if (command.cameraSettings === "movie") {
+        hideInterface();
+    }
+};
+
 function createFile(file) {
 
     const blob = new Blob(file.data, { type: file.mimetype });
@@ -96,6 +241,19 @@ function createFile(file) {
     URL.revokeObjectURL(url);
 
     screenshotCounter++;
+}
+
+const header = document.querySelector('.header');
+const editButton = document.querySelector('.editButton');
+
+function showInterface() {
+    header?.classList.add('show');
+    editButton?.classList.add('show');
+}
+
+function hideInterface() {
+    header?.classList.remove('show');
+    editButton?.classList.remove('show');
 }
 
 </script>
