@@ -137,7 +137,7 @@ document.querySelectorAll("img[data-src]").forEach(img => {
 });
 </script>
 
-<!-- JSDELIVR VERSION (CORS SAFE) -->
+<!-- Updated SDK import (unpkg reliable for this version) -->
 <script type="module">
 import * as PixelStreamingWebSdk from "https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs";
 
@@ -149,7 +149,7 @@ let screenshotCounter = 1;
 
     const initResult = new ArcwareInit(
         {
-            shareId: "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",   // ← Replace this if you get a new share ID
+            shareId: "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
         },
         {
             initialSettings: {
@@ -168,22 +168,31 @@ let screenshotCounter = 1;
         }
     );
 
+    // Correct destructuring – Application is UI layer, stream is the core connection/emitter
     Application = initResult.Application;
+    const stream = initResult.PixelStreaming;   // ← this is the object that emits connection events
 
-    // ────────────────────────────────────────────────
-    // ADDED: Better error & connection debugging
-    Application.on('error', (err) => {
+    // Listen to connection / error events on the stream object (not Application)
+    stream.addEventListener('error', (err) => {
         console.error("PixelStreaming ERROR:", err);
-        alert("Connection failed!\n\n" + (err.message || "Unknown error - check console (F12)"));
+        alert("Connection or stream error!\n\n" + (err.message || "Check console (F12)"));
     });
 
-    Application.on('connectStateChanged', (state) => {
-        console.log("Connection state changed →", state);
+    stream.addEventListener('webRtcConnected', () => {
+        console.log("WebRTC connection established → stream should be visible soon");
     });
-    // ────────────────────────────────────────────────
 
+    stream.addEventListener('webRtcDisconnected', () => {
+        console.log("WebRTC disconnected");
+    });
+
+    stream.addEventListener('webRtcFailed', (reason) => {
+        console.error("WebRTC connection failed:", reason);
+    });
+
+    // Your existing response handler (this part was already correct)
     Application.getApplicationResponse((response) => {
-        console.log("ApplicationResponse", response);
+        console.log("ApplicationResponse:", response);
         try {
             const parsed = JSON.parse(response);
             if (parsed.created === "editButton") {
@@ -195,20 +204,23 @@ let screenshotCounter = 1;
             if (parsed.home === "loaded") {
                 Application.emitUIInteraction({ level: "homeView" });
             }
-        } catch (e) {}
+        } catch (e) {
+            console.warn("Could not parse ApplicationResponse:", e);
+        }
+
         if (response.startsWith("CreateScreenshot")) {
             createFile(window.file);
         }
     });
 
-    // Slightly longer timeout sometimes helps
+    // Append the video/UI root element
     setTimeout(() => {
         const container = document.getElementById("video-container");
         if (container && Application?.rootElement) {
             container.appendChild(Application.rootElement);
-            console.log("Video element appended");
+            console.log("Video/UI root element appended successfully");
         } else {
-            console.warn("Could not append video element - Application or rootElement missing");
+            console.warn("Could not append video element – Application or rootElement missing");
         }
     }, 400);
 
@@ -225,16 +237,27 @@ window.handleSendCommand = function (command) {
 };
 
 function createFile(file) {
+    if (!file || !file.data || !file.mimetype) {
+        console.warn("Screenshot file data missing or invalid");
+        return;
+    }
+
     const blob = new Blob(file.data, { type: file.mimetype });
     const counterString = String(screenshotCounter).padStart(2, "0");
-    const fileName = `screenshot${counterString}${file.extension}`;
+    const fileName = `screenshot${counterString}${file.extension || '.png'}`;
     const url = URL.createObjectURL(blob);
+
     const a = document.createElement("a");
     a.href = url;
     a.download = fileName;
+    document.body.appendChild(a);
     a.click();
+
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
     screenshotCounter++;
+
+    console.log(`Screenshot saved as: ${fileName}`);
 }
 
 const header = document.querySelector('.header');
@@ -243,10 +266,13 @@ const editButton = document.querySelector('.editButton');
 function showInterface() {
     header?.classList.add('show');
     editButton?.classList.add('show');
+    console.log("Interface shown");
 }
+
 function hideInterface() {
     header?.classList.remove('show');
     editButton?.classList.remove('show');
+    console.log("Interface hidden");
 }
 </script>
 </body>
