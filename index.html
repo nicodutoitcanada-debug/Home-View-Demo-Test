@@ -1,366 +1,205 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<title>HOME VIEW DEMO</title>
-<style>
-/* HEADER */
-.header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 60px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 40px;
-    background: transparent;
-    z-index: 20;
-    font-family: "Futura PT", sans-serif;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.5s ease;
-}
-.header.show {
-    opacity: 1;
-    pointer-events: auto;
-}
-.header button {
-    background: transparent;
-    border: none;
-    color: rgba(255, 255, 255, 0.669);
-    font-size: 14px;
-    text-transform: uppercase;
-    opacity: 0.7;
-    cursor: pointer;
-    transition: opacity 0.3s ease, font-weight 0.3s ease, transform 0.2s ease;
-    font-weight: 400;
-    letter-spacing: 1px;
-}
-.header button:hover {
-    opacity: 1;
-    font-weight: 600;
-    transform: scale(1.05);
-}
-.header .closeGameButton {
-    position: absolute;
-    top: 15px;
-    right: 20px;
-    background: transparent;
-    border: none;
-    color: rgba(255, 255, 255, 0.75);
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: opacity 0.3s ease, transform 0.2s ease;
-}
-.header .closeGameButton:hover {
-    opacity: 1;
-    color: rgb(255, 80, 80);
-    transform: scale(1.05);
-}
-/* GENERAL */
-body {
-    background-color: rgb(208, 208, 208);
-    margin: 0;
-    overflow: hidden;
-}
-#video-container {
-    width: 100vw;
-    height: 100vh;
-    position: relative;
-    z-index: 1;
-}
-/* EDIT BUTTON */
-.editButton {
-    position: fixed;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    border: none;
-    background-color: rgba(0, 0, 0, 0.646);
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    z-index: 10;
-    transition: bottom 0.5s ease-in-out, opacity 0.5s ease-in-out;
-    opacity: 0;
-    pointer-events: none;
-}
-.editButton.show {
-    opacity: 1;
-    pointer-events: auto;
-}
-.editButton:hover {
-    background-color: rgba(98, 8, 8, 0.646);
-}
-.editButton.hidden {
-    bottom: -80px;
-    opacity: 0;
-}
-button:focus { outline: none; }
-button::-moz-focus-inner { border: 0; }
-:focus-visible { outline: 2px solid white; }
-button:focus:not(:focus-visible) { outline: none; }
-#fullscreen-btn {
-    background-color: rgba(0, 0, 0, 0.358) !important;
-    border-radius: 60px !important;
-}
-#fullscreen-btn:hover {
-    background-color: rgba(255, 0, 0, 0.358) !important;
-}
-#fullscreen-btn svg path {
-    stroke: rgb(255, 255, 255) !important;
-    fill: rgb(255, 255, 255) !important;
-}
+  <title>LUX INTERACTIVE</title>
 
-/* New: Loading Overlay for Screenshot */
-#loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.5); /* Black background 50% opacity */
-    display: none; /* Hidden by default */
-    justify-content: center;
-    align-items: center;
-    z-index: 30; /* Above everything */
-    color: white;
-    font-family: "Futura PT", sans-serif;
-    font-size: 18px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-#loading-overlay.show {
-    display: flex;
-    opacity: 1;
-}
-#loading-overlay .spinner {
-    border: 4px solid rgba(255, 255, 255, 0.3);
-    border-top: 4px solid white; /* White spinner */
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-    animation: spin 1s linear infinite;
-    margin-right: 10px;
-}
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-#loading-overlay .message {
-    display: flex;
-    align-items: center;
-}
-#loading-overlay.fade-out {
-    opacity: 0;
-    transition: opacity 1s ease;
-}
-</style>
-</head>
-<body>
-<div id="video-container"></div>
-<div class="header">
-    <button onclick="handleSendCommand({screenshot: 'save'})">TAKE SCREENSHOT</button>
-    <button onclick="handleSendCommand({cameraSettings: 'open'})">ADJUST CAMERA</button>
-    <button onclick="handleSendCommand({cameraSettings: 'touch'})">LAUNCH TOUCH CONTROL</button>
-    <button onclick="handleSendCommand({cameraSettings: 'movie'})">PLAY MOVIE</button>
-    <button class="closeGameButton" onclick="handleSendCommand({game: 'quit'})">X</button>
-</div>
-
-<!-- New: Loading Overlay HTML -->
-<div id="loading-overlay">
-    <div class="message">
-        <div class="spinner"></div>
-        Generating High Resolution Image
-    </div>
-</div>
-
-<script>
-let templateLink = "images-lux/";
-document.querySelectorAll("img[data-src]").forEach(img => {
-    img.src = templateLink + img.dataset.src;
-});
-</script>
-
-<!-- Updated SDK import (unpkg reliable for this version) -->
-<script type="module">
-import * as PixelStreamingWebSdk from "https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs";
-
-let Application;
-let screenshotCounter = 1;
-const loadingOverlay = document.getElementById('loading-overlay');
-
-function showLoader(message = 'Generating High Resolution Image') {
-    loadingOverlay.querySelector('.message').innerHTML = `
-        <div class="spinner"></div>
-        ${message}
-    `;
-    loadingOverlay.classList.add('show');
-    loadingOverlay.classList.remove('fade-out');
-}
-
-function hideLoader(withSavedMessage = false) {
-    if (withSavedMessage) {
-        loadingOverlay.querySelector('.message').innerHTML = 'Image Saved';
-        loadingOverlay.classList.add('fade-out');
-        setTimeout(() => {
-            loadingOverlay.classList.remove('show', 'fade-out');
-        }, 1000); // Fade out after 1s
-    } else {
-        loadingOverlay.classList.remove('show');
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      font-family: "Futura PT", sans-serif;
     }
-}
 
-(async () => {
-    const { ArcwareInit } = PixelStreamingWebSdk;
+    #video-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
 
-    const initResult = new ArcwareInit(
+    /* ===============================
+       SCREENSHOT OVERLAY
+    =============================== */
+
+    #screenshotOverlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      pointer-events: none;
+    }
+
+    .overlayBox {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 24px 32px;
+      border-radius: 16px;
+      color: white;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 22px;
+      height: 22px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top: 3px solid white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+
+  <script type="module">
+    let Application;
+    let screenshotCounter = 1;
+
+    import * as PixelStreamingWebSdk from 
+    "https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs";
+
+    (() => {
+      const { ArcwareInit } = PixelStreamingWebSdk;
+
+      /* ===============================
+         RANDOM SEAT SELECTION
+      =============================== */
+
+      const shareIds = [
+        "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
+        "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
+        "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8"
+      ];
+
+      const selectedShareId =
+        shareIds[Math.floor(Math.random() * shareIds.length)];
+
+      console.log("Arcware seat selected:", selectedShareId);
+
+      const initResult = new ArcwareInit(
+        { shareId: selectedShareId },
         {
-            shareId: "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
-        },
-        {
-            initialSettings: {
-                StartVideoMuted: false,
-                AutoConnect: true,
-                AutoPlayVideo: true,
-            },
-            settings: {
-                infoButton: false,
-                micButton: false,
-                audioButton: false,
-                fullscreenButton: true,
-                settingsButton: false,
-                connectionStrengthIcon: false,
-            },
+          initialSettings: {
+            AutoConnect: true,
+            AutoPlayVideo: true,
+            StartVideoMuted: false
+          },
+          settings: {
+            infoButton: false,
+            micButton: false,
+            audioButton: false,
+            fullscreenButton: false,
+            settingsButton: false,
+            connectionStrengthIcon: false
+          }
         }
-    );
+      );
 
-    // Correct destructuring – Application is UI layer, stream is the core connection/emitter
-    Application = initResult.Application;
-    const stream = initResult.PixelStreaming;   // ← this is the object that emits connection events
+      Application = initResult.Application;
 
-    // Listen to connection / error events on the stream object (not Application)
-    stream.addEventListener('error', (err) => {
-        console.error("PixelStreaming ERROR:", err);
-        alert("Connection or stream error!\n\n" + (err.message || "Check console (F12)"));
-    });
-
-    stream.addEventListener('webRtcConnected', () => {
-        console.log("WebRTC connection established → stream should be visible soon");
-    });
-
-    stream.addEventListener('webRtcDisconnected', () => {
-        console.log("WebRTC disconnected");
-    });
-
-    stream.addEventListener('webRtcFailed', (reason) => {
-        console.error("WebRTC connection failed:", reason);
-    });
-
-    // Your existing response handler (this part was already correct)
-    Application.getApplicationResponse((response) => {
-        console.log("ApplicationResponse:", response);
+      Application.getApplicationResponse((response) => {
         try {
-            const parsed = JSON.parse(response);
-            if (parsed.created === "editButton") {
-                showInterface();
-            }
-            if (parsed.remove === "editButton") {
-                hideInterface();
-            }
-            if (parsed.home === "loaded") {
-                Application.emitUIInteraction({ level: "homeView" });
-            }
-        } catch (e) {
-            console.warn("Could not parse ApplicationResponse:", e);
-        }
+          const parsed = JSON.parse(response);
 
-        // Handle screenshot response – hide loader and trigger download
+          if (parsed.screenshot === "generating") {
+            showOverlay("Generating high resolution image");
+          }
+        } catch (e) {}
+
         if (response.startsWith("CreateScreenshot")) {
-            createFile(window.file);
-            hideLoader();  // Hide loader after response (assume success)
+          createFile(window.file);
         }
-    });
+      });
 
-    // Append the video/UI root element
-    setTimeout(() => {
-        const container = document.getElementById("video-container");
-        if (container && Application?.rootElement) {
-            container.appendChild(Application.rootElement);
-            console.log("Video/UI root element appended successfully");
-        } else {
-            console.warn("Could not append video element – Application or rootElement missing");
-        }
-    }, 400);
+      setTimeout(() => {
+        document
+          .getElementById("video-container")
+          .appendChild(Application.rootElement);
+      });
 
-    window.file = Application.webRtcController.file;
-})();
+      window.file = Application.webRtcController.file;
+    })();
 
-window.handleSendCommand = function (command) {
-    if (Application) {
-        Application.emitUIInteraction(command);
-    }
-    if (command.cameraSettings === "movie") {
-        hideInterface();
-    }
-    // Show loader immediately when screenshot command is sent
-    if (command.screenshot === 'save') {
-        showLoader();
-    }
-};
-
-function createFile(file) {
-    if (!file || !file.data || !file.mimetype) {
-        console.warn("Screenshot file data missing or invalid");
-        hideLoader(true);  // Fallback to "Image Saved" if error
-        return;
+    function showOverlay(message) {
+      document.getElementById("overlayText").innerText = message;
+      document.getElementById("screenshotOverlay").style.display = "flex";
     }
 
-    const blob = new Blob(file.data, { type: file.mimetype });
-    const counterString = String(screenshotCounter).padStart(2, "0");
-    const fileName = `screenshot${counterString}${file.extension || '.png'}`;
-    const url = URL.createObjectURL(blob);
+    function hideOverlay() {
+      document.getElementById("screenshotOverlay").style.display = "none";
+    }
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
+    function createFile(file) {
+      const blob = new Blob(file.data, { type: file.mimetype });
+      const counterString = String(screenshotCounter).padStart(2, "0");
+      const fileName = `screenshot${counterString}${file.extension}`;
 
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    screenshotCounter++;
+      if (window.showSaveFilePicker) {
+        (async () => {
+          try {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: fileName,
+              types: [{ description: "PNG Image", accept: { "image/png": [".png"] } }]
+            });
 
-    console.log(`Screenshot saved as: ${fileName}`);
+            hideOverlay();
 
-    // After download, check if browser supports it (most do), else fallback
-    // Note: No reliable way to detect if "save as" opened, so assume success and hide normally
-    hideLoader();  // Or use hideLoader(true) if you want "Image Saved" always
-}
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+          } catch (err) {
+            hideOverlay();
+          }
+        })();
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
 
-const header = document.querySelector('.header');
-const editButton = document.querySelector('.editButton');
+        document.getElementById("overlayText").innerText =
+          "Your image has been saved";
 
-function showInterface() {
-    header?.classList.add('show');
-    editButton?.classList.add('show');
-    console.log("Interface shown");
-}
+        setTimeout(hideOverlay, 2000);
+      }
 
-function hideInterface() {
-    header?.classList.remove('show');
-    editButton?.classList.remove('show');
-    console.log("Interface hidden");
-}
-</script>
+      screenshotCounter++;
+    }
+  </script>
+</head>
+
+<body>
+
+  <div id="video-container"></div>
+
+  <!-- ===============================
+       SCREENSHOT STATUS OVERLAY
+  =============================== -->
+  <div id="screenshotOverlay">
+    <div class="overlayBox">
+      <div class="spinner"></div>
+      <div id="overlayText">Generating high resolution image</div>
+    </div>
+  </div>
+
+  <!--
+  ===============================
+  FRONTEND UI (DISABLED FOR NOW)
+  ===============================
+  Header / footer / buttons intentionally commented out
+  Unreal backend UI is active
+  -->
+
 </body>
 </html>
+
