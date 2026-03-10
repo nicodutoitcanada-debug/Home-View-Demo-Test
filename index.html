@@ -1,206 +1,339 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>HOME VIEW DEMO</title>
+<title>HOME VIEW DEMO</title>
 
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: black;
-      font-family: "Futura PT", sans-serif;
-    }
+<style>
 
-    #video-container {
-      width: 100vw;
-      height: 100vh;
-      position: relative;
-      z-index: 1;
-    }
+body{
+margin:0;
+overflow:hidden;
+background:black;
+font-family:"Futura PT",sans-serif;
+}
 
-    /* ===============================
-       SCREENSHOT OVERLAY
-    =============================== */
+/* ===============================
+   PIXEL STREAM
+================================*/
 
-    #screenshotOverlay {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 2000;
-      pointer-events: none;
-    }
+#video-container{
+width:100vw;
+height:100vh;
+position:relative;
+z-index:1;
+}
 
-    .overlayBox {
-      background: rgba(0, 0, 0, 0.5);
-      padding: 24px 32px;
-      border-radius: 16px;
-      color: white;
-      font-size: 16px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
+/* ===============================
+   INTRO VIDEO OVERLAY
+================================*/
 
-    .spinner {
-      width: 22px;
-      height: 22px;
-      border: 3px solid rgba(255,255,255,0.3);
-      border-top: 3px solid white;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
+#introOverlay{
+position:fixed;
+inset:0;
+background:black;
+display:flex;
+align-items:center;
+justify-content:center;
+z-index:5000;
+pointer-events:none;
+opacity:1;
+transition:opacity 1s ease;
+}
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  </style>
+#introVideo{
+width:100vw;
+height:100vh;
+object-fit:cover;
+}
 
-  <script type="module">
-    let Application;
-    let screenshotCounter = 1;
+/* ===============================
+   BLACK FADE
+================================*/
 
-    import * as PixelStreamingWebSdk from 
-    "https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs";
+#blackFade{
+position:fixed;
+inset:0;
+background:black;
+opacity:0;
+z-index:4000;
+pointer-events:none;
+transition:opacity 1s ease;
+}
 
-    (() => {
-      const { ArcwareInit } = PixelStreamingWebSdk;
+/* ===============================
+   SCREENSHOT OVERLAY
+================================*/
 
-      /* ===============================
-         RANDOM SEAT SELECTION
-      =============================== */
+#screenshotOverlay{
+position:fixed;
+inset:0;
+display:none;
+align-items:center;
+justify-content:center;
+z-index:2000;
+pointer-events:none;
+}
 
-      const shareIds = [
-        "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
-        "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
-        "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8"
-      ];
+.overlayBox{
+background:rgba(0,0,0,0.5);
+padding:24px 32px;
+border-radius:16px;
+color:white;
+font-size:16px;
+display:flex;
+align-items:center;
+gap:16px;
+}
 
-      const selectedShareId =
-        shareIds[Math.floor(Math.random() * shareIds.length)];
+.spinner{
+width:22px;
+height:22px;
+border:3px solid rgba(255,255,255,0.3);
+border-top:3px solid white;
+border-radius:50%;
+animation:spin 1s linear infinite;
+}
 
-      console.log("Arcware seat selected:", selectedShareId);
+@keyframes spin{
+to{transform:rotate(360deg);}
+}
 
-      const initResult = new ArcwareInit(
-        { shareId: selectedShareId },
-        {
-          initialSettings: {
-            AutoConnect: true,
-            AutoPlayVideo: true,
-            StartVideoMuted: false
-          },
-          settings: {
-            infoButton: false,
-            micButton: false,
-            audioButton: false,
-            fullscreenButton: false,
-            settingsButton: false,
-            connectionStrengthIcon: false
-          }
-        }
-      );
+</style>
 
-      Application = initResult.Application;
 
-      Application.getApplicationResponse((response) => {
-        try {
-          const parsed = JSON.parse(response);
+<script type="module">
 
-          if (parsed.screenshot === "generating") {
-            showOverlay("Generating high resolution image");
-          }
-        } catch (e) {}
+let Application;
+let screenshotCounter = 1;
 
-        if (response.startsWith("CreateScreenshot")) {
-          createFile(window.file);
-        }
-      });
+import * as PixelStreamingWebSdk from
+"https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs";
 
-      setTimeout(() => {
-        document
-          .getElementById("video-container")
-          .appendChild(Application.rootElement);
-      });
+(() => {
 
-      window.file = Application.webRtcController.file;
-    })();
+const { ArcwareInit } = PixelStreamingWebSdk;
 
-    function showOverlay(message) {
-      document.getElementById("overlayText").innerText = message;
-      document.getElementById("screenshotOverlay").style.display = "flex";
-    }
+/* ===============================
+   RANDOM SEAT SELECTION
+================================*/
 
-    function hideOverlay() {
-      document.getElementById("screenshotOverlay").style.display = "none";
-    }
+const shareIds=[
+"share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
+"share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
+"share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8"
+];
 
-    function createFile(file) {
-      const blob = new Blob(file.data, { type: file.mimetype });
-      const counterString = String(screenshotCounter).padStart(2, "0");
-      const fileName = `screenshot${counterString}${file.extension}`;
+const selectedShareId=
+shareIds[Math.floor(Math.random()*shareIds.length)];
 
-      if (window.showSaveFilePicker) {
-        (async () => {
-          try {
-            const handle = await window.showSaveFilePicker({
-              suggestedName: fileName,
-              types: [{ description: "PNG Image", accept: { "image/png": [".png"] } }]
-            });
+console.log("Arcware seat selected:",selectedShareId);
 
-            hideOverlay();
+const initResult=new ArcwareInit(
+{shareId:selectedShareId},
+{
+initialSettings:{
+AutoConnect:true,
+AutoPlayVideo:true,
+StartVideoMuted:false
+},
+settings:{
+infoButton:false,
+micButton:false,
+audioButton:false,
+fullscreenButton:false,
+settingsButton:false,
+connectionStrengthIcon:false
+}
+}
+);
 
-            const writable = await handle.createWritable();
-            await writable.write(blob);
-            await writable.close();
-          } catch (err) {
-            hideOverlay();
-          }
-        })();
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+Application=initResult.Application;
 
-        document.getElementById("overlayText").innerText =
-          "Your image has been saved";
+/* ===============================
+   RESPONSES FROM UNREAL
+================================*/
 
-        setTimeout(hideOverlay, 2000);
-      }
+Application.getApplicationResponse((response)=>{
 
-      screenshotCounter++;
-    }
-  </script>
+try{
+
+const parsed=JSON.parse(response);
+
+if(parsed.screenshot==="generating"){
+showOverlay("Generating high resolution image");
+}
+
+}catch(e){}
+
+if(response.startsWith("CreateScreenshot")){
+createFile(window.file);
+}
+
+});
+
+/* ===============================
+   ATTACH STREAM
+================================*/
+
+setTimeout(()=>{
+
+document
+.getElementById("video-container")
+.appendChild(Application.rootElement);
+
+});
+
+/* ===============================
+   INTRO SEQUENCE
+================================*/
+
+startIntro();
+
+window.file=Application.webRtcController.file;
+
+})();
+
+/* ===============================
+   INTRO LOGO
+================================*/
+
+function startIntro(){
+
+const video=document.getElementById("introVideo");
+
+video.play().catch(()=>{});
+
+/* after 9 seconds fade to black */
+
+setTimeout(()=>{
+
+document.getElementById("blackFade").style.opacity=1;
+
+},9000);
+
+/* remove overlay completely */
+
+setTimeout(()=>{
+
+const overlay=document.getElementById("introOverlay");
+const fade=document.getElementById("blackFade");
+
+overlay.remove();
+fade.remove();
+
+},10000);
+
+}
+
+/* ===============================
+   SCREENSHOT FUNCTIONS
+================================*/
+
+function showOverlay(message){
+
+document.getElementById("overlayText").innerText=message;
+document.getElementById("screenshotOverlay").style.display="flex";
+
+}
+
+function hideOverlay(){
+
+document.getElementById("screenshotOverlay").style.display="none";
+
+}
+
+function createFile(file){
+
+const blob=new Blob(file.data,{type:file.mimetype});
+
+const counterString=String(screenshotCounter).padStart(2,"0");
+
+const fileName=`screenshot${counterString}${file.extension}`;
+
+if(window.showSaveFilePicker){
+
+(async()=>{
+
+try{
+
+const handle=await window.showSaveFilePicker({
+suggestedName:fileName,
+types:[{description:"PNG Image",accept:{"image/png":[".png"]}}]
+});
+
+hideOverlay();
+
+const writable=await handle.createWritable();
+await writable.write(blob);
+await writable.close();
+
+}catch(err){
+
+hideOverlay();
+
+}
+
+})();
+
+}else{
+
+const url=URL.createObjectURL(blob);
+
+const a=document.createElement("a");
+
+a.href=url;
+a.download=fileName;
+
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+
+URL.revokeObjectURL(url);
+
+document.getElementById("overlayText").innerText=
+"Your image has been saved";
+
+setTimeout(hideOverlay,2000);
+
+}
+
+screenshotCounter++;
+
+}
+
+</script>
+
 </head>
+
 
 <body>
 
-  <div id="video-container"></div>
+<div id="video-container"></div>
 
-  <!-- ===============================
-       SCREENSHOT STATUS OVERLAY
-  =============================== -->
-  <div id="screenshotOverlay">
-    <div class="overlayBox">
-      <div class="spinner"></div>
-      <div id="overlayText">Generating high resolution image</div>
-    </div>
-  </div>
+<!-- INTRO VIDEO -->
 
-  <!--
-  ===============================
-  FRONTEND UI (DISABLED FOR NOW)
-  ===============================
-  Header / footer / buttons intentionally commented out
-  Unreal backend UI is active
-  -->
+<div id="introOverlay">
+
+<video
+id="introVideo"
+src="logo 01.mp4"
+autoplay
+muted
+playsinline>
+</video>
+
+</div>
+
+<div id="blackFade"></div>
+
+<!-- SCREENSHOT OVERLAY -->
+
+<div id="screenshotOverlay">
+<div class="overlayBox">
+<div class="spinner"></div>
+<div id="overlayText">Generating high resolution image</div>
+</div>
+</div>
 
 </body>
 </html>
-
-
