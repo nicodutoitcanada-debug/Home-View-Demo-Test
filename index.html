@@ -40,10 +40,24 @@ opacity:1;
 transition:opacity 1s ease;
 }
 
+/* Unreal logo */
+
+#unrealLogo{
+position:absolute;
+width:180px;
+opacity:0;
+transition:opacity 1s ease;
+z-index:2;
+}
+
+/* Intro video */
+
 #introVideo{
 width:100vw;
 height:100vh;
 object-fit:cover;
+opacity:0;
+transition:opacity 1s ease;
 }
 
 /* ===============================
@@ -199,29 +213,44 @@ window.file=Application.webRtcController.file;
 
 function startIntro(){
 
+const logo=document.getElementById("unrealLogo");
 const video=document.getElementById("introVideo");
 
+/* fade in logo */
+
+setTimeout(()=>{
+logo.style.opacity=1;
+},300);
+
+/* fade out logo */
+
+setTimeout(()=>{
+logo.style.opacity=0;
+},1800);
+
+/* start intro video */
+
+setTimeout(()=>{
+video.style.opacity=1;
 video.play().catch(()=>{});
+},2600);
 
 /* after 9 seconds fade to black */
 
 setTimeout(()=>{
-
 document.getElementById("blackFade").style.opacity=1;
-
-},9000);
+},11600);
 
 /* remove overlay completely */
 
 setTimeout(()=>{
-
 const overlay=document.getElementById("introOverlay");
 const fade=document.getElementById("blackFade");
 
 overlay.remove();
 fade.remove();
 
-},10000);
+},12600);
 
 }
 
@@ -314,10 +343,11 @@ screenshotCounter++;
 
 <div id="introOverlay">
 
+<img id="unrealLogo" src="UNREAL LOGO.png">
+
 <video
 id="introVideo"
 src="logo 01.mp4"
-autoplay
 muted
 playsinline>
 </video>
