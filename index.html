@@ -46,7 +46,10 @@ transition:opacity 1s ease;
 position:absolute;
 width:180px;
 opacity:0;
-transition:opacity 1s ease;
+transform:scale(0.96);
+transition:
+opacity 1s ease,
+transform 2s ease;
 z-index:2;
 }
 
@@ -216,30 +219,31 @@ function startIntro(){
 const logo=document.getElementById("unrealLogo");
 const video=document.getElementById("introVideo");
 
-/* fade in logo */
+/* fade in logo + slight scale */
 
 setTimeout(()=>{
 logo.style.opacity=1;
+logo.style.transform="scale(1)";
 },300);
 
-/* fade out logo */
+/* hold slightly longer then fade out */
 
 setTimeout(()=>{
 logo.style.opacity=0;
-},1800);
+},2500);
 
 /* start intro video */
 
 setTimeout(()=>{
 video.style.opacity=1;
 video.play().catch(()=>{});
-},2600);
+},3400);
 
 /* after 9 seconds fade to black */
 
 setTimeout(()=>{
 document.getElementById("blackFade").style.opacity=1;
-},11600);
+},12400);
 
 /* remove overlay completely */
 
@@ -250,7 +254,7 @@ const fade=document.getElementById("blackFade");
 overlay.remove();
 fade.remove();
 
-},12600);
+},13400);
 
 }
 
