@@ -3,8 +3,10 @@
 <head>
 <title>HOME VIEW DEMO</title>
 
-<style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 
+<style>
 body{
 margin:0;
 overflow:hidden;
@@ -24,7 +26,7 @@ z-index:1;
 }
 
 /* ===============================
-   INTRO VIDEO OVERLAY
+   INTRO / LOADING OVERLAY
 ================================*/
 
 #introOverlay{
@@ -40,27 +42,49 @@ opacity:1;
 transition:opacity 1s ease;
 }
 
-/* Unreal logo */
-
-#unrealLogo{
-position:absolute;
-width:180px;
-opacity:0;
-transform:scale(0.96);
-transition:
-opacity 1s ease,
-transform 2s ease;
-z-index:2;
-}
-
-/* Intro video */
-
 #introVideo{
+position:absolute;
+inset:0;
 width:100vw;
 height:100vh;
 object-fit:cover;
+opacity:1;
+transition:opacity 0.8s ease;
+background:black;
+}
+
+#loadingIntroWrap{
+position:absolute;
+inset:0;
+display:flex;
+align-items:center;
+justify-content:center;
+background:black;
 opacity:0;
-transition:opacity 1s ease;
+visibility:hidden;
+overflow:hidden;
+transition:opacity 0.8s ease;
+}
+
+#loadingIntroBg{
+position:absolute;
+inset:0;
+width:100vw;
+height:100vh;
+object-fit:cover;
+opacity:1;
+background:black;
+}
+
+#loadingIntro{
+position:relative;
+z-index:1;
+width:min(32vw,320px);
+height:min(32vw,320px);
+max-width:320px;
+max-height:320px;
+min-width:140px;
+min-height:140px;
 }
 
 /* ===============================
@@ -71,10 +95,10 @@ transition:opacity 1s ease;
 position:fixed;
 inset:0;
 background:black;
-opacity:0;
+opacity:1;
 z-index:4000;
 pointer-events:none;
-transition:opacity 1s ease;
+transition:opacity 1.2s ease;
 }
 
 /* ===============================
@@ -114,14 +138,17 @@ animation:spin 1s linear infinite;
 @keyframes spin{
 to{transform:rotate(360deg);}
 }
-
 </style>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
 
 <script type="module">
-
 let Application;
 let screenshotCounter = 1;
+let introVideoFinished = false;
+let homeViewRequested = false;
+let backendReady = false;
+let loadingIntroAnimation = null;
 
 import * as PixelStreamingWebSdk from
 "https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs";
@@ -134,19 +161,19 @@ const { ArcwareInit } = PixelStreamingWebSdk;
    RANDOM SEAT SELECTION
 ================================*/
 
-const shareIds=[
+const shareIds = [
 "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
 "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
 "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8"
 ];
 
-const selectedShareId=
-shareIds[Math.floor(Math.random()*shareIds.length)];
+const selectedShareId =
+shareIds[Math.floor(Math.random() * shareIds.length)];
 
-console.log("Arcware seat selected:",selectedShareId);
+console.log("Arcware seat selected:", selectedShareId);
 
-const initResult=new ArcwareInit(
-{shareId:selectedShareId},
+const initResult = new ArcwareInit(
+{ shareId: selectedShareId },
 {
 initialSettings:{
 AutoConnect:true,
@@ -164,25 +191,43 @@ connectionStrengthIcon:false
 }
 );
 
-Application=initResult.Application;
+Application = initResult.Application;
 
 /* ===============================
    RESPONSES FROM UNREAL
 ================================*/
 
-Application.getApplicationResponse((response)=>{
+Application.getApplicationResponse((response) => {
+
+console.log("Response from Unreal:", response);
 
 try{
+const parsed = JSON.parse(response);
 
-const parsed=JSON.parse(response);
+/* Screenshot flow */
 
-if(parsed.screenshot==="generating"){
+if(parsed.screenshot === "generating"){
 showOverlay("Generating high resolution image");
+}
+
+/* Startup flow */
+
+if(parsed.game === "loaded"){
+setTimeout(() => {
+sendToUnreal({ load: "homeViewDemo" });
+}, 500);
+}
+
+if(parsed.Game === "HomeViewLevelLoaded"){
+backendReady = true;
+finishLoadingSequence();
 }
 
 }catch(e){}
 
-if(response.startsWith("CreateScreenshot")){
+/* Legacy screenshot callback */
+
+if(typeof response === "string" && response.startsWith("CreateScreenshot")){
 createFile(window.file);
 }
 
@@ -192,69 +237,209 @@ createFile(window.file);
    ATTACH STREAM
 ================================*/
 
-setTimeout(()=>{
-
+setTimeout(() => {
 document
 .getElementById("video-container")
 .appendChild(Application.rootElement);
-
-});
+}, 0);
 
 /* ===============================
    INTRO SEQUENCE
 ================================*/
 
-startIntro();
+startIntroSequence();
 
-window.file=Application.webRtcController.file;
+window.file = Application.webRtcController.file;
 
 })();
 
 /* ===============================
-   INTRO LOGO
+   SEND TO UNREAL
 ================================*/
 
-function startIntro(){
+function sendToUnreal(payload){
 
-const logo=document.getElementById("unrealLogo");
-const video=document.getElementById("introVideo");
+const message =
+typeof payload === "string" ? payload : JSON.stringify(payload);
 
-/* fade in logo + slight scale */
+if(homeViewRequested && message === '{"load":"homeViewDemo"}'){
+return;
+}
 
-setTimeout(()=>{
-logo.style.opacity=1;
-logo.style.transform="scale(1)";
-},300);
+let sent = false;
 
-/* hold slightly longer then fade out */
+try{
+if(Application?.stream?.emitUIInteraction){
+Application.stream.emitUIInteraction(message);
+sent = true;
+}
+}catch(e){}
 
-setTimeout(()=>{
-logo.style.opacity=0;
-},2500);
+if(!sent){
+try{
+if(Application?.webRtcController?.emitUIInteraction){
+Application.webRtcController.emitUIInteraction(message);
+sent = true;
+}
+}catch(e){}
+}
 
-/* start intro video */
+if(!sent){
+try{
+if(Application?.webRtcController?.stream?.emitUIInteraction){
+Application.webRtcController.stream.emitUIInteraction(message);
+sent = true;
+}
+}catch(e){}
+}
 
-setTimeout(()=>{
-video.style.opacity=1;
-video.play().catch(()=>{});
-},3400);
+if(!sent){
+try{
+if(Application?.emitUIInteraction){
+Application.emitUIInteraction(message);
+sent = true;
+}
+}catch(e){}
+}
 
-/* after 9 seconds fade to black */
+if(sent){
+console.log("Sent to Unreal:", message);
+if(message === '{"load":"homeViewDemo"}'){
+homeViewRequested = true;
+}
+}else{
+console.warn("Unable to send message to Unreal:", message);
+}
+}
 
-setTimeout(()=>{
-document.getElementById("blackFade").style.opacity=1;
-},12400);
+/* ===============================
+   INTRO / LOADING FLOW
+================================*/
 
-/* remove overlay completely */
+function startIntroSequence(){
 
-setTimeout(()=>{
-const overlay=document.getElementById("introOverlay");
-const fade=document.getElementById("blackFade");
+setupLoadingIntroLottie();
 
-overlay.remove();
-fade.remove();
+const introVideo = document.getElementById("introVideo");
+let earlyFadeTriggered = false;
 
-},13400);
+const triggerEarlyFade = () => {
+if(earlyFadeTriggered || introVideoFinished){
+return;
+}
+earlyFadeTriggered = true;
+transitionToLoadingIntro();
+};
+
+introVideo.addEventListener("ended", transitionToLoadingIntro);
+introVideo.addEventListener("error", transitionToLoadingIntro);
+introVideo.addEventListener("timeupdate", () => {
+if(!Number.isFinite(introVideo.duration) || introVideo.duration <= 0){
+return;
+}
+if(introVideo.currentTime >= Math.max(0, introVideo.duration - 1)){
+triggerEarlyFade();
+}
+});
+introVideo.addEventListener("loadedmetadata", () => {
+if(Number.isFinite(introVideo.duration) && introVideo.duration > 1){
+setTimeout(triggerEarlyFade, Math.max(0, (introVideo.duration - 1) * 1000));
+}
+});
+
+const playPromise = introVideo.play();
+
+if(playPromise && typeof playPromise.catch === "function"){
+playPromise.catch(() => {
+transitionToLoadingIntro();
+});
+}
+
+/* Fallback in case the video never fires ended */
+setTimeout(() => {
+if(!introVideoFinished){
+transitionToLoadingIntro();
+}
+}, 12000);
+
+}
+
+function setupLoadingIntroLottie(){
+
+const container = document.getElementById("loadingIntro");
+
+loadingIntroAnimation = lottie.loadAnimation({
+container,
+renderer:"svg",
+loop:true,
+autoplay:false,
+path:"loading intro.json"
+});
+
+}
+
+function transitionToLoadingIntro(){
+
+if(introVideoFinished){
+return;
+}
+
+introVideoFinished = true;
+
+const introVideo = document.getElementById("introVideo");
+const loadingWrap = document.getElementById("loadingIntroWrap");
+const loadingBg = document.getElementById("loadingIntroBg");
+
+loadingWrap.style.visibility = "visible";
+
+const playBg = () => {
+const bgPromise = loadingBg.play();
+if(bgPromise && typeof bgPromise.catch === "function"){
+bgPromise.catch(() => {});
+}
+};
+
+playBg();
+loadingWrap.style.opacity = 1;
+introVideo.style.opacity = 0;
+
+setTimeout(() => {
+introVideo.pause();
+introVideo.style.display = "none";
+
+if(loadingIntroAnimation){
+loadingIntroAnimation.play();
+}
+}, 500);
+
+}
+
+function finishLoadingSequence(){
+
+transitionToLoadingIntro();
+
+const introOverlay = document.getElementById("introOverlay");
+const blackFade = document.getElementById("blackFade");
+
+setTimeout(() => {
+introOverlay.style.opacity = 0;
+}, 100);
+
+setTimeout(() => {
+blackFade.style.opacity = 0;
+}, 700);
+
+setTimeout(() => {
+if(loadingIntroAnimation){
+loadingIntroAnimation.stop();
+}
+const loadingBg = document.getElementById("loadingIntroBg");
+if(loadingBg){
+loadingBg.pause();
+}
+introOverlay.remove();
+blackFade.remove();
+}, 2000);
 
 }
 
@@ -263,59 +448,51 @@ fade.remove();
 ================================*/
 
 function showOverlay(message){
-
-document.getElementById("overlayText").innerText=message;
-document.getElementById("screenshotOverlay").style.display="flex";
-
+document.getElementById("overlayText").innerText = message;
+document.getElementById("screenshotOverlay").style.display = "flex";
 }
 
 function hideOverlay(){
-
-document.getElementById("screenshotOverlay").style.display="none";
-
+document.getElementById("screenshotOverlay").style.display = "none";
 }
 
 function createFile(file){
 
-const blob=new Blob(file.data,{type:file.mimetype});
+const blob = new Blob(file.data, { type: file.mimetype });
 
-const counterString=String(screenshotCounter).padStart(2,"0");
-
-const fileName=`screenshot${counterString}${file.extension}`;
+const counterString = String(screenshotCounter).padStart(2, "0");
+const fileName = `screenshot${counterString}${file.extension}`;
 
 if(window.showSaveFilePicker){
 
-(async()=>{
+(async() => {
 
 try{
 
-const handle=await window.showSaveFilePicker({
+const handle = await window.showSaveFilePicker({
 suggestedName:fileName,
 types:[{description:"PNG Image",accept:{"image/png":[".png"]}}]
 });
 
 hideOverlay();
 
-const writable=await handle.createWritable();
+const writable = await handle.createWritable();
 await writable.write(blob);
 await writable.close();
 
 }catch(err){
-
 hideOverlay();
-
 }
 
 })();
 
 }else{
 
-const url=URL.createObjectURL(blob);
+const url = URL.createObjectURL(blob);
+const a = document.createElement("a");
 
-const a=document.createElement("a");
-
-a.href=url;
-a.download=fileName;
+a.href = url;
+a.download = fileName;
 
 document.body.appendChild(a);
 a.click();
@@ -323,39 +500,46 @@ document.body.removeChild(a);
 
 URL.revokeObjectURL(url);
 
-document.getElementById("overlayText").innerText=
+document.getElementById("overlayText").innerText =
 "Your image has been saved";
 
-setTimeout(hideOverlay,2000);
+setTimeout(hideOverlay, 2000);
 
 }
 
 screenshotCounter++;
 
 }
-
 </script>
 
 </head>
-
 
 <body>
 
 <div id="video-container"></div>
 
-<!-- INTRO VIDEO -->
+<!-- INTRO / LOADING OVERLAY -->
 
 <div id="introOverlay">
-
-<img id="unrealLogo" src="UNREAL LOGO.png">
-
 <video
 id="introVideo"
 src="logo 01.mp4"
 muted
-playsinline>
+playsinline
+preload="auto">
 </video>
 
+<div id="loadingIntroWrap">
+<video
+id="loadingIntroBg"
+src="LOADING_BG.mp4"
+muted
+playsinline
+loop
+preload="auto">
+</video>
+<div id="loadingIntro"></div>
+</div>
 </div>
 
 <div id="blackFade"></div>
