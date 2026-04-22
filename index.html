@@ -12,10 +12,6 @@ background:black;
 font-family:"Futura PT",sans-serif;
 }
 
-/* ===============================
-   PIXEL STREAM
-================================*/
-
 #video-container{
 width:100vw;
 height:100vh;
@@ -23,10 +19,24 @@ position:relative;
 z-index:1;
 }
 
-/* ===============================
-   LOADING OVERLAY
-================================*/
+/* INTRO OVERLAY (VIDEO FIRST) */
+#introOverlay{
+position:fixed;
+inset:0;
+background:black;
+display:flex;
+align-items:center;
+justify-content:center;
+z-index:5000;
+}
 
+#introVideo{
+width:100vw;
+height:100vh;
+object-fit:cover;
+}
+
+/* LOADING OVERLAY */
 #loadingOverlay{
 position:fixed;
 inset:0;
@@ -35,12 +45,11 @@ display:flex;
 flex-direction:column;
 align-items:center;
 justify-content:center;
-z-index:5000;
-opacity:1;
+z-index:5001;
+opacity:0;
+pointer-events:none;
 transition:opacity 0.75s ease;
 }
-
-/* Logo */
 
 #mainLogo{
 width:220px;
@@ -50,29 +59,15 @@ animation:logoIn 1.2s ease forwards;
 }
 
 @keyframes logoIn{
-to{
-opacity:1;
-transform:scale(1);
+to{opacity:1; transform:scale(1);} 
 }
-}
-
-/* Loading row */
 
 #loadingRow{
 margin-top:24px;
 display:flex;
 align-items:center;
 gap:12px;
-opacity:0;
-animation:fadeIn 1s ease forwards;
-animation-delay:0.6s;
 }
-
-@keyframes fadeIn{
-to{opacity:1;}
-}
-
-/* Spinner */
 
 .spinner{
 width:18px;
@@ -84,34 +79,18 @@ animation:spin 1s linear infinite;
 }
 
 @keyframes spin{
-to{transform:rotate(360deg);}
+to{transform:rotate(360deg);} 
 }
 
-/* Animated text */
-
-#loadingText{
-color:white;
-font-size:14px;
-letter-spacing:2px;
-white-space:nowrap;
-overflow:hidden;
-border-right:2px solid white;
-width:0;
-animation:typing 2s steps(22,end) forwards, blink 1s infinite;
-animation-delay:0.8s;
+#loadingText span{
+opacity:0;
+display:inline-block;
+animation:fadeChar 0.4s forwards;
 }
 
-@keyframes typing{
-to{width:260px;}
+@keyframes fadeChar{
+to{opacity:1;} 
 }
-
-@keyframes blink{
-50%{border-color:transparent;}
-}
-
-/* ===============================
-   SCREENSHOT OVERLAY
-================================*/
 
 #screenshotOverlay{
 position:fixed;
@@ -136,7 +115,6 @@ gap:16px;
 
 </style>
 
-
 <script type="module">
 
 let Application;
@@ -149,45 +127,23 @@ import * as PixelStreamingWebSdk from
 
 const { ArcwareInit } = PixelStreamingWebSdk;
 
-const shareIds=[
-"share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8"
-];
-
-const selectedShareId=
-shareIds[Math.floor(Math.random()*shareIds.length)];
-
 const initResult=new ArcwareInit(
-{shareId:selectedShareId},
+{shareId:"share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8"},
 {
 initialSettings:{
 AutoConnect:true,
 AutoPlayVideo:true,
 StartVideoMuted:false
-},
-settings:{
-infoButton:false,
-micButton:false,
-audioButton:false,
-fullscreenButton:false,
-settingsButton:false,
-connectionStrengthIcon:false
 }
 }
 );
 
 Application=initResult.Application;
 
-/* ===============================
-   RESPONSES FROM UNREAL
-================================*/
-
 Application.getApplicationResponse((response)=>{
 
 try{
-
 const parsed=JSON.parse(response);
-
-/* GAME LOADED → request level */
 
 if(parsed.Game==="Loaded"){
 Application.emitUIInteraction(JSON.stringify({
@@ -195,13 +151,9 @@ load:"homeViewDemo"
 }));
 }
 
-/* LEVEL READY → fade out overlay */
-
 if(parsed.Game==="HomeViewLevelLoaded"){
 fadeOutLoading();
 }
-
-/* screenshot handling */
 
 if(parsed.screenshot==="generating"){
 showOverlay("Generating high resolution image");
@@ -215,10 +167,6 @@ createFile(window.file);
 
 });
 
-/* ===============================
-   ATTACH STREAM
-================================*/
-
 setTimeout(()=>{
 document
 .getElementById("video-container")
@@ -229,25 +177,59 @@ window.file=Application.webRtcController.file;
 
 })();
 
-/* ===============================
-   FADE OUT LOADING
-================================*/
+/* VIDEO → LOADER TRANSITION */
+window.addEventListener("load",()=>{
+const video=document.getElementById("introVideo");
 
-function fadeOutLoading(){
+video.play().catch(()=>{});
 
-const overlay=document.getElementById("loadingOverlay");
+video.onended=()=>{
+const overlay=document.getElementById("introOverlay");
+const loader=document.getElementById("loadingOverlay");
 
-overlay.style.opacity=0;
+overlay.style.display="none";
+loader.style.opacity=1;
+loader.style.pointerEvents="auto";
 
-setTimeout(()=>{
-overlay.remove();
-},750);
+animateText();
+};
+});
 
+function animateText(){
+const text="LOADING HOME VIEW DEMO";
+const container=document.getElementById("loadingText");
+
+container.innerHTML="";
+
+// total animation time (tweakable)
+const totalDuration = 1.4;
+
+// easing function (ease-out cubic)
+function easeOutCubic(t){
+return 1 - Math.pow(1 - t, 3);
 }
 
-/* ===============================
-   SCREENSHOT FUNCTIONS
-================================*/
+const chars = [...text];
+
+chars.forEach((char,i)=>{
+const span=document.createElement("span");
+span.textContent=char;
+
+const t = i / (chars.length - 1);
+const eased = easeOutCubic(t);
+const delay = eased * totalDuration;
+
+span.style.animationDelay = delay + "s";
+
+container.appendChild(span);
+});
+}
+
+function fadeOutLoading(){
+const overlay=document.getElementById("loadingOverlay");
+overlay.style.opacity=0;
+setTimeout(()=>overlay.remove(),750);
+}
 
 function showOverlay(message){
 document.getElementById("overlayText").innerText=message;
@@ -259,32 +241,8 @@ document.getElementById("screenshotOverlay").style.display="none";
 }
 
 function createFile(file){
-
 const blob=new Blob(file.data,{type:file.mimetype});
-const counterString=String(screenshotCounter).padStart(2,"0");
-const fileName=`screenshot${counterString}${file.extension}`;
-
-if(window.showSaveFilePicker){
-
-(async()=>{
-try{
-const handle=await window.showSaveFilePicker({
-suggestedName:fileName,
-types:[{description:"PNG Image",accept:{"image/png":[".png"]}}]
-});
-
-hideOverlay();
-
-const writable=await handle.createWritable();
-await writable.write(blob);
-await writable.close();
-
-}catch(err){
-hideOverlay();
-}
-})();
-
-}else{
+const fileName=`screenshot${screenshotCounter}${file.extension}`;
 
 const url=URL.createObjectURL(blob);
 const a=document.createElement("a");
@@ -298,40 +256,30 @@ document.body.removeChild(a);
 
 URL.revokeObjectURL(url);
 
-document.getElementById("overlayText").innerText=
-"Your image has been saved";
-
-setTimeout(hideOverlay,2000);
-
-}
-
 screenshotCounter++;
-
 }
 
 </script>
 
 </head>
 
-
 <body>
 
 <div id="video-container"></div>
 
-<!-- LOADING OVERLAY -->
+<!-- VIDEO FIRST -->
+<div id="introOverlay">
+<video id="introVideo" src="logo01.mp4" muted playsinline></video>
+</div>
 
+<!-- LOADER -->
 <div id="loadingOverlay">
-
 <img id="mainLogo" src="logo_2.png">
-
 <div id="loadingRow">
 <div class="spinner"></div>
-<div id="loadingText">LOADING HOME VIEW DEMO</div>
+<div id="loadingText"></div>
 </div>
-
 </div>
-
-<!-- SCREENSHOT OVERLAY -->
 
 <div id="screenshotOverlay">
 <div class="overlayBox">
