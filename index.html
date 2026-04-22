@@ -24,89 +24,57 @@ z-index:1;
 }
 
 /* ===============================
-   LOADING OVERLAY
+   INTRO VIDEO OVERLAY
 ================================*/
 
-#loadingOverlay{
+#introOverlay{
 position:fixed;
 inset:0;
 background:black;
 display:flex;
-flex-direction:column;
 align-items:center;
 justify-content:center;
 z-index:5000;
+pointer-events:none;
 opacity:1;
-transition:opacity 0.75s ease;
+transition:opacity 1s ease;
 }
 
-/* Logo */
+/* Unreal logo */
 
-#mainLogo{
-width:220px;
+#unrealLogo{
+position:absolute;
+width:180px;
 opacity:0;
-transform:scale(0.94);
-animation:logoIn 1.2s ease forwards;
+transform:scale(0.96);
+transition:
+opacity 1s ease,
+transform 2s ease;
+z-index:2;
 }
 
-@keyframes logoIn{
-to{
-opacity:1;
-transform:scale(1);
-}
-}
+/* Intro video */
 
-/* Loading row */
-
-#loadingRow{
-margin-top:24px;
-display:flex;
-align-items:center;
-gap:12px;
+#introVideo{
+width:100vw;
+height:100vh;
+object-fit:cover;
 opacity:0;
-animation:fadeIn 1s ease forwards;
-animation-delay:0.6s;
+transition:opacity 1s ease;
 }
 
-@keyframes fadeIn{
-to{opacity:1;}
-}
+/* ===============================
+   BLACK FADE
+================================*/
 
-/* Spinner */
-
-.spinner{
-width:18px;
-height:18px;
-border:3px solid rgba(255,255,255,0.3);
-border-top:3px solid white;
-border-radius:50%;
-animation:spin 1s linear infinite;
-}
-
-@keyframes spin{
-to{transform:rotate(360deg);}
-}
-
-/* Animated text */
-
-#loadingText{
-color:white;
-font-size:14px;
-letter-spacing:2px;
-white-space:nowrap;
-overflow:hidden;
-border-right:2px solid white;
-width:0;
-animation:typing 2s steps(22,end) forwards, blink 1s infinite;
-animation-delay:0.8s;
-}
-
-@keyframes typing{
-to{width:260px;}
-}
-
-@keyframes blink{
-50%{border-color:transparent;}
+#blackFade{
+position:fixed;
+inset:0;
+background:black;
+opacity:0;
+z-index:4000;
+pointer-events:none;
+transition:opacity 1s ease;
 }
 
 /* ===============================
@@ -134,6 +102,19 @@ align-items:center;
 gap:16px;
 }
 
+.spinner{
+width:22px;
+height:22px;
+border:3px solid rgba(255,255,255,0.3);
+border-top:3px solid white;
+border-radius:50%;
+animation:spin 1s linear infinite;
+}
+
+@keyframes spin{
+to{transform:rotate(360deg);}
+}
+
 </style>
 
 
@@ -149,12 +130,20 @@ import * as PixelStreamingWebSdk from
 
 const { ArcwareInit } = PixelStreamingWebSdk;
 
+/* ===============================
+   RANDOM SEAT SELECTION
+================================*/
+
 const shareIds=[
+"share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
+"share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8",
 "share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8"
 ];
 
 const selectedShareId=
 shareIds[Math.floor(Math.random()*shareIds.length)];
+
+console.log("Arcware seat selected:",selectedShareId);
 
 const initResult=new ArcwareInit(
 {shareId:selectedShareId},
@@ -187,22 +176,6 @@ try{
 
 const parsed=JSON.parse(response);
 
-/* GAME LOADED → request level */
-
-if(parsed.Game==="Loaded"){
-Application.emitUIInteraction(JSON.stringify({
-load:"homeViewDemo"
-}));
-}
-
-/* LEVEL READY → fade out overlay */
-
-if(parsed.Game==="HomeViewLevelLoaded"){
-fadeOutLoading();
-}
-
-/* screenshot handling */
-
 if(parsed.screenshot==="generating"){
 showOverlay("Generating high resolution image");
 }
@@ -220,28 +193,68 @@ createFile(window.file);
 ================================*/
 
 setTimeout(()=>{
+
 document
 .getElementById("video-container")
 .appendChild(Application.rootElement);
+
 });
+
+/* ===============================
+   INTRO SEQUENCE
+================================*/
+
+startIntro();
 
 window.file=Application.webRtcController.file;
 
 })();
 
 /* ===============================
-   FADE OUT LOADING
+   INTRO LOGO
 ================================*/
 
-function fadeOutLoading(){
+function startIntro(){
 
-const overlay=document.getElementById("loadingOverlay");
+const logo=document.getElementById("unrealLogo");
+const video=document.getElementById("introVideo");
 
-overlay.style.opacity=0;
+/* fade in logo + slight scale */
 
 setTimeout(()=>{
+logo.style.opacity=1;
+logo.style.transform="scale(1)";
+},300);
+
+/* hold slightly longer then fade out */
+
+setTimeout(()=>{
+logo.style.opacity=0;
+},2500);
+
+/* start intro video */
+
+setTimeout(()=>{
+video.style.opacity=1;
+video.play().catch(()=>{});
+},3400);
+
+/* after 9 seconds fade to black */
+
+setTimeout(()=>{
+document.getElementById("blackFade").style.opacity=1;
+},12400);
+
+/* remove overlay completely */
+
+setTimeout(()=>{
+const overlay=document.getElementById("introOverlay");
+const fade=document.getElementById("blackFade");
+
 overlay.remove();
-},750);
+fade.remove();
+
+},13400);
 
 }
 
@@ -250,24 +263,32 @@ overlay.remove();
 ================================*/
 
 function showOverlay(message){
+
 document.getElementById("overlayText").innerText=message;
 document.getElementById("screenshotOverlay").style.display="flex";
+
 }
 
 function hideOverlay(){
+
 document.getElementById("screenshotOverlay").style.display="none";
+
 }
 
 function createFile(file){
 
 const blob=new Blob(file.data,{type:file.mimetype});
+
 const counterString=String(screenshotCounter).padStart(2,"0");
+
 const fileName=`screenshot${counterString}${file.extension}`;
 
 if(window.showSaveFilePicker){
 
 (async()=>{
+
 try{
+
 const handle=await window.showSaveFilePicker({
 suggestedName:fileName,
 types:[{description:"PNG Image",accept:{"image/png":[".png"]}}]
@@ -280,13 +301,17 @@ await writable.write(blob);
 await writable.close();
 
 }catch(err){
+
 hideOverlay();
+
 }
+
 })();
 
 }else{
 
 const url=URL.createObjectURL(blob);
+
 const a=document.createElement("a");
 
 a.href=url;
@@ -318,18 +343,22 @@ screenshotCounter++;
 
 <div id="video-container"></div>
 
-<!-- LOADING OVERLAY -->
+<!-- INTRO VIDEO -->
 
-<div id="loadingOverlay">
+<div id="introOverlay">
 
-<img id="mainLogo" src="logo_2.png">
+<img id="unrealLogo" src="UNREAL LOGO.png">
 
-<div id="loadingRow">
-<div class="spinner"></div>
-<div id="loadingText">LOADING HOME VIEW DEMO</div>
+<video
+id="introVideo"
+src="logo 01.mp4"
+muted
+playsinline>
+</video>
+
 </div>
 
-</div>
+<div id="blackFade"></div>
 
 <!-- SCREENSHOT OVERLAY -->
 
