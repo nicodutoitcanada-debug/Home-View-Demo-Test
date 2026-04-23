@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<title>HOME VIEW DEMO</title>
+<title>DEMO</title>
 
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -101,6 +101,57 @@ pointer-events:none;
 transition:opacity 1.2s ease;
 }
 
+
+#homeViewDebugWrap{
+position:absolute;
+left:50%;
+bottom:clamp(28px,8vh,72px);
+transform:translateX(-50%);
+z-index:3;
+display:flex;
+flex-direction:column;
+align-items:center;
+gap:10px;
+pointer-events:auto;
+}
+
+#homeViewDebugButton{
+appearance:none;
+border:1px solid rgba(255,255,255,0.42);
+background:rgba(255,255,255,0.12);
+color:white;
+border-radius:999px;
+height:42px;
+padding:0 22px;
+font:inherit;
+font-size:12px;
+font-weight:700;
+letter-spacing:0.14em;
+text-transform:uppercase;
+cursor:pointer;
+transition:background 0.2s ease, transform 0.18s ease, border-color 0.2s ease;
+}
+
+#homeViewDebugButton:hover,
+#homeViewDebugButton:focus-visible{
+background:rgba(255,255,255,0.20);
+border-color:rgba(255,255,255,0.56);
+}
+
+#homeViewDebugButton:active{
+transform:scale(0.98);
+}
+
+#homeViewDebugStatus{
+color:white;
+font-size:11px;
+letter-spacing:0.06em;
+text-align:center;
+max-width:min(88vw,520px);
+line-height:1.35;
+text-shadow:0 2px 10px rgba(0,0,0,0.55);
+}
+
 /* ===============================
    SCREENSHOT OVERLAY
 ================================*/
@@ -146,11 +197,18 @@ to{transform:rotate(360deg);}
 let Application;
 let screenshotCounter = 1;
 let introVideoFinished = false;
-let homeViewRequested = false;
-let backendReady = false;
 let loadingIntroAnimation = null;
 let homeViewLoadedHandled = false;
-let homeViewLoadedFallbackTimer = null;
+
+/* startup send state */
+let initialLoadedSignalReceived = false;
+let homeViewRequestSent = false;
+let homeViewRetryTimer = null;
+let homeViewRetryCount = 0;
+let homeViewRetryStarted = false;
+let firstBackendResponseSeen = false;
+let videoPlayingHooked = false;
+let introTransitionTriggeredSend = false;
 
 import * as PixelStreamingWebSdk from
 "https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs";
@@ -202,6 +260,7 @@ Application = initResult.Application;
 Application.getApplicationResponse((response) => {
 
 console.log("Response from Unreal:", response);
+firstBackendResponseSeen = true;
 
 try{
 const parsed = JSON.parse(response);
@@ -214,16 +273,11 @@ showOverlay("Generating high resolution image");
 
 /* Startup flow */
 
-if(parsed.game === "loaded"){
-setTimeout(() => {
-sendToUnreal({ load: "homeViewDemo" });
-}, 500);
+if(isLoadedSignal(parsed)){
+handleLoadedSignal();
 }
 
-if(
-(parsed.Game === "HomeViewLevelLoaded") ||
-(parsed.loaded === "HomeViewLevelLoaded")
-){
+if(isHomeViewLevelLoadedSignal(parsed)){
 handleHomeViewLevelLoaded();
 }
 
@@ -233,6 +287,10 @@ handleHomeViewLevelLoaded();
 
 if(typeof response === "string" && response.startsWith("CreateScreenshot")){
 createFile(window.file);
+}
+
+if(!homeViewLoadedHandled){
+startHomeViewRetryLoop("first backend response");
 }
 
 });
@@ -245,6 +303,7 @@ setTimeout(() => {
 document
 .getElementById("video-container")
 .appendChild(Application.rootElement);
+hookStreamVideoEvents();
 }, 0);
 
 /* ===============================
@@ -252,69 +311,264 @@ document
 ================================*/
 
 startIntroSequence();
-startHomeViewLoadedFallbackTimer();
+startHomeViewRetryLoop("startup");
+
+const manualButton = document.getElementById("homeViewDebugButton");
+if(manualButton){
+manualButton.addEventListener("click", () => {
+updateHomeViewStatus("Manual retry requested.");
+attemptHomeViewDemoSend("manual button");
+startHomeViewRetryLoop("manual button");
+});
+}
 
 window.file = Application.webRtcController.file;
 
 })();
 
 /* ===============================
-   SEND TO UNREAL
+   BACKEND MESSAGE HELPERS
 ================================*/
 
-function sendToUnreal(payload){
+function getBackendStateValue(parsed){
+if(typeof parsed?.Game === "string") return parsed.Game;
+if(typeof parsed?.game === "string") return parsed.game;
+if(typeof parsed?.loaded === "string") return parsed.loaded;
+return null;
+}
 
-const message =
-typeof payload === "string" ? payload : JSON.stringify(payload);
+function isLoadedSignal(parsed){
+const value = getBackendStateValue(parsed);
+return value === "Loaded" || value === "loaded";
+}
 
-if(homeViewRequested && message === '{"load":"homeViewDemo"}'){
+function isHomeViewLevelLoadedSignal(parsed){
+const value = getBackendStateValue(parsed);
+return value === "HomeViewLevelLoaded" || value === "homeViewLevelLoaded";
+}
+
+function handleLoadedSignal(){
+if(initialLoadedSignalReceived){
 return;
 }
 
+initialLoadedSignalReceived = true;
+console.log('Detected backend loaded message. Starting functional-style homeViewDemo retries.');
+updateHomeViewStatus('Backend reported Loaded. Trying homeViewDemo startup message…');
+attemptHomeViewDemoSend("backend loaded");
+startHomeViewRetryLoop("backend loaded");
+}
+
+function startHomeViewRetryLoop(source){
+if(homeViewLoadedHandled){
+return;
+}
+
+if(!homeViewRetryStarted){
+console.log(`Starting homeViewDemo retry loop from ${source}`);
+homeViewRetryStarted = true;
+}
+
+updateHomeViewStatus(`Waiting for Home View to load… attempts so far: ${homeViewRetryCount}`);
+
+if(homeViewRetryTimer){
+return;
+}
+
+homeViewRetryTimer = setInterval(() => {
+if(homeViewLoadedHandled){
+clearInterval(homeViewRetryTimer);
+homeViewRetryTimer = null;
+updateHomeViewStatus('Home View loaded.');
+return;
+}
+
+attemptHomeViewDemoSend(`retry ${homeViewRetryCount + 1}`);
+}, 1200);
+}
+
+function getHomeViewPayloadVariants(){
+return [
+'{"load":"homeViewDemo"}',
+'"{\"load\":\"homeViewDemo\"}"'
+];
+}
+
+function attemptHomeViewDemoSend(source = "auto"){
+if(homeViewLoadedHandled){
+return;
+}
+
+homeViewRetryCount++;
+const variants = getHomeViewPayloadVariants();
+let sentAny = false;
+
+for(const payload of variants){
+const sent = sendToUnreal(payload, `${source}`, homeViewRetryCount);
+sentAny = sentAny || sent;
+}
+
+// Last-resort fallback: your Unreal shortcut proves the 0 key loads this level.
+// This sends the same keyboard input path that works when you physically press 0.
+if(homeViewRetryCount >= 4){
+const keySent = sendZeroKeyFallbackToUnreal(`${source}`, homeViewRetryCount);
+sentAny = sentAny || keySent;
+}
+
+homeViewRequestSent = homeViewRequestSent || sentAny;
+updateHomeViewStatus(`Tried startup message / 0-key fallback (${source}) — attempt ${homeViewRetryCount}.`);
+}
+function sendToUnreal(payload, source = "unknown", count = 0){
+
+const message = typeof payload === "string" ? payload : JSON.stringify(payload);
 let sent = false;
+let lastError = null;
 
+const trySend = (fn, value, label) => {
+if(sent || typeof fn !== "function") return;
 try{
-if(Application?.stream?.emitUIInteraction){
-Application.stream.emitUIInteraction(message);
+fn(value);
 sent = true;
+console.log(`Sent to Unreal via ${label} from ${source} #${count}:`, value);
+}catch(e){
+lastError = e;
 }
-}catch(e){}
+};
 
+// Functional-version style first
+trySend(Application?.emitUIInteraction?.bind(Application), message, "Application.emitUIInteraction");
+trySend(Application?.webRtcController?.emitUIInteraction?.bind(Application.webRtcController), message, "Application.webRtcController.emitUIInteraction");
+trySend(Application?.stream?.emitUIInteraction?.bind(Application.stream), message, "Application.stream.emitUIInteraction");
+trySend(Application?.webRtcController?.stream?.emitUIInteraction?.bind(Application.webRtcController.stream), message, "Application.webRtcController.stream.emitUIInteraction");
+
+// Extra deep fallbacks
+trySend(Application?.webRtcController?.sendMessageController?.sendMessageToStreamer?.bind(Application.webRtcController.sendMessageController), "UIInteraction", "sendMessageToStreamer(type)");
 if(!sent){
 try{
-if(Application?.webRtcController?.emitUIInteraction){
-Application.webRtcController.emitUIInteraction(message);
+const controller = Application?.webRtcController?.sendMessageController;
+if(controller?.sendMessageToStreamer){
+controller.sendMessageToStreamer("UIInteraction", message);
 sent = true;
+console.log(`Sent to Unreal via sendMessageToStreamer(UIInteraction, message) from ${source} #${count}:`, message);
 }
-}catch(e){}
+}catch(e){
+lastError = e;
+}
 }
 
 if(!sent){
-try{
-if(Application?.webRtcController?.stream?.emitUIInteraction){
-Application.webRtcController.stream.emitUIInteraction(message);
-sent = true;
-}
-}catch(e){}
+console.warn("Could not send to Unreal:", message, source, count, lastError || "");
 }
 
-if(!sent){
-try{
-if(Application?.emitUIInteraction){
-Application.emitUIInteraction(message);
-sent = true;
-}
-}catch(e){}
+return sent;
 }
 
-if(sent){
-console.log("Sent to Unreal:", message);
-if(message === '{"load":"homeViewDemo"}'){
-homeViewRequested = true;
+function sendZeroKeyFallbackToUnreal(source = "unknown", count = 0){
+try{
+const targets = [];
+const addTarget = (el) => {
+if(el && !targets.includes(el)) targets.push(el);
+};
+
+addTarget(window);
+addTarget(document);
+addTarget(document.body);
+addTarget(document.getElementById("video-container"));
+addTarget(document.querySelector("canvas"));
+addTarget(document.querySelector("video"));
+
+try{ document.body?.focus?.(); }catch(_e){}
+ try{ document.getElementById("video-container")?.focus?.(); }catch(_e){}
+try{ document.querySelector("canvas")?.focus?.(); }catch(_e){}
+try{ document.querySelector("video")?.focus?.(); }catch(_e){}
+
+const makeKeyEvent = (type) => new KeyboardEvent(type, {
+key: "0",
+code: "Digit0",
+location: 0,
+ctrlKey: false,
+shiftKey: false,
+altKey: false,
+metaKey: false,
+repeat: false,
+bubbles: true,
+cancelable: true,
+composed: true
+});
+
+for(const target of targets){
+try{
+target.dispatchEvent(makeKeyEvent("keydown"));
+target.dispatchEvent(makeKeyEvent("keypress"));
+target.dispatchEvent(makeKeyEvent("keyup"));
+}catch(_e){}
 }
-}else{
-console.warn("Unable to send message to Unreal:", message);
+
+const legacyTypes = ["keydown", "keypress", "keyup"];
+for(const target of targets){
+for(const type of legacyTypes){
+try{
+const ev = new Event(type, { bubbles: true, cancelable: true, composed: true });
+Object.defineProperty(ev, "key", { get: () => "0" });
+Object.defineProperty(ev, "code", { get: () => "Digit0" });
+Object.defineProperty(ev, "keyCode", { get: () => 48 });
+Object.defineProperty(ev, "which", { get: () => 48 });
+Object.defineProperty(ev, "charCode", { get: () => type === "keypress" ? 48 : 0 });
+target.dispatchEvent(ev);
+}catch(_e){}
 }
+}
+
+console.log(`Sent 0-key fallback to Pixel Streaming input from ${source} #${count}`);
+return true;
+}catch(e){
+console.warn("0-key fallback failed", e);
+return false;
+}
+}
+function updateHomeViewStatus(message){
+const el = document.getElementById("homeViewDebugStatus");
+if(el){
+el.textContent = message;
+}
+}
+
+function hookStreamVideoEvents(){
+if(videoPlayingHooked){
+return;
+}
+videoPlayingHooked = true;
+
+const install = () => {
+const root = document.getElementById("video-container");
+if(!root) return false;
+const video = root.querySelector("video");
+if(!video) return false;
+
+video.addEventListener("playing", () => {
+if(homeViewLoadedHandled) return;
+updateHomeViewStatus("Video started playing. Retrying homeViewDemo…");
+attemptHomeViewDemoSend("video playing");
+startHomeViewRetryLoop("video playing");
+}, { once:false });
+
+video.addEventListener("loadeddata", () => {
+if(homeViewLoadedHandled) return;
+attemptHomeViewDemoSend("video loadeddata");
+}, { once:false });
+
+return true;
+};
+
+if(install()) return;
+
+const observer = new MutationObserver(() => {
+if(install()){
+observer.disconnect();
+}
+});
+
+observer.observe(document.getElementById("video-container"), { childList:true, subtree:true });
 }
 
 /* ===============================
@@ -391,6 +645,13 @@ return;
 
 introVideoFinished = true;
 
+if(!introTransitionTriggeredSend && !homeViewLoadedHandled){
+introTransitionTriggeredSend = true;
+updateHomeViewStatus("Loading screen active. Trying homeViewDemo…");
+attemptHomeViewDemoSend("loading intro transition");
+startHomeViewRetryLoop("loading intro transition");
+}
+
 const introVideo = document.getElementById("introVideo");
 const loadingWrap = document.getElementById("loadingIntroWrap");
 const loadingBg = document.getElementById("loadingIntroBg");
@@ -419,18 +680,6 @@ loadingIntroAnimation.play();
 
 }
 
-function startHomeViewLoadedFallbackTimer(){
-
-clearTimeout(homeViewLoadedFallbackTimer);
-homeViewLoadedFallbackTimer = setTimeout(() => {
-if(!homeViewLoadedHandled){
-console.warn("HomeViewLevelLoaded not received within 16 seconds. Falling back on front end.");
-handleHomeViewLevelLoaded();
-}
-}, 16000);
-
-}
-
 function handleHomeViewLevelLoaded(){
 
 if(homeViewLoadedHandled){
@@ -438,8 +687,15 @@ return;
 }
 
 homeViewLoadedHandled = true;
-backendReady = true;
-clearTimeout(homeViewLoadedFallbackTimer);
+updateHomeViewStatus("Home View loaded.");
+const btn = document.getElementById("homeViewDebugButton");
+if(btn) btn.style.display = "none";
+
+if(homeViewRetryTimer){
+clearInterval(homeViewRetryTimer);
+homeViewRetryTimer = null;
+}
+
 finishLoadingSequence();
 
 }
@@ -467,8 +723,8 @@ const loadingBg = document.getElementById("loadingIntroBg");
 if(loadingBg){
 loadingBg.pause();
 }
-introOverlay.remove();
-blackFade.remove();
+if(introOverlay) introOverlay.remove();
+if(blackFade) blackFade.remove();
 }, 2000);
 
 }
@@ -546,7 +802,7 @@ screenshotCounter++;
 
 <body>
 
-<div id="video-container"></div>
+<div id="video-container" tabindex="0"></div>
 
 <!-- INTRO / LOADING OVERLAY -->
 
@@ -569,6 +825,10 @@ loop
 preload="auto">
 </video>
 <div id="loadingIntro"></div>
+<div id="homeViewDebugWrap">
+<button id="homeViewDebugButton" type="button">Load Home View Demo / Press 0</button>
+<div id="homeViewDebugStatus">Waiting to send startup message…</div>
+</div>
 </div>
 </div>
 
