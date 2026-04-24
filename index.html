@@ -102,55 +102,6 @@ transition:opacity 1.2s ease;
 }
 
 
-#homeViewDebugWrap{
-position:absolute;
-left:50%;
-bottom:clamp(28px,8vh,72px);
-transform:translateX(-50%);
-z-index:3;
-display:flex;
-flex-direction:column;
-align-items:center;
-gap:10px;
-pointer-events:auto;
-}
-
-#homeViewDebugButton{
-appearance:none;
-border:1px solid rgba(255,255,255,0.42);
-background:rgba(255,255,255,0.12);
-color:white;
-border-radius:999px;
-height:42px;
-padding:0 22px;
-font:inherit;
-font-size:12px;
-font-weight:700;
-letter-spacing:0.14em;
-text-transform:uppercase;
-cursor:pointer;
-transition:background 0.2s ease, transform 0.18s ease, border-color 0.2s ease;
-}
-
-#homeViewDebugButton:hover,
-#homeViewDebugButton:focus-visible{
-background:rgba(255,255,255,0.20);
-border-color:rgba(255,255,255,0.56);
-}
-
-#homeViewDebugButton:active{
-transform:scale(0.98);
-}
-
-#homeViewDebugStatus{
-color:white;
-font-size:11px;
-letter-spacing:0.06em;
-text-align:center;
-max-width:min(88vw,520px);
-line-height:1.35;
-text-shadow:0 2px 10px rgba(0,0,0,0.55);
-}
 
 /* ===============================
    SCREENSHOT OVERLAY
@@ -313,14 +264,6 @@ hookStreamVideoEvents();
 startIntroSequence();
 startHomeViewRetryLoop("startup");
 
-const manualButton = document.getElementById("homeViewDebugButton");
-if(manualButton){
-manualButton.addEventListener("click", () => {
-updateHomeViewStatus("Manual retry requested.");
-attemptHomeViewDemoSend("manual button");
-startHomeViewRetryLoop("manual button");
-});
-}
 
 window.file = Application.webRtcController.file;
 
@@ -527,10 +470,7 @@ return false;
 }
 }
 function updateHomeViewStatus(message){
-const el = document.getElementById("homeViewDebugStatus");
-if(el){
-el.textContent = message;
-}
+// Visible troubleshooting status was removed. Keep this no-op so startup retry logic stays unchanged.
 }
 
 function hookStreamVideoEvents(){
@@ -688,8 +628,6 @@ return;
 
 homeViewLoadedHandled = true;
 updateHomeViewStatus("Home View loaded.");
-const btn = document.getElementById("homeViewDebugButton");
-if(btn) btn.style.display = "none";
 
 if(homeViewRetryTimer){
 clearInterval(homeViewRetryTimer);
@@ -821,14 +759,11 @@ id="loadingIntroBg"
 src="LOADING_BG.mp4"
 muted
 playsinline
+autoplay
 loop
 preload="auto">
 </video>
 <div id="loadingIntro"></div>
-<div id="homeViewDebugWrap">
-<button id="homeViewDebugButton" type="button">Load Home View Demo / Press 0</button>
-<div id="homeViewDebugStatus">Waiting to send startup message…</div>
-</div>
 </div>
 </div>
 
