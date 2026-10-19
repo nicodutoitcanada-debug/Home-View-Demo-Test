@@ -3211,6 +3211,129 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 /* Keep the right-hand UI scaling control clear while the tutorial is open. */
 @media(max-width:690px){#hvsHowToWindow{justify-content:flex-start;padding-left:9px}}
 </style>
+
+<style>
+/* HOME VIEW — RESPONSIVE SCALE BARS + TELEPORT TARGETS, 2026-10-19
+   Both sliders size from AVAILABLE VIEWPORT HEIGHT (especially short
+   landscape phones) without affecting their value ranges or callbacks.
+   The scaler PNG is deliberately unshadowed in both browsers. */
+:root {
+    --hvs-scale-safe-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    --hvs-scale-bar-height: min(500px, calc(var(--hvs-scale-safe-height) - 24px));
+    --hvs-scale-bar-width: clamp(54px, 11dvh, 82px);
+    --hvs-scale-track-length: min(400px, calc(var(--hvs-scale-safe-height) - 155px));
+    --hvs-scale-art-size: clamp(83px, 25dvh, 175px);
+}
+/* The right-hand UI scale controller and left-hand calculator controller
+   share exactly the same viewport-relative dimensions. */
+#homeViewUI #sliderContainer,
+#homeViewUI #costScaleControl {
+    box-sizing: border-box;
+    width: var(--hvs-scale-bar-width);
+    height: var(--hvs-scale-bar-height);
+    max-height: calc(var(--hvs-scale-safe-height) - 24px);
+    border-radius: 999px;
+    box-shadow: none !important;
+}
+#homeViewUI #sliderContainer::before,
+#homeViewUI #costScaleControl::before {
+    border-radius: 999px;
+}
+#homeViewUI #scaleSlider,
+#homeViewUI #costScaleSlider {
+    box-sizing: border-box;
+    width: var(--hvs-scale-track-length);
+    height: var(--hvs-scale-bar-width);
+    max-width: none;
+    background: transparent;
+    border: 0;
+    box-shadow: none !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    touch-action: none;
+}
+#homeViewUI #scaleSlider::-webkit-slider-runnable-track,
+#homeViewUI #costScaleSlider::-webkit-slider-runnable-track {
+    height: var(--hvs-scale-bar-width);
+    background: transparent;
+    box-shadow: none;
+}
+#homeViewUI #scaleSlider::-webkit-slider-thumb,
+#homeViewUI #costScaleSlider::-webkit-slider-thumb {
+    width: var(--hvs-scale-art-size);
+    height: var(--hvs-scale-art-size);
+    margin-top: calc((var(--hvs-scale-bar-width) - var(--hvs-scale-art-size))/2);
+    border: 0;
+    background: url('01 SCALE UI.png') center / contain no-repeat;
+    box-shadow: none !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+}
+#homeViewUI #scaleSlider::-moz-range-track,
+#homeViewUI #costScaleSlider::-moz-range-track {
+    height: var(--hvs-scale-bar-width);
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+#homeViewUI #scaleSlider::-moz-range-thumb,
+#homeViewUI #costScaleSlider::-moz-range-thumb {
+    width: var(--hvs-scale-art-size);
+    height: var(--hvs-scale-art-size);
+    border: 0;
+    border-radius: 0;
+    background: url('01 SCALE UI.png') center / contain no-repeat;
+    box-shadow: none !important;
+    filter: none !important;
+}
+/* Make floor-plan target circles scale with the FLOOR PLAN itself,
+   rather than remain 52px after the plan becomes small on a phone.
+   Container query units also work on iPad and desktop window resizing. */
+#teleportMapStage { container-type: inline-size; }
+@supports (width: 1cqw) {
+    #teleportMapStage .teleportJumpTarget {
+        box-sizing: border-box;
+        width: clamp(24px, 16cqw, 52px);
+        height: clamp(24px, 16cqw, 52px);
+        padding: clamp(3px, 2.8cqw, 10px);
+        border-width: clamp(1px, .45cqw, 1.5px);
+    }
+    #teleportMapStage #teleportYouAreHereWrap {
+        /* Don't change the position calibration or rotation; just keep
+           the animated marker proportionate to small map artwork. */
+        --hvs-map-marker-size: clamp(15px, 13cqw, 40px);
+    }
+    #teleportMapStage .teleportYouAreHereIcon,
+    #teleportMapStage #teleportYouAreHereLottie,
+    #teleportMapStage #teleportYouAreHereFallback {
+        width: var(--hvs-map-marker-size);
+        height: var(--hvs-map-marker-size);
+    }
+}
+/* A little more compact only on short landscape screens so the
+   upstairs layout control does not crowd the bottom teleport target. */
+@media (max-height: 620px) and (orientation: landscape) {
+    :root {
+        --hvs-scale-bar-width: clamp(48px, 11dvh, 60px);
+        --hvs-scale-art-size: clamp(75px, 25dvh, 114px);
+        --hvs-scale-track-length: min(400px, calc(var(--hvs-scale-safe-height) - 135px));
+    }
+    #homeViewUI #sliderContainer { right: max(9px, env(safe-area-inset-right, 0px)); }
+    #teleportMapStage #upstairsLayoutOpen {
+        min-height: 24px;
+        padding: 3px 4px;
+        letter-spacing: 0;
+        font-size: clamp(7px, 1.75cqw, 10px);
+        line-height: 1.08;
+    }
+}
+/* Very short viewport: leave minimum track travel while respecting the
+   physical space. Desktop breakpoints and original animations stay intact. */
+@media (max-height: 300px) {
+    :root {--hvs-scale-track-length: max(80px, calc(var(--hvs-scale-safe-height) - 115px));
+           --hvs-scale-art-size: 64px;}
+}
+</style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <div id="introOverlay">
