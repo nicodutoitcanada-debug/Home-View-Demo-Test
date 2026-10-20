@@ -2877,15 +2877,6 @@ body.hvs-session-ended #homeViewUI{opacity:0!important;visibility:hidden!importa
  background:radial-gradient(ellipse at center,rgba(220,68,20,.44) 0%,rgba(194,48,9,.3) 28%,rgba(166,32,0,.17) 48%,rgba(144,26,0,.08) 62%,rgba(133,24,0,0) 78%);
  filter:blur(22px);
 }
-/* LUX-SAFE MOBILE SCREENSHOT GLASS: avoid a hardware video compositing
-   reset when the native browser image save/share sheet is dismissed. */
-@media (pointer:coarse) {
-  #screenshotOverlay .hvsScreenshotGlass {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    background: rgba(16,20,24,.88) !important;
-  }
-}
 /* Screenshot chooser — same flow as LUX, modern Home View glass styling. */
 #screenshotOverlay{pointer-events:auto;box-sizing:border-box;padding:16px;background:rgba(0,0,0,.12)}
 #screenshotOverlay .hvsScreenshotGlass{width:min(475px,94vw);max-width:100%;padding:22px 24px;
@@ -3518,7 +3509,10 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 /* Never crop Unreal's touch joystick off the edge on landscape phones.
    Arcware may stream in 16:9 until r.SetRes takes effect: cover trims the
    sides on a wider phone, and clips in-game UI. Contain keeps every pixel. */
-@media (orientation:landscape) and (max-height:580px) and (max-width:1020px) and (pointer:coarse) {
+@media screen and (orientation:landscape) and (max-height:700px) and (max-width:1366px),
+       screen and (orientation:portrait) and (max-width:700px) {
+  /* Pixel Streaming should never crop the Unreal in-game joystick.  Do not
+     transform, zoom, or remount the video: that would desync touch input. */
   #video-container video {
     object-fit:contain !important;
     object-position:center center !important;
@@ -3527,15 +3521,13 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 
 </style>
 <style>
-/* HOME_VIEW_MOBILE_PORTRAIT_MAIN_MENU
-   Reduce only the docked main icon panel by 12% on portrait phones.
-   Respect the existing right-hand UI scale slider; other windows retain
-   their normal sizes, and rotating to landscape restores the normal size.
-   Does not change walk mode, menu sliding, or Pixel Streaming input. */
-@media (orientation: portrait) and (max-width: 600px) {
+/* Phone PORTRAIT main-menu defaults: close to working LUX's 0.5 scale.
+   Scale only the docked main menu (not the other settings, calculator, map).
+   The original user-adjustable scale slider still works multiplicatively. */
+@media screen and (orientation:portrait) and (max-width:700px) {
   #homeViewUI #uiWrapper {
     transform: translate3d(var(--main-x), -50%, 0)
-               scale(calc(var(--ui-scale) * 0.88));
+               scale(calc(var(--ui-scale) * 0.55)) !important;
   }
 }
 </style>
@@ -7147,8 +7139,12 @@ function startViewportResolutionSync() {
   // The Epic and Arcware SDKs add their stream video asynchronously.
   // Reinforce full-bleed sizing if the SDK applies its own video styles.
   const preparedVideos = new WeakSet();
+  // Match the mobile CSS: the JS inline `!important` style must NEVER
+  // override it back to cover after orientation/viewport changes. Safari and
+  // Chrome can report different pointer/viewport dimensions after rotation.
   const mobileUncropped = () =>
-    window.matchMedia('(orientation:landscape) and (max-height:580px) and (max-width:1020px) and (pointer:coarse)').matches;
+    window.matchMedia('(orientation:landscape) and (max-height:700px) and (max-width:1366px)').matches ||
+    window.matchMedia('(orientation:portrait) and (max-width:700px)').matches;
   const applyVideoFill = () => {
     // On phones never crop the in-game touch joystick off the stream edge.
     const fit = mobileUncropped() ? 'contain' : 'cover';
@@ -7217,6 +7213,10 @@ function hvsVideoDiagnostics(){
 }
 function hvsRegisterVideoForRecovery(video){
   if(!video || hvsRecoveryVideoMetadata.has(video))return;
+  // Keep the Arcware video embedded when iOS changes visibility/orientation.
+  video.setAttribute('playsinline','');
+  video.setAttribute('webkit-playsinline','');
+  video.playsInline=true;
   const info={supportsFrames:typeof video.requestVideoFrameCallback==='function',
     lastFrameAt:0, currentTime:video.currentTime||0, priorTime:video.currentTime||0};
   hvsRecoveryVideoMetadata.set(video,info);
@@ -7571,7 +7571,12 @@ async function savePendingScreenshot(){
   showScreenshotOverlay('Saving image',true,false);
   // Keep the WebRTC player alive while a native Save/Share interface opens.
   try{
-    if(typeof window.showSaveFilePicker==='function'){
+    // Phone/tablet: NEVER use the fullscreen native file picker.  Use
+    // LUX's ordinary <a download> path instead, synchronously on this tap.
+    // Keeping this branch synchronous also retains browser user activation.
+    const hvsMobileSave = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent)
+      || (window.matchMedia('(pointer:coarse)').matches && window.innerWidth <= 1280);
+    if(!hvsMobileSave && typeof window.showSaveFilePicker==='function'){
       const handle=await window.showSaveFilePicker({suggestedName:name,
         types:[{description:'PNG image',accept:{'image/png':['.png']}}]});
       const writable=await handle.createWritable();
@@ -7825,7 +7830,11 @@ if (dev_mode) {
     const { ArcwareInit } = await import('https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs');
     const setup = new ArcwareInit(
       { shareId:SHARE_ID },
-      { initialSettings:{ AutoConnect:true, AutoPlayVideo:true, StartVideoMuted:false },
+      { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
+          // LUX uses StartVideoMuted:true. Make mobile equally autoplay-safe
+          // after the OS Save/Share interface; preserve desktop game audio.
+          StartVideoMuted:/Android|iPhone|iPod|iPad/i.test(navigator.userAgent)
+            || (window.matchMedia('(pointer:coarse)').matches && window.innerWidth<=1280) },
         settings:{ infoButton:false, micButton:false, audioButton:false, fullscreenButton:false,
                    settingsButton:false, connectionStrengthIcon:false } }
     );
