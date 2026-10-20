@@ -3717,6 +3717,57 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
   :root { --hvs-visible-cost-bar-width: calc(var(--hvs-scale-bar-width) * .78); }
 }
 </style>
+<style id="hvs-finish-cost-shortcuts">
+/* FINISH-EDITOR CALCULATOR SHORTCUT — source: actual top-left logos.
+   One slot per editor keeps the old header geometry and menu animations.
+   Simply swap the logo for the existing HOME/COST icon when closed. */
+.hvsCostLogoSlot {
+  position:relative;
+  width:52px;
+  height:43px;
+  min-width:0;
+  flex:0 0 52px;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+}
+#kitchenTopBar .hvsCostLogoSlot {width:50px;flex-basis:auto;}
+#kitchenFinishTop .hvsCostLogoSlot {width:50px;flex-basis:auto;height:40px;}
+#profileTopBar .hvsCostLogoSlot {height:37px;}
+.hvsCostLogoSlot > .hvsOriginalLogo {max-width:100%;}
+.hvsCostLogoSlot > .hvsCostShortcut {
+  display:none;
+  box-sizing:border-box;
+  align-items:center;
+  justify-content:center;
+  width:42px;
+  height:39px;
+  padding:7px;
+  appearance:none;
+  border:1px solid rgba(255,255,255,.19);
+  border-radius:12px;
+  background:linear-gradient(155deg,rgba(255,255,255,.16),rgba(15,24,29,.22) 65%,rgba(0,0,0,.23));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 3px 9px rgba(0,0,0,.08);
+  color:white;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+  transition:background .2s ease,border-color .2s ease,transform .18s ease;
+}
+.hvsCostShortcut img {
+  display:block;
+  width:100%;height:100%;object-fit:contain;
+  opacity:.93;pointer-events:none;
+}
+.hvsCostShortcut:hover,
+.hvsCostShortcut:focus-visible {
+  border-color:rgba(255,255,255,.36);
+  background:linear-gradient(160deg,rgba(255,255,255,.22),rgba(24,35,41,.35));
+}
+.hvsCostShortcut:active {transform:scale(.95);}
+body:not(.cost-open) .hvsCostLogoSlot > .hvsOriginalLogo {display:none!important;}
+body:not(.cost-open) .hvsCostLogoSlot > .hvsCostShortcut {display:inline-flex;}
+</style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <div id="introOverlay">
@@ -4014,7 +4065,10 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 <div id="profileMenuWrapper">
     <div id="profileOuterBox" class="glassPanel">
         <div id="profileTopBar">
-            <img id="profileLogo" src="LOGO.png" alt="Home View logo">
+            <span class="hvsCostLogoSlot">
+  <img class="hvsOriginalLogo" id="profileLogo" src="LOGO.png" alt="Home View logo">
+  <button class="hvsCostShortcut" type="button" aria-label="Open Cost Estimate from Personalize finishes" title="Open Cost Estimate"><img src="01 HOME.png" alt=""></button>
+</span>
             <button class="topIconButton" id="profileMenuCloseButton" type="button" aria-label="Close Personalize menu">
                 <img src="01 DOCK MENU.png" alt="Close">
             </button>
@@ -4035,7 +4089,10 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 <div id="kitchenMenuWrapper" aria-label="Kitchen personalization options" role="region">
     <div class="glassPanel" id="kitchenOuterBox">
         <div id="kitchenTopBar">
-            <img id="kitchenTopBarLogo" src="LOGO.png" alt="Home View logo">
+            <span class="hvsCostLogoSlot">
+  <img class="hvsOriginalLogo" id="kitchenTopBarLogo" src="LOGO.png" alt="Home View logo">
+  <button class="hvsCostShortcut" type="button" aria-label="Open Cost Estimate from Kitchen finishes" title="Open Cost Estimate"><img src="01 HOME.png" alt=""></button>
+</span>
             <div id="kitchenToggleColumn">
                 <label class="kitchenToggleLabel">
                     <button class="kitchenTopToggle" type="button" id="kitchenGlassToggle" aria-pressed="true" aria-label="Glass fronts above counter"></button>
@@ -4069,7 +4126,10 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 <div id="kitchenFinishMenuWrapper" role="region" aria-label="Material and finish choices">
   <div class="glassPanel" id="kitchenFinishOuterBox">
     <div id="kitchenFinishTop">
-      <img id="kitchenFinishLogo" src="LOGO.png" alt="Home View logo">
+      <span class="hvsCostLogoSlot">
+  <img class="hvsOriginalLogo" id="kitchenFinishLogo" src="LOGO.png" alt="Home View logo">
+  <button class="hvsCostShortcut" type="button" aria-label="Open Cost Estimate from Finish choices" title="Open Cost Estimate"><img src="01 HOME.png" alt=""></button>
+</span>
       <div id="kitchenFinishTitle">CHOOSE FINISH</div>
       <button class="topIconButton" id="kitchenFinishClose" type="button" aria-label="Back to previous personalization menu"><img src="01 DOCK MENU.png" alt="Back"></button>
     </div>
@@ -8279,5 +8339,19 @@ if (dev_mode) {
   query.addEventListener?.('change',schedule);
   schedule();
 })();
+</script>
+
+<script id="hvs-finish-cost-shortcuts-script">
+// Reuse the calculator already opened by the 01 HOME main-menu button.
+// Do not close or rebuild the finish picker; users can check the updated
+// running total and dismiss the calculator to continue customizing.
+document.querySelectorAll('.hvsCostShortcut').forEach(button => {
+  button.addEventListener('click', event => {
+    event.stopPropagation();
+    if (!document.body.classList.contains('cost-open')) {
+      window.homeViewOpenCost?.();
+    }
+  });
+});
 </script>
 </body></html>
