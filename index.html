@@ -3521,15 +3521,107 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 
 </style>
 <style>
-/* Phone PORTRAIT main-menu defaults: close to working LUX's 0.5 scale.
-   Scale only the docked main menu (not the other settings, calculator, map).
-   The original user-adjustable scale slider still works multiplicatively. */
-@media screen and (orientation:portrait) and (max-width:700px) {
-  #homeViewUI #uiWrapper {
-    transform: translate3d(var(--main-x), -50%, 0)
-               scale(calc(var(--ui-scale) * 0.55)) !important;
-  }
+/* PWA safe area: preserve the joystick within the visible glass screen.
+   In an installed iPhone app, viewport-fit=cover otherwise places Unreal
+   content under the notch/home-indicator even with object-fit:contain. */
+@media (pointer:coarse){
+ html.hvs-standalone #video-container{
+   position:fixed!important;
+   top:env(safe-area-inset-top,0px)!important;
+   right:env(safe-area-inset-right,0px)!important;
+   bottom:env(safe-area-inset-bottom,0px)!important;
+   left:env(safe-area-inset-left,0px)!important;
+   width:auto!important;height:auto!important;
+   max-width:none!important;max-height:none!important;
+ }
 }
+/* Home-screen app screenshots: entirely INSIDE the existing document,
+   no blob navigation, native download viewer, or new tab on SAVE IMAGE. */
+#hvsStandaloneImagePreview[hidden]{display:none!important}
+#hvsStandaloneImagePreview{
+ position:fixed;inset:0;z-index:14000;box-sizing:border-box;
+ display:flex;align-items:center;justify-content:center;
+ padding:max(12px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px))
+   max(12px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));
+ background:rgba(7,10,14,.76);color:white;pointer-events:auto;
+ font-family:"HomeView Myriad",Arial,sans-serif;
+}
+.hvsSavedImagePanel{
+ box-sizing:border-box;width:min(620px,100%);max-height:100%;min-height:0;
+ padding:clamp(10px,2.1vmin,18px);display:flex;flex-direction:column;gap:9px;
+ background:linear-gradient(160deg,rgba(255,255,255,.20),rgba(24,31,36,.94) 33%,rgba(11,17,21,.97));
+ border:1px solid rgba(255,255,255,.19);border-radius:22px;
+ box-shadow:0 18px 56px rgba(0,0,0,.35);overflow:hidden;
+}
+.hvsSavedImageHeader{display:flex;justify-content:space-between;align-items:center;gap:12px;flex:0 0 auto}
+.hvsSavedImageHeader strong{display:block;font-size:15px;letter-spacing:.095em;font-weight:700}
+.hvsSavedImageHeader span{display:block;font-size:11px;font-weight:300;opacity:.7;margin-top:2px}
+.hvsSavedImageClose{border:0;background:rgba(255,255,255,.10);color:white;border-radius:50%;width:36px;height:36px;font:700 18px Arial;cursor:pointer;flex-shrink:0}
+.hvsSavedImagePhotoWrap{display:flex;align-items:center;justify-content:center;flex:1 1 auto;min-height:70px;min-width:0;overflow:hidden;border-radius:12px;background:rgba(0,0,0,.25)}
+#hvsSavedImagePhoto{
+ display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
+ pointer-events:auto!important;touch-action:auto!important;
+ -webkit-user-select:auto!important;user-select:auto!important;
+ -webkit-touch-callout:default!important;
+}
+.hvsSavedImageHelp{font-size:clamp(11px,2.3vmin,14px);line-height:1.35;color:rgba(255,255,255,.93);margin:0;font-weight:300;flex:0 0 auto}
+.hvsSavedImageHelp strong{font-weight:700}
+.hvsSavedImageActions{display:flex;gap:9px;flex-wrap:wrap;flex:0 0 auto}
+.hvsSavedImageButton{flex:1 1 130px;appearance:none;border:1px solid rgba(255,178,112,.48);border-radius:999px;padding:10px 12px;min-height:39px;
+ background:linear-gradient(180deg,rgba(232,112,47,.94),rgba(155,47,11,.93));color:white;
+ font:700 11px/1.2 "HomeView Myriad",Arial,sans-serif;letter-spacing:.07em;cursor:pointer;touch-action:manipulation}
+.hvsSavedImageButton.secondary{background:linear-gradient(180deg,rgba(255,255,255,.15),rgba(19,27,32,.45));border-color:rgba(255,255,255,.24)}
+.hvsSavedImageCaution{font-size:10px;line-height:1.25;font-weight:300;opacity:.65;margin:0;flex:0 0 auto}
+@media (orientation:landscape) and (max-height:510px){
+ #hvsStandaloneImagePreview{padding:5px 12px}
+ .hvsSavedImagePanel{width:min(740px,100%);padding:7px 12px;gap:4px;border-radius:15px}
+ .hvsSavedImageHeader strong{font-size:12px}
+ .hvsSavedImageHeader span{display:none}
+ .hvsSavedImageClose{width:29px;height:29px}
+ .hvsSavedImageHelp{font-size:10px}
+ .hvsSavedImageButton{min-height:30px;padding:6px 10px}
+ .hvsSavedImageCaution{font-size:9px}
+}
+/* Standalone portrait fit: all ordinary in-game menus, not just the dock.
+   The individual `scale` property composes with each menu's existing
+   transform/animation and with the user's menu-size slider. */
+@media screen and (orientation:portrait) and (max-width:700px){
+ #homeViewUI #uiWrapper{right:clamp(60px,18vw,85px)!important;
+   transform:translate3d(var(--main-x),-50%,0) scale(calc(var(--ui-scale) * .48))!important}
+ #homeViewUI #cameraMenuWrapper,
+ #homeViewUI #buildingMenuWrapper,
+ #homeViewUI #confirmMenuWrapper,
+ #homeViewUI #profileMenuWrapper,
+ #homeViewUI #teleportMenuWrapper,
+ #homeViewUI #kitchenMenuWrapper,
+ #homeViewUI #kitchenFinishMenuWrapper{
+   scale:var(--hvs-phone-fit-scale,.7);
+   right:clamp(58px,18vw,82px)!important;
+   top:calc(50% - var(--hvs-phone-centering-offset,0px))!important;
+ }
+ #homeViewUI #calculatorMenuWrapper{scale:var(--hvs-phone-fit-scale,.72);transform-origin:left center;top:calc(50% - var(--hvs-phone-centering-offset,0px))!important}
+ #homeViewUI #loginMenuWrapper{scale:var(--hvs-phone-fit-scale,.78);transform-origin:center center;top:calc(50% - var(--hvs-phone-centering-offset,0px))!important}
+ #homeViewUI #costScaleControl{scale:.78;transform-origin:left center}
+}
+/* Compact landscape phones: keep the newly designed Teleport Map at its
+   viewport-fitted size, but reduce the other (desktop-width) menus. */
+@media screen and (orientation:landscape) and (max-height:580px) and (max-width:1020px){
+ #homeViewUI #uiWrapper{scale:.84;top:calc(50% - 29px)!important}
+ #homeViewUI #cameraMenuWrapper,
+ #homeViewUI #buildingMenuWrapper,
+ #homeViewUI #confirmMenuWrapper,
+ #homeViewUI #profileMenuWrapper,
+ #homeViewUI #kitchenMenuWrapper,
+ #homeViewUI #kitchenFinishMenuWrapper{
+   scale:var(--hvs-phone-fit-scale,.83);
+   top:calc(50% - var(--hvs-phone-centering-offset,0px))!important;
+ }
+ #homeViewUI #calculatorMenuWrapper{scale:var(--hvs-phone-fit-scale,.85);top:calc(50% - var(--hvs-phone-centering-offset,0px))!important}
+ #homeViewUI #loginMenuWrapper{scale:var(--hvs-phone-fit-scale,.85);top:calc(50% - var(--hvs-phone-centering-offset,0px))!important}
+}
+</style>
+<style>
+/* Phone-portrait scaling is provided above for all panels. */
 </style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
@@ -3539,6 +3631,24 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
     <video id="loadingIntroBg" src="LOADING_BG.mp4" muted playsinline loop preload="auto"></video>
     <div id="loadingIntro"></div>
   </div>
+</div>
+<!-- STANDALONE APP: keep the live WebRTC page open while showing the screenshot.
+     Browser downloads from iOS home-screen apps can open a separate viewer and
+     suspend/terminate the active WebRTC page. -->
+<div id="hvsStandaloneImagePreview" hidden role="dialog" aria-modal="true" aria-label="Screenshot image preview">
+  <section class="hvsSavedImagePanel">
+    <header class="hvsSavedImageHeader">
+      <div><strong>YOUR SCREENSHOT</strong><span>Stay in Home View while saving</span></div>
+      <button id="hvsSavedImageClose" class="hvsSavedImageClose" type="button" aria-label="Close image preview">✕</button>
+    </header>
+    <div class="hvsSavedImagePhotoWrap"><img id="hvsSavedImagePhoto" alt="High resolution screenshot ready to save" draggable="false"></div>
+    <p class="hvsSavedImageHelp"><strong>TO SAVE TO PHOTOS</strong> — Touch and hold the image, then choose <strong>Save Image</strong> or <strong>Add to Photos</strong>, if your phone offers it.</p>
+    <div class="hvsSavedImageActions">
+      <button id="hvsSavedImageShare" class="hvsSavedImageButton" type="button">SHARE / SAVE…</button>
+      <button id="hvsSavedImageDone" class="hvsSavedImageButton secondary" type="button">BACK TO GAME</button>
+    </div>
+    <p class="hvsSavedImageCaution">Sharing opens your phone's system sheet. It may pause a live streaming session. Saving by holding the image keeps this page open.</p>
+  </section>
 </div>
 <div id="screenshotOverlay" role="status" aria-live="polite" aria-label="Screenshot status">
   <div class="overlayBox hvsScreenshotGlass">
@@ -7346,6 +7456,49 @@ window.homeViewRecoveryStatus=()=>{
     trackStates:tracks.map(t=>({state:t.readyState,muted:t.muted})),
     videoPaused:video?.paused??null,reason:hvsRecoveryReason};
 };
+// Phone menu fit, including standalone mode safe-area and short phone viewports.
+// Resize measured natural DOM dimensions, not transformed bounding-box sizes.
+function hvsFitPhoneMenus(){
+  const portrait=window.matchMedia('(orientation:portrait) and (max-width:700px)').matches;
+  const landscape=window.matchMedia('(orientation:landscape) and (max-height:580px) and (max-width:1020px)').matches;
+  if(!portrait&&!landscape)return;
+  const vw=window.visualViewport?.width || window.innerWidth;
+  const vh=window.visualViewport?.height || window.innerHeight;
+  const selectors=['cameraMenuWrapper','buildingMenuWrapper','confirmMenuWrapper','profileMenuWrapper',
+    'teleportMenuWrapper','kitchenMenuWrapper','kitchenFinishMenuWrapper','calculatorMenuWrapper','loginMenuWrapper'];
+  for(const id of selectors){
+    const element=document.getElementById(id);
+    if(!element)continue;
+    // Landscape's custom Teleport Map is already carefully fitted to
+    // the phone's height; keep its 1:1 coordinate calibration untouched.
+    if(landscape && id==='teleportMenuWrapper')continue;
+    const naturalWidth=Math.max(element.offsetWidth,1);
+    const naturalHeight=Math.max(element.offsetHeight,1);
+    const base=portrait?(id==='loginMenuWrapper'?.78:.75):.85;
+    const sideSpace=(id==='calculatorMenuWrapper')?105:(id==='loginMenuWrapper'?30:portrait?90:140);
+    const wScale=(vw-sideSpace)/naturalWidth;
+    const hScale=(vh-32)/naturalHeight;
+    const scale=Math.max(.4,Math.min(base,wScale,hScale));
+    element.style.setProperty('--hvs-phone-fit-scale',scale.toFixed(3));
+    // CSS individual scale is composed before the wrapper's old
+    // translateY(-50%) transform. Correct its vertical center offset.
+    element.style.setProperty('--hvs-phone-centering-offset',
+      (((1-scale)*naturalHeight)/2).toFixed(2)+'px');
+  }
+}
+let hvsFitPhoneMenuTimer;
+function hvsSchedulePhoneMenuFit(){
+  clearTimeout(hvsFitPhoneMenuTimer);
+  hvsFitPhoneMenuTimer=setTimeout(hvsFitPhoneMenus,90);
+}
+window.addEventListener('resize',hvsSchedulePhoneMenuFit,{passive:true});
+window.addEventListener('orientationchange',()=>{
+  hvsSchedulePhoneMenuFit();setTimeout(hvsSchedulePhoneMenuFit,480);
+},{passive:true});
+window.visualViewport?.addEventListener('resize',hvsSchedulePhoneMenuFit,{passive:true});
+document.addEventListener('homeview:menus-reset',hvsSchedulePhoneMenuFit);
+hvsFitPhoneMenus();
+
 startViewportResolutionSync();
 // ============================================================================
 // Read-only diagnostics for mobile stream issues (does NOT create a new session).
@@ -7494,6 +7647,68 @@ function revealHomeView() {
   }, 1200);
 }
 
+// STANDALONE WEB APP: Unlike a Safari tab, an installed iOS home-screen app
+// can suspend its WebRTC page when an object-URL download launches the system
+// image viewer. Show the received Blob as an <img> IN THIS SAME PAGE instead.
+// The user may long-press to Save to Photos; optional native sharing is explicit.
+const hvsInstalledAppMode=()=>Boolean(navigator.standalone===true ||
+  window.matchMedia('(display-mode: standalone)').matches ||
+  window.matchMedia('(display-mode: fullscreen)').matches);
+document.documentElement.classList.toggle('hvs-standalone',hvsInstalledAppMode());
+let hvsStandalonePreviewUrl='';
+const hvsSavedImagePreview=document.getElementById('hvsStandaloneImagePreview');
+const hvsSavedImagePhoto=document.getElementById('hvsSavedImagePhoto');
+function hvsCloseSavedImagePreview(){
+  if(hvsSavedImagePreview.hidden)return;
+  hvsSavedImagePreview.hidden=true;
+  hvsSavedImagePhoto.removeAttribute('src');
+  if(hvsStandalonePreviewUrl){URL.revokeObjectURL(hvsStandalonePreviewUrl);hvsStandalonePreviewUrl='';}
+  screenshotBlob=null;screenshotName='';
+  hvsScreenshotProtect();
+}
+function hvsShowSavedImagePreview(blob,name){
+  if(!blob)return false;
+  if(hvsStandalonePreviewUrl)URL.revokeObjectURL(hvsStandalonePreviewUrl);
+  hvsStandalonePreviewUrl=URL.createObjectURL(blob);
+  hvsSavedImagePhoto.src=hvsStandalonePreviewUrl;
+  hvsSavedImagePhoto.alt='Your generated Home View screenshot, '+name;
+  hvsSavedImagePreview.hidden=false;
+  document.getElementById('screenshotOverlay').style.display='none';
+  document.getElementById('hvsSavedImageShare').hidden=false;
+  hvsScreenshotProtect();
+  return true;
+}
+async function hvsShareSavedImage(){
+  if(!screenshotBlob)return;
+  const blob=screenshotBlob;
+  const name=screenshotName||'HomeViewScreenshot.png';
+  // Calling native share is OPTIONAL. It can take the app to the background;
+  // recommend the image long-press for preserving the streaming connection.
+  if(typeof navigator.share==='function'){
+    try{
+      const file=new File([blob],name,{type:blob.type||'image/png'});
+      if(!navigator.canShare || navigator.canShare({files:[file]})){
+        await navigator.share({files:[file],title:'Home View screenshot'});
+        return;
+      }
+    }catch(error){
+      if(error?.name==='AbortError')return;
+      console.warn('[SCREENSHOT] Native share unavailable:',error);
+    }
+  }
+  // Fallback explicitly requested by the user, not triggered just by SAVE.
+  downloadScreenshotBlob(blob,name);
+}
+document.getElementById('hvsSavedImageClose')?.addEventListener('click',hvsCloseSavedImagePreview);
+document.getElementById('hvsSavedImageDone')?.addEventListener('click',hvsCloseSavedImagePreview);
+document.getElementById('hvsSavedImageShare')?.addEventListener('click',hvsShareSavedImage);
+window.homeViewStandaloneScreenshotMode=hvsInstalledAppMode;
+// Read-only helper for local preview/testing without an Arcware session.
+window.homeViewShowScreenshotPreview=(blob,name='HomeViewScreenshot.png')=>{
+  screenshotBlob=blob;screenshotName=name;
+  return hvsShowSavedImagePreview(blob,name);
+};
+
 // SCREENSHOT RESPONSE & SAVE — mirrors LUX's request/response/save UX.
 function showScreenshotOverlay(message,spinner=true,actions=false){
   clearTimeout(screenshotNoticeTimeout);
@@ -7565,8 +7780,14 @@ function downloadScreenshotBlob(blob,filename){
 async function savePendingScreenshot(){
   if(!screenshotBlob){screenshotNotice('No screenshot is ready to save.',2500);return;}
   const blob=screenshotBlob,name=screenshotName||'screenshot.png';
-  // Protect before launching the OS native share dialog, which can pause
-  // requestVideoFrameCallback and visibility events without closing the RTC.
+  // In an installed home-screen app, SAVE opens our own preview rather than
+  // sending the browser to a new tab or fullscreen image/download viewer.
+  if(hvsInstalledAppMode()){
+    hvsShowSavedImagePreview(blob,name);
+    screenshotCounter++;
+    return;
+  }
+  // Normal Safari/Chrome tabs retain the familiar working LUX download flow.
   hvsScreenshotProtect();
   showScreenshotOverlay('Saving image',true,false);
   // Keep the WebRTC player alive while a native Save/Share interface opens.
