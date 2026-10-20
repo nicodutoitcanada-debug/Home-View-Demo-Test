@@ -3517,6 +3517,19 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 }
 
 </style>
+<style>
+/* HOME_VIEW_MOBILE_PORTRAIT_MAIN_MENU
+   Reduce only the docked main icon panel by 12% on portrait phones.
+   Respect the existing right-hand UI scale slider; other windows retain
+   their normal sizes, and rotating to landscape restores the normal size.
+   Does not change walk mode, menu sliding, or Pixel Streaming input. */
+@media (orientation: portrait) and (max-width: 600px) {
+  #homeViewUI #uiWrapper {
+    transform: translate3d(var(--main-x), -50%, 0)
+               scale(calc(var(--ui-scale) * 0.88));
+  }
+}
+</style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <div id="introOverlay">
@@ -3598,7 +3611,7 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 
 <!-- Separate exit/connection state: intentional end never looks like a crash. -->
 <div id="hvsSessionScreen" hidden role="dialog" aria-modal="true" aria-label="Session status">
-  <section class="hvsSystemCard"><img src="LOGO.png" alt="Home View" class="hvsSystemLogo"><h2 id="hvsSessionTitle">SESSION ENDED</h2><p id="hvsSessionMessage">Your session has ended.</p><div class="hvsSystemActions"><button type="button" id="hvsSessionRelaunch" class="hvsSystemPrimary">RELAUNCH</button></div></section>
+  <section class="hvsSystemCard"><img src="LOGO.png" alt="Home View" class="hvsSystemLogo"><h2 id="hvsSessionTitle">SESSION ENDED</h2><p id="hvsSessionMessage">Your session has ended.</p><div class="hvsSystemActions"><button type="button" id="hvsSessionRecover" class="hvsSystemPrimary" hidden>TRY TO RECONNECT</button><button type="button" id="hvsSessionRelaunch">RELAUNCH</button></div></section>
 </div>
 
 
@@ -6769,8 +6782,19 @@ window.homeViewDisplaySessionState=(intentional,message)=>{
   if(body) body.textContent=message||(intentional?'Your session has ended.':'The streaming connection was interrupted. You can relaunch the demo.');
   document.body.classList.add('hvs-session-ended');
   hvsSessionScreen.hidden=false;
+  const recover=document.getElementById('hvsSessionRecover');
+  if(recover)recover.hidden=Boolean(intentional);
   requestAnimationFrame(()=>hvsSessionScreen.classList.add('is-visible'));
 };
+window.homeViewClearConnectionNotice=()=>{
+  if(window.homeViewSessionIntentional)return;
+  window.homeViewConnectionProblem=false;
+  document.body.classList.remove('hvs-session-ended');
+  hvsSessionScreen.classList.remove('is-visible');
+  hvsSessionScreen.hidden=true;
+  hvsResetAfkTimer();
+};
+document.getElementById('hvsSessionRecover')?.addEventListener('click',()=>window.homeViewTryReconnect?.(true));
 document.getElementById('hvsSessionRelaunch')?.addEventListener('click',()=>window.location.reload());
 
 // HOME VIEW 2026 — PRESENTATION SETTINGS / DRAGGABLE COST / HOW-TO SCALE
@@ -7093,6 +7117,7 @@ function startViewportResolutionSync() {
       video.style.setProperty('height', '100%', 'important');
       if (preparedVideos.has(video)) continue;
       preparedVideos.add(video);
+      hvsRegisterVideoForRecovery(video);
       video.addEventListener('loadedmetadata', () =>
         queueViewportResolutionSync('stream video metadata', 200, true));
       video.addEventListener('playing', () =>
@@ -7112,7 +7137,175 @@ function startViewportResolutionSync() {
   new MutationObserver(applyVideoFill).observe(container, {childList:true, subtree:true});
 }
 
+// Viewport listeners are installed AFTER the recovery helpers are initialized.
+
+// ============================================================================
+// HVS_STREAM_RECOVERY: Mobile Save/Share can suspend WebRTC on iOS/Android.
+// "video.play()" only resumes HTML playback; it cannot heal a failed RTC peer.
+// Watch actual decoded video frames and attempt one SDK-level reconnect ONLY
+// when a visible, running session stops receiving video. Never touch a session
+// deliberately ended by the user. No background infinite retries or new SDKs.
+// ============================================================================
+const HVS_RECOVERY_GRACE_MS=4200;
+const HVS_RECOVERY_VERIFY_MS=9500;
+let hvsRecoveryLastFrameAt=0;
+let hvsRecoveryLastFrameVideo=null;
+let hvsRecoveryProbeToken=0;
+let hvsRecoveryAttempted=false;
+let hvsRecoveryInProgress=false;
+let hvsRecoveryReason='';
+const hvsRecoveryVideoMetadata=new WeakMap();
+
+function hvsRecoveryAllowed(){
+  return !dev_mode && levelReady && !window.homeViewSessionIntentional &&
+    !homeViewTeardownStarted && !document.hidden && Boolean(application);
+}
+function hvsRtcPeer(){
+  const ctrl=application?.webRtcController||application?.stream?.webRtcController;
+  const player=ctrl?.webRtcPlayerObj||application?.stream?.webRtcPlayerObj;
+  return player?.pc || player?.peerConnection || ctrl?.pc || ctrl?.peerConnection ||
+    application?.stream?.pc || null;
+}
+function hvsVideoDiagnostics(){
+  const video=document.querySelector('#video-container video');
+  const tracks=video?.srcObject?.getVideoTracks?.()||[];
+  const pc=hvsRtcPeer();
+  const info=hvsRecoveryVideoMetadata.get(video)||null;
+  return {video, tracks, pc, info};
+}
+function hvsRegisterVideoForRecovery(video){
+  if(!video || hvsRecoveryVideoMetadata.has(video))return;
+  const info={supportsFrames:typeof video.requestVideoFrameCallback==='function',
+    lastFrameAt:0, currentTime:video.currentTime||0, priorTime:video.currentTime||0};
+  hvsRecoveryVideoMetadata.set(video,info);
+  if(info.supportsFrames){
+    const onFrame=()=>{
+      info.lastFrameAt=Date.now();
+      hvsRecoveryLastFrameAt=info.lastFrameAt;
+      hvsRecoveryLastFrameVideo=video;
+      if(hvsRecoveryInProgress)hvsRecoverySucceeded('new video frames');
+      if(video.isConnected){
+        try{video.requestVideoFrameCallback(onFrame);}catch(_){/* detached */}
+      }
+    };
+    try{video.requestVideoFrameCallback(onFrame);}catch(_){}
+  }
+  video.addEventListener('playing',()=>{
+    // Playing alone is not proof of receiving frames. Keep watching frames.
+    if(hvsRecoveryInProgress && !info.supportsFrames)
+      setTimeout(()=>{if(hvsHasLiveFrames())hvsRecoverySucceeded('playback resumed');},600);
+  });
+  video.addEventListener('emptied',()=>hvsWatchStreamAfterReturn('video element emptied',700));
+  video.addEventListener('stalled',()=>hvsWatchStreamAfterReturn('stream video stalled',1100));
+  video.addEventListener('error',()=>hvsWatchStreamAfterReturn('stream video error',700));
+  const track=video.srcObject?.getVideoTracks?.()[0];
+  track?.addEventListener?.('mute',()=>hvsWatchStreamAfterReturn('video track muted',900));
+  track?.addEventListener?.('ended',()=>hvsWatchStreamAfterReturn('video track ended',900));
+}
+function hvsHasLiveFrames(){
+  const {video, tracks, pc, info}=hvsVideoDiagnostics();
+  if(!video||!info||!tracks.length||!tracks.some(track=>track.readyState==='live'&&!track.muted))return false;
+  if(['failed','closed','disconnected'].includes(pc?.connectionState))return false;
+  if(info.supportsFrames)return Date.now()-info.lastFrameAt<2900;
+  // Fallback for browsers without requestVideoFrameCallback.
+  // Playing video alone isn't adequate; ensure media-time advances.
+  const t=video.currentTime;
+  const advanced=Number.isFinite(t)&&t>info.priorTime+.1;
+  info.priorTime=t;
+  return video.readyState>=2&&!video.paused&&advanced;
+}
+function hvsRecoverySucceeded(reason){
+  if(!hvsRecoveryAllowed())return;
+  if(hvsRecoveryInProgress||hvsRecoveryAttempted){
+    console.info('[STREAM RECOVERY] Video restored:',reason);
+    hvsRecoveryInProgress=false;
+    hvsRecoveryAttempted=false;
+    hvsRecoveryProbeToken++;
+    window.homeViewClearConnectionNotice?.();
+    queueViewportResolutionSync('recovered video',400,true);
+  }
+}
+async function hvsRecoverWithSdk(reason,manual=false){
+  if(!hvsRecoveryAllowed()||hvsRecoveryInProgress)return false;
+  if(hvsHasLiveFrames()){hvsRecoverySucceeded('already receiving frames');return true;}
+  if(hvsRecoveryAttempted&&!manual)return false;
+  hvsRecoveryAttempted=true;
+  hvsRecoveryInProgress=true;
+  hvsRecoveryReason=reason;
+  console.warn('[STREAM RECOVERY] Stream stalled:',reason,hvsVideoDiagnostics().pc?.connectionState);
+  const {video}=hvsVideoDiagnostics();
+  if(video){
+    // Mobile Safari can leave play() pending forever after its share sheet
+    // detaches the MediaStream. Never await this before reconnecting the SDK.
+    try{const attempt=video.play();attempt?.catch?.(err=>console.debug('[STREAM RECOVERY] play:',err?.name||err));}
+    catch(err){console.debug('[STREAM RECOVERY] play:',err?.name||err);}
+  }
+  if(hvsHasLiveFrames()){hvsRecoverySucceeded('same video resumed');return true;}
+
+  // With AutoConnect:true, the SDK may already be reconnecting. If not, use
+  // whichever documented-style connect/reconnect entry point is exposed.
+  // IMPORTANT: do not instantiate a second ArcwareInit (which risks duplicate
+  // paid sessions), and never retry indefinitely in the background.
+  const targets=[application?.stream,application?.webRtcController?.stream,
+    application?.webRtcController,application];
+  let called=false;
+  for(const target of [...new Set(targets.filter(Boolean))]){
+    for(const name of ['reconnect','connect']){
+      if(typeof target[name]!=='function')continue;
+      try{
+        console.info('[STREAM RECOVERY] Attempting SDK:',name);
+        const value=target[name]();
+        if(value&&typeof value.then==='function')value.catch(err=>console.warn('[STREAM RECOVERY] SDK:',err));
+        called=true;
+        break;
+      }catch(err){console.warn('[STREAM RECOVERY] Could not call SDK '+name,err);}
+    }
+    if(called)break;
+  }
+  if(!called)console.warn('[STREAM RECOVERY] SDK has no public reconnect/connect method; waiting for its built-in recovery.');
+  const token=++hvsRecoveryProbeToken;
+  setTimeout(()=>{
+    if(token!==hvsRecoveryProbeToken||!hvsRecoveryAllowed())return;
+    if(hvsHasLiveFrames()){hvsRecoverySucceeded('SDK reconnected');return;}
+    hvsRecoveryInProgress=false;
+    console.warn('[STREAM RECOVERY] Still no video frames. Offer user-controlled reconnection/relaunch.');
+    window.homeViewDisplaySessionState?.(false,
+      'Video stopped after mobile sharing. Try reconnecting, or relaunch if the cloud session has expired.');
+  },HVS_RECOVERY_VERIFY_MS);
+  return called;
+}
+function hvsWatchStreamAfterReturn(reason='mobile return',delay=HVS_RECOVERY_GRACE_MS){
+  if(!hvsRecoveryAllowed())return;
+  hvsRecoveryReason=reason;
+  const token=++hvsRecoveryProbeToken;
+  const {video}=hvsVideoDiagnostics();
+  if(video)hvsRegisterVideoForRecovery(video);
+  // Let the native share sheet close, SDK auto-reconnect, and Safari decoder
+  // resume before assuming the connection is actually unhealthy.
+  setTimeout(()=>{
+    if(token!==hvsRecoveryProbeToken||!hvsRecoveryAllowed()||hvsRecoveryInProgress)return;
+    if(hvsHasLiveFrames()){hvsRecoverySucceeded('healthy after '+reason);return;}
+    hvsRecoverWithSdk(reason);
+  },delay);
+}
+window.homeViewTryReconnect=async(manual=false)=>{
+  if(!hvsRecoveryAllowed())return false;
+  window.homeViewClearConnectionNotice?.();
+  hvsRecoveryProbeToken++;
+  return hvsRecoverWithSdk('user requested reconnection',Boolean(manual));
+};
+// Expose honest diagnostics for on-device troubleshooting.
+window.homeViewRecoveryStatus=()=>{
+  const {video,tracks,pc,info}=hvsVideoDiagnostics();
+  return {phase:hvsRecoveryInProgress?'reconnecting':hvsRecoveryAttempted?'awaiting user':'monitoring',
+    lastFrameAgeSeconds:info?.lastFrameAt?Math.round((Date.now()-info.lastFrameAt)/100)/10:null,
+    supportsVideoFrameCallback:info?.supportsFrames??false,
+    peerState:pc?.connectionState??'not exposed',iceState:pc?.iceConnectionState??'not exposed',
+    trackStates:tracks.map(t=>({state:t.readyState,muted:t.muted})),
+    videoPaused:video?.paused??null,reason:hvsRecoveryReason};
+};
 startViewportResolutionSync();
+// ============================================================================
 // Read-only diagnostics for mobile stream issues (does NOT create a new session).
 window.homeViewStreamStatus=()=>{
   const video=document.querySelector('#video-container video');
@@ -7150,6 +7343,7 @@ function homeViewResyncAfterReturn(reason) {
   clearTimeout(homeViewResumeTimer);
   homeViewResumeStreamPlayback(reason);
   homeViewResumeTimer=setTimeout(()=>homeViewResumeStreamPlayback(reason+' settled'),950);
+  hvsWatchStreamAfterReturn(reason);
 }
 window.addEventListener('pageshow',event=>{
   if(event.persisted)homeViewResyncAfterReturn('restored browser page');
@@ -7300,6 +7494,7 @@ async function handleScreenshotCompleted(){
     const ext=/^\.[a-zA-Z0-9]+$/.test(file.extension||'')?file.extension:'.png';
     screenshotName='screenshot'+String(screenshotCounter).padStart(2,'0')+ext;
     showScreenshotOverlay('Image generated successfully. Click SAVE IMAGE.',false,true);
+    hvsWatchStreamAfterReturn('screenshot image received',HVS_RECOVERY_GRACE_MS+1000);
   }catch(error){
     console.error('[SCREENSHOT] Unable to read file:',error);
     screenshotNotice('Unable to prepare the screenshot. Please try again.',4500);
@@ -7437,7 +7632,9 @@ function homeViewUnexpectedConnectionEvent(reason){
   const message=String(reason?.message||reason?.reason||reason||'').toLowerCase();
   if(!/(session not found|stream disconnected|connection lost|connection closed|ice connection failed|webrtc connection failed|runner resources|allocation failed|maximum concurrency reached)/.test(message))return;
   console.warn('[SESSION] Unexpected connection issue:',message);
-  window.homeViewDisplaySessionState?.(false,'The streaming connection was interrupted. Relaunch to start a new session.');
+  if(/maximum concurrency reached|runner resources|allocation failed|session not found/.test(message)){
+    window.homeViewDisplaySessionState?.(false,'The Arcware session is no longer available. Relaunch to start a new session.');
+  }else hvsWatchStreamAfterReturn('Arcware reported '+message.slice(0,100),HVS_RECOVERY_GRACE_MS);
 }
 window.addEventListener('unhandledrejection',evt=>homeViewUnexpectedConnectionEvent(evt?.reason));
 window.addEventListener('error',evt=>homeViewUnexpectedConnectionEvent(evt?.message||evt?.error));
