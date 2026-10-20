@@ -2877,6 +2877,15 @@ body.hvs-session-ended #homeViewUI{opacity:0!important;visibility:hidden!importa
  background:radial-gradient(ellipse at center,rgba(220,68,20,.44) 0%,rgba(194,48,9,.3) 28%,rgba(166,32,0,.17) 48%,rgba(144,26,0,.08) 62%,rgba(133,24,0,0) 78%);
  filter:blur(22px);
 }
+/* LUX-SAFE MOBILE SCREENSHOT GLASS: avoid a hardware video compositing
+   reset when the native browser image save/share sheet is dismissed. */
+@media (pointer:coarse) {
+  #screenshotOverlay .hvsScreenshotGlass {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(16,20,24,.88) !important;
+  }
+}
 /* Screenshot chooser — same flow as LUX, modern Home View glass styling. */
 #screenshotOverlay{pointer-events:auto;box-sizing:border-box;padding:16px;background:rgba(0,0,0,.12)}
 #screenshotOverlay .hvsScreenshotGlass{width:min(475px,94vw);max-width:100%;padding:22px 24px;
@@ -6929,6 +6938,37 @@ let screenshotTimeout = null;
 let screenshotNoticeTimeout = null;
 const SCREENSHOT_TIMEOUT_MS = 45000;
 
+// LUX-SAFE MOBILE SCREENSHOT: keep the browser's native save/share handoff
+// completely separate from Pixel Streaming. LUX's proven screenshot flow NEVER
+// reconnects WebRTC or sends r.SetRes when its file dialog closes. The older
+// Home View flow did both, sometimes while iOS/Android had suspended the page.
+const HVS_SCREENSHOT_RETURN_GRACE_MS = 20000;
+let hvsScreenshotProtectionUntil = 0;
+let hvsScreenshotReturnCheck = null;
+function hvsScreenshotProtected() {
+  return screenshotRequestInFlight || Boolean(screenshotBlob) ||
+    Date.now() < hvsScreenshotProtectionUntil;
+}
+function hvsScreenshotProtect(ms = HVS_SCREENSHOT_RETURN_GRACE_MS) {
+  hvsScreenshotProtectionUntil = Math.max(hvsScreenshotProtectionUntil, Date.now() + ms);
+  // Invalidate any pending WebRTC watchdog/reconnect triggered before opening
+  // the native save sheet. Never alter the SDK player to save an image.
+  if (typeof hvsRecoveryProbeToken !== 'undefined') hvsRecoveryProbeToken++;
+  if (typeof hvsRecoveryInProgress !== 'undefined') hvsRecoveryInProgress = false;
+  if (typeof hvsRecoveryAttempted !== 'undefined') hvsRecoveryAttempted = false;
+  clearTimeout(hvsScreenshotReturnCheck);
+  hvsScreenshotReturnCheck = setTimeout(() => {
+    if (document.hidden || window.homeViewSessionIntentional || homeViewTeardownStarted || hvsScreenshotProtected()) return;
+    // No automatic reconnect here. The LUX implementation leaves the stream
+    // alone; if it genuinely failed, offer an explicit controlled recovery.
+    if (!hvsHasLiveFrames()) {
+      console.warn('[LUX SCREENSHOT] No decoded frames after native save/share.');
+      window.homeViewDisplaySessionState?.(false,
+        'Video did not resume after saving the image. Try reconnecting to the existing session, or relaunch.');
+    }
+  }, ms + 1800);
+}
+
 
 function startLoadingMedia() {
   if (typeof window.lottie === 'object') {
@@ -7036,7 +7076,9 @@ function getStreamingViewportResolution() {
 }
 
 function sendViewportResolutionToUnreal(reason = 'viewport', force = false) {
-  if (!unrealIsReadyForResolution || !application) return;
+  // LUX never changes the Unreal render target during a native file save or
+  // share-sheet return; doing so can freeze the restored video decoder.
+  if (hvsScreenshotProtected() || !unrealIsReadyForResolution || !application) return;
   const { width, height } = getStreamingViewportResolution();
   const resolution = `${width}x${height}`;
   if (!force && resolution === lastSentViewportResolution) return;
@@ -7158,7 +7200,7 @@ const hvsRecoveryVideoMetadata=new WeakMap();
 
 function hvsRecoveryAllowed(){
   return !dev_mode && levelReady && !window.homeViewSessionIntentional &&
-    !homeViewTeardownStarted && !document.hidden && Boolean(application);
+    !homeViewTeardownStarted && !document.hidden && !hvsScreenshotProtected() && Boolean(application);
 }
 function hvsRtcPeer(){
   const ctrl=application?.webRtcController||application?.stream?.webRtcController;
@@ -7340,6 +7382,13 @@ function homeViewResumeStreamPlayback(reason='mobile return') {
   queueViewportResolutionSync(reason, 220, true);
 }
 function homeViewResyncAfterReturn(reason) {
+  // While an image is being saved/shared, do exactly what working LUX does:
+  // leave the Arcware video player and resolution untouched. Both video.play()
+  // and r.SetRes were extra interventions added only in Home View.
+  if (hvsScreenshotProtected()) {
+    console.debug('[LUX SCREENSHOT] Native save/share return:',reason,'— stream left untouched');
+    return;
+  }
   clearTimeout(homeViewResumeTimer);
   homeViewResumeStreamPlayback(reason);
   homeViewResumeTimer=setTimeout(()=>homeViewResumeStreamPlayback(reason+' settled'),950);
@@ -7457,8 +7506,11 @@ function showScreenshotOverlay(message,spinner=true,actions=false){
 function hideScreenshotOverlay(){
   clearTimeout(screenshotNoticeTimeout);
   document.getElementById('screenshotOverlay').style.display='none';
-  // Called by a real CLOSE tap: ideal moment to resume paused iOS video.
-  homeViewResyncAfterReturn('screenshot dialog closed');
+  // Exactly as in LUX: closing the image dialog does not call play(),
+  // reconnect(), or r.SetRes. Let Arcware's built-in player resume naturally.
+  screenshotBlob=null;
+  screenshotName='';
+  hvsScreenshotProtect();
 }
 function screenshotNotice(message,ms=3500){
   showScreenshotOverlay(message,false,false);
@@ -7494,13 +7546,16 @@ async function handleScreenshotCompleted(){
     const ext=/^\.[a-zA-Z0-9]+$/.test(file.extension||'')?file.extension:'.png';
     screenshotName='screenshot'+String(screenshotCounter).padStart(2,'0')+ext;
     showScreenshotOverlay('Image generated successfully. Click SAVE IMAGE.',false,true);
-    hvsWatchStreamAfterReturn('screenshot image received',HVS_RECOVERY_GRACE_MS+1000);
+    // LUX displays the Save button and waits. A recovery watchdog must not
+    // fire while the user's native Share/Save dialog has suspended the stream.
+    hvsScreenshotProtect();
   }catch(error){
     console.error('[SCREENSHOT] Unable to read file:',error);
     screenshotNotice('Unable to prepare the screenshot. Please try again.',4500);
   }
 }
 function downloadScreenshotBlob(blob,filename){
+  // Identical to the proven LUX save fallback: a native browser download.
   const url=URL.createObjectURL(blob);
   const link=document.createElement('a');
   link.href=url;link.download=filename;
@@ -7510,6 +7565,9 @@ function downloadScreenshotBlob(blob,filename){
 async function savePendingScreenshot(){
   if(!screenshotBlob){screenshotNotice('No screenshot is ready to save.',2500);return;}
   const blob=screenshotBlob,name=screenshotName||'screenshot.png';
+  // Protect before launching the OS native share dialog, which can pause
+  // requestVideoFrameCallback and visibility events without closing the RTC.
+  hvsScreenshotProtect();
   showScreenshotOverlay('Saving image',true,false);
   // Keep the WebRTC player alive while a native Save/Share interface opens.
   try{
@@ -7521,7 +7579,7 @@ async function savePendingScreenshot(){
     }else downloadScreenshotBlob(blob,name);
     screenshotBlob=null;screenshotName='';screenshotCounter++;
     screenshotNotice('Your image has been saved.',2200);
-    homeViewResyncAfterReturn('screenshot save finished');
+    hvsScreenshotProtect();
   }catch(err){
     if(err?.name==='AbortError'){
       showScreenshotOverlay('Save cancelled. Click SAVE IMAGE to try again.',false,true);
@@ -7531,7 +7589,7 @@ async function savePendingScreenshot(){
       downloadScreenshotBlob(blob,name);
       screenshotBlob=null;screenshotName='';screenshotCounter++;
       screenshotNotice('Image download started.',2300);
-      homeViewResyncAfterReturn('screenshot download finished');
+      hvsScreenshotProtect();
     }catch(downloadError){
       console.warn('[SCREENSHOT] Save failed:',err,downloadError);
       showScreenshotOverlay('Unable to save. Please allow downloads and try again.',false,true);
@@ -7544,6 +7602,7 @@ function requestHomeViewScreenshot(){
   screenshotBlob=null;screenshotName='';
   if(!levelReady){screenshotNotice('The game is still loading. Please try again shortly.');return;}
   screenshotRequestInFlight=true;
+  hvsScreenshotProtect();
   showScreenshotOverlay('Generating high resolution image',true,false);
   // Identical message used by the older working LUX front end.
   if(!sendUnreal({frontEnd:'screenshot'})){
@@ -7561,7 +7620,7 @@ function requestHomeViewScreenshot(){
 document.getElementById('generateImageButton')?.addEventListener('click',requestHomeViewScreenshot);
 document.getElementById('saveScreenshotButton')?.addEventListener('click',savePendingScreenshot);
 document.getElementById('closeScreenshotOverlayButton')?.addEventListener('click',hideScreenshotOverlay);
-window.homeViewScreenshotDebug=()=>({waiting:screenshotRequestInFlight,ready:!!screenshotBlob,timeoutMs:SCREENSHOT_TIMEOUT_MS});
+window.homeViewScreenshotDebug=()=>({waiting:screenshotRequestInFlight,ready:!!screenshotBlob,timeoutMs:SCREENSHOT_TIMEOUT_MS, LuxSafeNativeSave:true, protectionSeconds:Math.max(0,Math.ceil((hvsScreenshotProtectionUntil-Date.now())/1000))});
 
 // Local development mode: the EXACT library-based connection pattern used
 // by your existing working LUX Visualizer project (not a custom WebRTC client).
