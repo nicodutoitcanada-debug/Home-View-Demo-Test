@@ -3447,6 +3447,65 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
   #teleportMenuWrapper #upstairsLayoutOverlay {z-index:55;}
   #teleportMenuWrapper #upstairsLayoutDialog {max-height:94%;overflow:auto;}
 }
+/* MOBILE LANDSCAPE MAP POLISH. Zoom the plan artwork, marker AND teleport
+   targets together so XY calibration/hit areas remain mathematically aligned. */
+#teleportMobileLayoutExplainer {display:none;}
+@media (orientation:landscape) and (max-height:580px) and (max-width:1020px) {
+  #teleportMenuWrapper #teleportMapStage > .teleportPlanImage,
+  #teleportMenuWrapper #teleportMapStage > #teleportYouAreHereLayer,
+  #teleportMenuWrapper #teleportMapStage > #teleportJumpTargetsLayer {
+    transform:scale(1.075);
+    transform-origin:center center;
+  }
+  #teleportMobileRail #teleportTopBar {
+    height:46px;min-height:46px;
+    padding:1px 6px 7px;
+    margin-bottom:3px;
+  }
+  #teleportMobileRail #teleportLogo {height:37px;max-width:77px;}
+  #teleportMobileRail #teleportMapTitle {
+    font-size:clamp(15px,3.35dvh,19px);
+    padding-top:4px;
+    margin:3px 0 1px;
+    min-height:24px;
+  }
+  #teleportMobileRail #teleportFloorButtons{gap:6px;margin-top:3px;}
+  #teleportMobileLayoutExplainer {
+    display:none;
+    margin-top:auto;
+    padding:3px 5px 0;
+    text-align:center;
+    color:rgba(255,255,255,.91);
+    pointer-events:none;
+  }
+  #teleportMobileLayoutExplainer strong {
+    display:block;
+    font-family:'MyriadPro-Bold','Myriad Pro',Arial,sans-serif;
+    font-size:clamp(11px,2.5dvh,13px);
+    letter-spacing:.07em;
+  }
+  #teleportMobileLayoutExplainer span {
+    display:block;
+    font-family:'MyriadPro-Light','Myriad Pro',Arial,sans-serif;
+    font-weight:300;
+    font-size:clamp(9px,2.05dvh,11px);
+    line-height:1.13;
+    margin-top:4px;
+  }
+  #teleportOuterBox:has(#teleportMapStage[data-floor="first"]) #teleportMobileLayoutExplainer {
+    display:block;
+  }
+  #teleportMobileRail #upstairsLayoutOpen {margin-top:3px;}
+}
+/* Larger mobile AFK countdown: white with a SOFT dark shadow, no glow. */
+#hvsAfkCountdown {
+  color:#fff !important;
+  font-family:'MyriadPro-Bold','Myriad Pro',Arial,sans-serif;
+  font-weight:800 !important;
+  font-size:clamp(24px,3.5vmin,31px) !important;
+  line-height:1;
+  text-shadow:0 2px 5px rgba(0,0,0,.35) !important;
+}
 /* Never crop Unreal's touch joystick off the edge on landscape phones.
    Arcware may stream in 16:9 until r.SetRes takes effect: cover trims the
    sides on a wider phone, and clips in-game UI. Contain keeps every pixel. */
@@ -3703,7 +3762,12 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
             <button class="teleportFloorButton" id="teleportFirstButton" type="button">FIRST FLOOR</button>
         </div>
         <!-- Landscape-phone Teleport Map: existing controls move here, never duplicated. -->
-        <div id="teleportMobileRail" aria-label="Teleport map controls"></div>
+        <div id="teleportMobileRail" aria-label="Teleport map controls">
+          <div id="teleportMobileLayoutExplainer" aria-hidden="true">
+            <strong>LAYOUT OPTIONS</strong>
+            <span>Choose an upstairs lounge or an additional bedroom.</span>
+          </div>
+        </div>
         <div id="upstairsLayoutOverlay" role="presentation" aria-hidden="true">
             <section id="upstairsLayoutDialog" role="dialog" aria-modal="true" aria-label="Upstairs layout options">
                 <div class="layoutChoiceTop">
@@ -6933,10 +6997,18 @@ function getStreamingViewportResolution() {
   const ratio = window.devicePixelRatio || 1;
   const cssWidth = rect?.width || window.innerWidth;
   const cssHeight = rect?.height || window.innerHeight;
-  return {
-    width: Math.max(1, Math.round(cssWidth * ratio)),
-    height: Math.max(1, Math.round(cssHeight * ratio))
-  };
+  let width=Math.max(1,Math.round(cssWidth*ratio));
+  let height=Math.max(1,Math.round(cssHeight*ratio));
+  // Some phones have 3x DPR. Avoid requesting enormous 3K–4K render targets
+  // after rotation (some offscreen Unreal builds decline the change outright).
+  if(window.matchMedia('(pointer:coarse) and (orientation:landscape) and (max-height:580px)').matches ||
+     window.matchMedia('(pointer:coarse) and (orientation:portrait) and (max-width:500px)').matches) {
+    const maxSide=1920;
+    const shrink=Math.min(1,maxSide/Math.max(width,height));
+    width=Math.round(width*shrink);
+    height=Math.round(height*shrink);
+  }
+  return {width,height};
 }
 
 function sendViewportResolutionToUnreal(reason = 'viewport', force = false) {
@@ -6966,9 +7038,36 @@ function startViewportResolutionSync() {
   if (!container) return;
 
   window.addEventListener('resize', () => queueViewportResolutionSync('window resized', 120));
-  window.addEventListener('orientationchange', () => {
-    [150, 500, 1200].forEach(ms =>
-      setTimeout(() => sendViewportResolutionToUnreal('orientation change', true), ms));
+  // Mobile browser UI bars and Arcware's video decoder often settle *after*
+  // the initial orientationchange event. Retry against the FINAL viewport, and
+  // check the decoded frame's aspect ratio without ever cropping the joystick.
+  let rotationEpoch=0;
+  function resyncOrientation(reason){
+    const epoch=++rotationEpoch;
+    [150,550,1250,2300,3900].forEach(ms=>setTimeout(()=>{
+      if(epoch!==rotationEpoch||document.hidden)return;
+      const video=container.querySelector('video');
+      const {width,height}=getStreamingViewportResolution();
+      const frameRatio=video?.videoWidth&&video?.videoHeight
+        ? video.videoWidth/video.videoHeight : NaN;
+      const targetRatio=width/height;
+      if(ms>=2300 && Number.isFinite(frameRatio) &&
+         Math.abs(frameRatio-targetRatio)/targetRatio<.055)return;
+      // Resend only if orientation is still wrong or browser is settling.
+      sendViewportResolutionToUnreal(reason+' '+ms+'ms',true);
+      if(ms===3900 && Number.isFinite(frameRatio) &&
+         Math.abs(frameRatio-targetRatio)/targetRatio>=.055)
+        console.warn('[STREAM] Decoded frame ratio still differs from viewport',
+          {video:video.videoWidth+'x'+video.videoHeight,
+           target:width+'x'+height});
+    },ms));
+  }
+  window.addEventListener('orientationchange',()=>resyncOrientation('orientation change'));
+  // Safari may resize visualViewport without a standard orientation event.
+  let previousIsLandscape=window.innerWidth>window.innerHeight;
+  window.addEventListener('resize',()=>{
+    const now=window.innerWidth>window.innerHeight;
+    if(now!==previousIsLandscape){previousIsLandscape=now;resyncOrientation('orientation resize');}
   });
   window.visualViewport?.addEventListener('resize', () =>
     queueViewportResolutionSync('visual viewport resized', 160));
@@ -6998,6 +7097,11 @@ function startViewportResolutionSync() {
         queueViewportResolutionSync('stream video metadata', 200, true));
       video.addEventListener('playing', () =>
         queueViewportResolutionSync('stream video playing', 200, true));
+      // Track-resolution renegotiation can happen independently of a viewport
+      // resize. The SDK updates videoWidth/videoHeight on this native event.
+      video.addEventListener('resize',()=>{
+        console.info('[STREAM] Decoded video resolution',video.videoWidth+'x'+video.videoHeight);
+      });
     }
   };
   applyVideoFill();
@@ -7009,6 +7113,53 @@ function startViewportResolutionSync() {
 }
 
 startViewportResolutionSync();
+// Read-only diagnostics for mobile stream issues (does NOT create a new session).
+window.homeViewStreamStatus=()=>{
+  const video=document.querySelector('#video-container video');
+  const v=getStreamingViewportResolution();
+  const tracks=video?.srcObject?.getTracks?.()||[];
+  return {
+    mode:dev_mode?'LOCAL':'ARCWARE',
+    sessionEnded:Boolean(window.homeViewSessionIntentional),
+    viewport:v.width+'x'+v.height,
+    videoSize:video?video.videoWidth+'x'+video.videoHeight:'no video',
+    paused:video?.paused??null,
+    readyState:video?.readyState??null,
+    tracks:tracks.map(track=>({kind:track.kind,state:track.readyState,muted:track.muted})),
+  };
+};
+
+// MOBILE RETURN / SCREENSHOT SAVE RECOVERY — never starts a new Arcware session.
+// When Files/Share/Save closes, browsers can pause the existing HTMLMediaElement.
+// Resume that *same* stream and resynchronise its display size.
+let homeViewResumeTimer = null;
+function homeViewResumeStreamPlayback(reason='mobile return') {
+  if(window.homeViewSessionIntentional || homeViewTeardownStarted || !levelReady)return;
+  const container=document.getElementById('video-container');
+  if(!container)return;
+  for(const video of container.querySelectorAll('video')) {
+    if(video.paused && video.srcObject) {
+      try { const play=video.play(); if(play?.catch)play.catch(err=>
+        console.debug('[STREAM] Playback waiting for user gesture:',err?.name||err)); }
+      catch(err){console.debug('[STREAM] Playback resume:',err);}
+    }
+  }
+  queueViewportResolutionSync(reason, 220, true);
+}
+function homeViewResyncAfterReturn(reason) {
+  clearTimeout(homeViewResumeTimer);
+  homeViewResumeStreamPlayback(reason);
+  homeViewResumeTimer=setTimeout(()=>homeViewResumeStreamPlayback(reason+' settled'),950);
+}
+window.addEventListener('pageshow',event=>{
+  if(event.persisted)homeViewResyncAfterReturn('restored browser page');
+});
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden)homeViewResyncAfterReturn('page became visible');
+});
+window.addEventListener('focus',()=>{
+  if(!document.hidden)homeViewResyncAfterReturn('browser regained focus');
+});
 
 // ================================================================
 // CAMERA SETTINGS — FOUR SLIDERS CONNECTED TO UNREAL
@@ -7112,6 +7263,8 @@ function showScreenshotOverlay(message,spinner=true,actions=false){
 function hideScreenshotOverlay(){
   clearTimeout(screenshotNoticeTimeout);
   document.getElementById('screenshotOverlay').style.display='none';
+  // Called by a real CLOSE tap: ideal moment to resume paused iOS video.
+  homeViewResyncAfterReturn('screenshot dialog closed');
 }
 function screenshotNotice(message,ms=3500){
   showScreenshotOverlay(message,false,false);
@@ -7163,6 +7316,7 @@ async function savePendingScreenshot(){
   if(!screenshotBlob){screenshotNotice('No screenshot is ready to save.',2500);return;}
   const blob=screenshotBlob,name=screenshotName||'screenshot.png';
   showScreenshotOverlay('Saving image',true,false);
+  // Keep the WebRTC player alive while a native Save/Share interface opens.
   try{
     if(typeof window.showSaveFilePicker==='function'){
       const handle=await window.showSaveFilePicker({suggestedName:name,
@@ -7172,6 +7326,7 @@ async function savePendingScreenshot(){
     }else downloadScreenshotBlob(blob,name);
     screenshotBlob=null;screenshotName='';screenshotCounter++;
     screenshotNotice('Your image has been saved.',2200);
+    homeViewResyncAfterReturn('screenshot save finished');
   }catch(err){
     if(err?.name==='AbortError'){
       showScreenshotOverlay('Save cancelled. Click SAVE IMAGE to try again.',false,true);
@@ -7181,6 +7336,7 @@ async function savePendingScreenshot(){
       downloadScreenshotBlob(blob,name);
       screenshotBlob=null;screenshotName='';screenshotCounter++;
       screenshotNotice('Image download started.',2300);
+      homeViewResyncAfterReturn('screenshot download finished');
     }catch(downloadError){
       console.warn('[SCREENSHOT] Save failed:',err,downloadError);
       showScreenshotOverlay('Unable to save. Please allow downloads and try again.',false,true);
@@ -7266,13 +7422,14 @@ window.homeViewEndSession=async(message='Your session has ended.')=>{
   window.homeViewDisplaySessionState?.(true,message);
   homeViewDetachStream();
 };
-// Closing the browser tab is not a request to relaunch the session.
-window.addEventListener('pagehide',()=>{
-  if(homeViewTeardownStarted)return;
-  homeViewTeardownStarted=true;
-  window.homeViewSessionIntentional=true;
-  homeViewDisableReconnect();
-  homeViewDetachStream();
+// MOBILE SCREENSHOT / SHARE FIX: pagehide may fire when a mobile browser opens
+// native Save / Files / Share UI or enters the back-forward cache. NEVER destroy
+// the WebRTC player here. A real navigation is cleaned up by the browser itself;
+// an intentional END SESSION is the only path calling homeViewDetachStream().
+window.addEventListener('pagehide',(event)=>{
+  if(!window.homeViewSessionIntentional)
+    console.debug('[STREAM] Browser pagehide; preserving player for mobile return.',
+                  'persisted=',Boolean(event.persisted));
 });
 
 function homeViewUnexpectedConnectionEvent(reason){
@@ -7445,7 +7602,10 @@ if (dev_mode) {
   function applyLayout() {
     const mobile = query.matches;
     if (mobile !== inRail) {
-      if (mobile) [topBar,title,floors,layout].forEach(node => rail.appendChild(node));
+      if (mobile) {
+        [topBar,title,floors].forEach(node=>rail.insertBefore(node, document.getElementById('teleportMobileLayoutExplainer')));
+        rail.appendChild(layout);
+      }
       else {
         // Restoration is in reverse order because the stored sibling can
         // itself be one of the nodes we're returning to the original parent.
@@ -7458,7 +7618,7 @@ if (dev_mode) {
     // when the user increases the main UI scale. Plan dimensions remain 960:2048.
     const scale = Math.max(.6, Number(document.getElementById('scaleSlider')?.value) || 1);
     const usableHeight = Math.max(195, window.innerHeight - 20);
-    const stageHeight = Math.max(170, Math.min(525, usableHeight / scale - 25));
+    const stageHeight = Math.max(170, Math.min(525, usableHeight / scale - 27));
     const stageWidth = stageHeight * 960 / 2048;
     const usableWidth = Math.max(340, window.innerWidth - 120);
     const outerWidth = Math.max(stageWidth + 155, Math.min(520, usableWidth / scale));
