@@ -342,9 +342,9 @@ to{transform:rotate(360deg);}
     --anim-time: 1.1s;
     --anim-ease: cubic-bezier(0.22, 1, 0.36, 1);
     --plate-side-inset: 5%;
-    --jump-stagger: 80ms;
-    --jump-enter-time: 420ms;
-    --jump-fade-time: 260ms;
+    --jump-stagger: 118ms;
+    --jump-enter-time: 600ms;
+    --jump-fade-time: 340ms;
 }
 
 
@@ -1173,7 +1173,7 @@ to{transform:rotate(360deg);}
     height: 100%;
     object-fit: fill;
     opacity: 0;
-    transition: opacity 0.7s ease;
+    transition: opacity 1.12s ease-in-out;
     pointer-events: none;
 }
 
@@ -2043,8 +2043,8 @@ body.movie-ui-hidden #hvsAdminModeBadge {display:none!important;}
 /* HOME VIEW ACCOUNT + FRONTEND COST SYSTEM — 2026-10 */
 :root { --cost-ui-scale:1; --hvs-orange:#ec500f; --hvs-orange-dim:#982806; }
 #calculatorMenuWrapper, #loginMenuWrapper { position:absolute; z-index:45; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .65s ease, transform .95s cubic-bezier(.22,1,.36,1),visibility 0s linear .95s; color:#f8f8f8; font-family:"HomeView Myriad",Arial,sans-serif; }
-#calculatorMenuWrapper { top:50%; left:92px; width:308px; max-width:calc(100vw - 130px); transform:translate3d(-470px,-50%,0) scale(var(--cost-ui-scale)); transform-origin:left center; }
-body.cost-open #homeViewUI.is-ready #calculatorMenuWrapper { opacity:1; visibility:visible; pointer-events:auto; transform:translate3d(0,-50%,0) scale(var(--cost-ui-scale)); transition-delay:0s; }
+#calculatorMenuWrapper { top:50%; left:92px; width:308px; max-width:calc(100vw - 130px); translate:0 -50%; transform:translate3d(-470px,0,0) scale(var(--cost-ui-scale)); transform-origin:left center; }
+body.cost-open #homeViewUI.is-ready #calculatorMenuWrapper { opacity:1; visibility:visible; pointer-events:auto; transform:translate3d(0,0,0) scale(var(--cost-ui-scale)); transition-delay:0s; }
 #loginMenuWrapper { top:50%; left:50%; width:min(435px,calc(100vw - 35px)); transform:translate3d(-50%,-46%,0) scale(.92); transform-origin:center center; }
 body.login-mode #homeViewUI.is-ready #loginMenuWrapper { opacity:1; visibility:visible; pointer-events:auto; transform:translate3d(-50%,-50%,0) scale(1); transition-delay:0s; }
 /* Existing menus retain their original animations, but yield to the login panel. */
@@ -3908,6 +3908,58 @@ html.hvs-ios-viewport-stable #homeViewUI {
   height:var(--hvs-stable-viewport-height) !important;
 }
 </style>
+
+<style id="hvs-final-demo-viewport-and-teleport-polish">
+/* A longhand pre-scale translate keeps the calculator truly centered across
+   independent phone-fit scale, preferred user zoom and both orientations. */
+#homeViewUI #calculatorMenuWrapper { translate:0 -50%; }
+/* Only Marie's welcome notice uses tighter spacing. Teleport notices unchanged. */
+#teleportStatusOverlay.hvs-welcome-notice .teleport-status-subtitle {margin-top:2px;}
+/* Clearly confirm timeout changes; the login form remains visible underneath. */
+#hvsAdminSettingsDialog[hidden]{display:none!important;}
+#hvsAdminSettingsDialog{
+ position:fixed;inset:0;z-index:13000;
+ display:flex;align-items:center;justify-content:center;
+ padding:16px max(18px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));
+ background:rgba(0,0,0,.44);box-sizing:border-box;pointer-events:auto;
+ backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+}
+.hvsAdminSettingsCard{
+ width:min(355px,95%);padding:18px 20px;box-sizing:border-box;text-align:center;
+ border-radius:20px;border:1px solid rgba(255,255,255,.24);
+ background:linear-gradient(145deg,rgba(66,75,80,.97),rgba(24,28,31,.98));
+ color:white;box-shadow:0 14px 45px rgba(0,0,0,.35);
+ font-family:'HomeView Myriad',Arial,sans-serif;
+}
+#hvsAdminSettingsTitle{font-weight:700;font-size:17px;letter-spacing:.06em;}
+#hvsAdminSettingsBody{font-size:13px;font-weight:300;line-height:1.45;margin:9px 0 14px;}
+#hvsAdminSettingsOk{min-width:125px;min-height:38px;padding:8px 16px;}
+@media (orientation:landscape) and (max-height:440px){
+ .hvsAdminSettingsCard{padding:12px 16px;}
+ #hvsAdminSettingsTitle{font-size:14px;}
+ #hvsAdminSettingsBody{font-size:12px;margin:6px 0 10px;}
+}
+/* Floor transition sequence: the existing teleport stage, targets and DOM
+   are untouched. Animate the *existing* layout controls after the plan fades. */
+#teleportOuterBox #upstairsLayoutOpen{
+ translate:0 12px;
+ transition: opacity .68s ease,translate .78s cubic-bezier(.22,1,.36,1),visibility 0s linear .68s,background .2s ease;
+}
+#teleportOuterBox:not(.hvs-layout-intro) #upstairsLayoutOpen{
+ opacity:0!important;pointer-events:none!important;
+}
+#teleportOuterBox.hvs-layout-intro #teleportMapStage[data-floor="first"] #upstairsLayoutOpen,
+#teleportOuterBox.hvs-layout-intro:has(#teleportMapStage[data-floor="first"]) #teleportMobileRail #upstairsLayoutOpen{
+ opacity:1!important;translate:0 0;visibility:visible;pointer-events:auto;
+}
+#teleportOuterBox:has(#teleportMapStage[data-floor="first"]) #teleportMobileLayoutExplainer{
+ opacity:0;translate:0 12px;
+ transition:opacity .7s ease,translate .8s cubic-bezier(.22,1,.36,1);
+}
+#teleportOuterBox.hvs-layout-intro:has(#teleportMapStage[data-floor="first"]) #teleportMobileLayoutExplainer{
+ opacity:1;translate:0 0;
+}
+</style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <div id="introOverlay">
@@ -4393,6 +4445,15 @@ html.hvs-ios-viewport-stable #homeViewUI {
 </div>
 
 <div id="hvsBudgetToast" role="alert" aria-live="assertive"></div>
+<!-- ADMIN SETTINGS CONFIRMATION: remains on-page; no navigation or Unreal commands. -->
+<div id="hvsAdminSettingsDialog" hidden role="dialog" aria-modal="true" aria-labelledby="hvsAdminSettingsTitle" aria-describedby="hvsAdminSettingsBody">
+  <div class="hvsAdminSettingsCard">
+    <div id="hvsAdminSettingsTitle">SETTINGS APPLIED</div>
+    <p id="hvsAdminSettingsBody"></p>
+    <button id="hvsAdminSettingsOk" type="button" class="hvsActionButton primary">OK</button>
+  </div>
+</div>
+
 
 <!-- Upstairs lounge announcement. Kept outside #homeViewUI so existing
      windows can be temporarily hidden, then restored, without closing. -->
@@ -4612,6 +4673,7 @@ function showHomeViewAnimatedStatus(title, subtitle = '') {
     teleportStatusSubtitle.textContent = subtitle;
     teleportStatusOverlay.hidden = false;
     teleportStatusOverlay.classList.remove('is-entering', 'is-leaving');
+    teleportStatusOverlay.classList.toggle('hvs-welcome-notice', /^Welcome back\b/i.test(title));
     // Force animation restart when the user toggles again before fade-out.
     void teleportStatusOverlay.offsetWidth;
     teleportStatusOverlay.classList.add('is-entering');
@@ -5920,6 +5982,7 @@ function openTeleportMenu() {
 
     hideJumpTargets('ground');
     hideJumpTargets('first');
+    document.getElementById('teleportOuterBox').classList.remove('hvs-layout-intro');
 
     setActiveTeleportPlan(currentTeleportFloor);
     setActiveFloorButton(currentTeleportFloor);
@@ -5932,6 +5995,12 @@ function openTeleportMenu() {
 
         animateTeleportTitle(teleportFloorTitles[currentTeleportFloor], { immediate: true });
         showJumpTargets(currentTeleportFloor);
+        // Fade/slide the upstairs explanation and layout button in AFTER the
+        // plan and target entrance has started; no extra panel measurements.
+        setTimeout(()=>{
+          if(thisOpenId!==teleportFloorTransitionId || !body.classList.contains('teleport-mode'))return;
+          document.getElementById('teleportOuterBox').classList.toggle('hvs-layout-intro',currentTeleportFloor==='first');
+        },450);
 
         const inDuration = getTargetSequenceDuration(currentTeleportFloor);
 
@@ -5949,6 +6018,7 @@ function openTeleportMenu() {
 function closeTeleportMenu() {
     requestMapLocationTracking(false); // {"location":"stop"}, immediately on Exit.
     closeUpstairsLayoutDialog();
+    document.getElementById('teleportOuterBox').classList.remove('hvs-layout-intro');
     teleportFloorTransitionId += 1;
     const transitionId = teleportFloorTransitionId;
 
@@ -6039,7 +6109,7 @@ function getButtonsForFloor(floor) {
 function getTargetSequenceDuration(floor) {
     const count = jumpTargetData[floor]?.length || 0;
     if (count === 0) return 0;
-    return 420 + ((count - 1) * 80);
+    return 600 + ((count - 1) * 118);
 }
 
 function setActiveFloorButton(floor) {
@@ -6118,7 +6188,7 @@ function buildJumpTargets() {
             button.setAttribute('aria-label', target.label);
             button.style.left = `${target.x}%`;
             button.style.top = `${target.y}%`;
-            button.style.setProperty('--jump-delay', `${index * 80}ms`);
+            button.style.setProperty('--jump-delay', `${index * 118}ms`);
 
             const icon = document.createElement('img');
             icon.src = '01 TELEPORT.png';
@@ -6139,28 +6209,33 @@ async function setTeleportFloor(floor) {
     teleportFloorTransitionId += 1;
     const transitionId = teleportFloorTransitionId;
     const previousFloor = currentTeleportFloor;
+    const outer=document.getElementById('teleportOuterBox');
+    outer.classList.remove('hvs-layout-intro');
 
-    teleportFloorButtons.forEach((button) => {
-        button.disabled = true;
-    });
-
+    teleportFloorButtons.forEach(button => {button.disabled=true;});
     hideJumpTargets(previousFloor);
 
-    const outDuration = getTargetSequenceDuration(previousFloor);
-
-    await wait(Math.max(90, outDuration * 0.22));
-
-    if (transitionId !== teleportFloorTransitionId) return;
+    // Exit markers first, then crossfade the plan more slowly. Each async
+    // stage checks transitionId so a closed map cannot be resurrected.
+    await wait(330);
+    if (transitionId !== teleportFloorTransitionId || !body.classList.contains('teleport-mode')) return;
 
     currentTeleportFloor = floor;
     setActiveTeleportPlan(floor);
     setActiveFloorButton(floor);
     animateTeleportTitle(teleportFloorTitles[floor]);
+
+    await wait(300); // Give the plan crossfade a head start before its targets.
+    if (transitionId !== teleportFloorTransitionId || !body.classList.contains('teleport-mode')) return;
     showJumpTargets(floor);
 
-    const inDuration = getTargetSequenceDuration(floor);
+    if(floor==='first')setTimeout(()=>{
+      if(transitionId !== teleportFloorTransitionId || !body.classList.contains('teleport-mode'))return;
+      outer.classList.add('hvs-layout-intro');
+    },320);
 
-    await wait(Math.max(outDuration, inDuration) + 120);
+    const inDuration = getTargetSequenceDuration(floor);
+    await wait(Math.max(900,inDuration) + 180);
 
     if (transitionId !== teleportFloorTransitionId) return;
 
@@ -7439,6 +7514,31 @@ window.homeViewClearConnectionNotice=()=>{
 document.getElementById('hvsSessionRecover')?.addEventListener('click',()=>window.homeViewTryReconnect?.(true));
 document.getElementById('hvsSessionRelaunch')?.addEventListener('click',()=>window.location.reload());
 
+// Marie gets an unmistakable confirmation popup after changing session
+// timeouts. It is scoped to the admin controls and does NOT send to Unreal.
+const hvsAdminSettingsDialog=document.getElementById('hvsAdminSettingsDialog');
+const hvsAdminSettingsOk=document.getElementById('hvsAdminSettingsOk');
+function hvsShowAdminSettingsApplied(minutes,seconds,restored=false){
+  document.getElementById('hvsAdminSettingsTitle').textContent=restored?'DEFAULT TIMEOUT RESTORED':'TIMEOUT SETTINGS APPLIED';
+  document.getElementById('hvsAdminSettingsBody').textContent=
+    `Your demo now waits ${minutes} ${minutes===1?'minute':'minutes'} of inactivity, then gives a ${seconds}-second warning. These settings apply to this session only.`;
+  hvsAdminSettingsDialog.hidden=false;
+  hvsAdminSettingsOk.focus({preventScroll:true});
+}
+function hvsHideAdminSettingsApplied(){
+  hvsAdminSettingsDialog.hidden=true;
+  if(document.body.classList.contains('login-mode')){
+    document.getElementById('hvsSaveDemoTimeout')?.focus({preventScroll:true});
+  }
+}
+hvsAdminSettingsOk?.addEventListener('click',hvsHideAdminSettingsApplied);
+hvsAdminSettingsDialog?.addEventListener('click',event=>{
+  if(event.target===hvsAdminSettingsDialog)hvsHideAdminSettingsApplied();
+});
+hvsAdminSettingsDialog?.addEventListener('keydown',event=>{
+  if(event.key==='Escape') {event.preventDefault();event.stopPropagation();hvsHideAdminSettingsApplied();}
+});
+
 // HOME VIEW 2026 — PRESENTATION SETTINGS / DRAGGABLE COST / HOW-TO SCALE
 // Search for: HVS_MARIE_DEMO_CONTROLS
 window.homeViewSyncMarieDemoFields=function hvsSyncMarieDemoFields(){
@@ -7463,11 +7563,16 @@ function hvsApplyDemoTimeout(minutes,seconds){
     return true;
 }
 hvsById('hvsSaveDemoTimeout')?.addEventListener('click',()=>{
-    hvsApplyDemoTimeout(Number(hvsById('hvsIdleMinutesInput').value),Number(hvsById('hvsCountdownSecondsInput').value));
+    const minutes=Number(hvsById('hvsIdleMinutesInput').value);
+    const seconds=Number(hvsById('hvsCountdownSecondsInput').value);
+    if(hvsApplyDemoTimeout(minutes,seconds))hvsShowAdminSettingsApplied(minutes,seconds);
 });
 hvsById('hvsResetDemoTimeout')?.addEventListener('click',()=>{
     if(!hvsIsMarie())return;
-    hvsApplyDemoTimeout(5,15);hvsSyncMarieDemoFields();
+    if(hvsApplyDemoTimeout(5,15)){
+      hvsSyncMarieDemoFields();
+      hvsShowAdminSettingsApplied(5,15,true);
+    }
 });
 hvsById('hvsMarieEditDefaults')?.addEventListener('click',()=>{
     if(!hvsIsMarie())return;
@@ -7787,6 +7892,14 @@ function startViewportResolutionSync() {
       seenVideos.add(video);
       hvsRegisterVideoForRecovery(video);
       video.addEventListener('loadedmetadata',()=>queueViewportResolutionSync('video ready',250,true));
+      video.addEventListener('playing',()=>{
+        if(!levelReady)return;
+        // Safari often reports its final decoded aspect AFTER Unreal level load.
+        // A single check at the first playing frame is safer than a resize loop.
+        setTimeout(()=>{
+          if(hvsStreamAspectMismatched())sendViewportResolutionToUnreal('initial playing video aspect',true);
+        },480);
+      },{once:true});
     }
   }
   const clearRetries = () => {viewportRetryTimers.forEach(clearTimeout); viewportRetryTimers=[];};
@@ -8136,6 +8249,13 @@ function receiveUnrealResponse(response) {
       window.homeViewOnLevelReady?.();
       [100, 600, 1600].forEach(ms =>
         setTimeout(() => sendViewportResolutionToUnreal('Home View level ready', true), ms));
+      // On initial mobile connection the Unreal video may still be 16:9 even
+      // though the phone's stage is much wider. Rotation fixed this before;
+      // perform the same aspect verification at startup with BOUNDED retries.
+      [2700, 4600].forEach(ms=>setTimeout(()=>{
+        if(hvsStreamAspectMismatched())
+          sendViewportResolutionToUnreal('initial phone aspect correction',true);
+      },ms));
     }
   }
   if (typeof response === 'string' && response.startsWith('CreateScreenshot')) {
