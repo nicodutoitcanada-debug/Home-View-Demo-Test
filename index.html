@@ -5,6 +5,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#000000" />
 <title>Home View Demo</title>
+<!-- HVS 2026-10-21: stable layout viewport, Safari input zoom fix, single menu fit -->
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="LOGO.png" />
 <style>
@@ -1754,7 +1755,7 @@ body.profile-mode #profileMenuWrapper {
 
 /* Keep the streamed video as the full-screen, interactive background. */
 #video-container { position:fixed; inset:0; width:100%; height:100%; z-index:1; overflow:hidden; }
-#video-container > * { width:100%; height:100%; }
+#video-container > * { position:absolute!important; inset:0!important; width:100%!important; height:100%!important; max-width:none!important; max-height:none!important; }
 
 /* PIXEL STREAMING FULL-BLEED FIX
    The Unreal stream may initially use a different aspect ratio than the browser.
@@ -2091,7 +2092,7 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
 .hvsTabs button { border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.7); background:rgba(255,255,255,.06); border-radius:999px; padding:10px; font:700 11px "HomeView Myriad",Arial,sans-serif; letter-spacing:.09em; cursor:pointer; }
 .hvsTabs button.active { color:white; border-color:rgba(251,108,50,.65); background:rgba(201,59,7,.4); }
 .hvsField { display:block; font-size:10px; font-weight:700; letter-spacing:.08em; margin:10px 0 5px; color:rgba(255,255,255,.77); }
-.hvsTextInput { width:100%; min-width:0; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.23); color:white; padding:11px 12px; font:400 14px "HomeView Myriad",Arial,sans-serif; outline:none; }
+.hvsTextInput { width:100%; min-width:0; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.23); color:white; padding:11px 12px; font:400 16px "HomeView Myriad",Arial,sans-serif; outline:none; }
 .hvsTextInput:focus { border-color:rgba(255,137,76,.75); }
 .hvsFormActions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
 .hvsFormActions>* { flex:1; }
@@ -3210,6 +3211,10 @@ body.hvs-movie-active #screenshotOverlay {
         transition-duration:.01ms !important;
     }
 }
+/* iOS Safari zooms the WHOLE page on focus when a text input is below 16px.
+   Preserve browser pinch-to-zoom and keep every editable text field at 16px. */
+#homeViewUI input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+#homeViewUI select, #homeViewUI textarea { font-size:16px!important; }
 </style>
 
 <style>
@@ -3538,10 +3543,10 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
   line-height:1;
   text-shadow:0 2px 5px rgba(0,0,0,.35) !important;
 }
-/* One display-fit choice: protect Unreal joystick on touch devices; avoid
-   competing per-breakpoint overrides to object-fit. The resolution sync below
-   asks Unreal to match this viewport, eliminating the need for letterboxing. */
-@media (pointer:coarse) { :root { --hvs-stream-video-fit:contain; } }
+/* Video fills the entire stage on all devices. The single resolution sync
+   maintains aspect ratio; a temporary stale square stream cannot letterbox
+   the whole touch viewport during orientation changes. */
+:root { --hvs-stream-video-fit:cover; }
 
 </style>
 <style>
@@ -3619,9 +3624,8 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
  #homeViewUI #teleportMenuWrapper,
  #homeViewUI #kitchenMenuWrapper,
  #homeViewUI #kitchenFinishMenuWrapper{
-   scale:var(--hvs-phone-fit-scale,.7);
    right:clamp(58px,18vw,82px)!important;
-   top:calc(50% - var(--hvs-phone-centering-offset,0px))!important;
+   top:50%!important;
  }
  #homeViewUI #calculatorMenuWrapper{scale:var(--hvs-phone-fit-scale,.72);transform-origin:left center;top:calc(50% - var(--hvs-phone-centering-offset,0px))!important}
  #homeViewUI #loginMenuWrapper{scale:var(--hvs-phone-fit-scale,.78);transform-origin:center center;top:calc(50% - var(--hvs-phone-centering-offset,0px))!important}
@@ -3637,8 +3641,7 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
  #homeViewUI #profileMenuWrapper,
  #homeViewUI #kitchenMenuWrapper,
  #homeViewUI #kitchenFinishMenuWrapper{
-   scale:var(--hvs-phone-fit-scale,.83);
-   top:calc(50% - var(--hvs-phone-centering-offset,0px))!important;
+   top:50%!important;
  }
  #homeViewUI #calculatorMenuWrapper{scale:var(--hvs-phone-fit-scale,.85);top:calc(50% - var(--hvs-phone-centering-offset,0px))!important}
  #homeViewUI #loginMenuWrapper{scale:var(--hvs-phone-fit-scale,.85);top:calc(50% - var(--hvs-phone-centering-offset,0px))!important}
@@ -7632,107 +7635,119 @@ function sendUnreal(payload) {
 window.homeViewSend = sendUnreal;
 
 // ============================================================================
-// PIXEL STREAMING RESOLUTION — one debounced viewport source.
-// Retains the proven LUX {console:true,Command:"r.SetRes WxHw"} protocol.
-// A settled resize causes ONE resolution request; a small, bounded retry
-// handles iOS orientation settling. Never alters screenshot/share sessions.
+// PIXEL STREAMING RESOLUTION — STABLE LAYOUT VIEWPORT (LUX-inspired).
+// Safari's *visual* viewport shrinks when the keyboard appears and can be
+// momentarily square during rotation. It must not resize the game. Use the
+// fixed video stage and respond only to a genuine layout/orientation change.
+// Never react to the video track's own resize (that is a consequence).
 // ============================================================================
 let unrealIsReadyForResolution = false;
 let lastSentViewportResolution = '';
 let viewportSyncTimer = null;
 let viewportRetryTimers = [];
 function getStreamingViewportResolution() {
-  const rect=document.getElementById('video-container')?.getBoundingClientRect();
-  const cssWidth = rect?.width>0 ? rect.width : window.innerWidth;
-  const cssHeight = rect?.height>0 ? rect.height : window.innerHeight;
-  const ratio = window.devicePixelRatio || 1;
-  let width=Math.max(1,Math.round(cssWidth*ratio));
-  let height=Math.max(1,Math.round(cssHeight*ratio));
+  const stage = document.getElementById('video-container');
+  // clientWidth/clientHeight are untransformed CSS layout dimensions.
+  const cssWidth = stage?.clientWidth || window.innerWidth;
+  const cssHeight = stage?.clientHeight || window.innerHeight;
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  let width = Math.round(cssWidth * dpr);
+  let height = Math.round(cssHeight * dpr);
+  // Keep the existing mobile bandwidth cap WITHOUT changing aspect ratio.
   if (window.matchMedia('(pointer:coarse)').matches) {
-    const factor=Math.min(1,1920/Math.max(width,height));
-    width=Math.max(1,Math.round(width*factor));
-    height=Math.max(1,Math.round(height*factor));
+    const factor = Math.min(1, 1920 / Math.max(width, height));
+    width = Math.round(width * factor);
+    height = Math.round(height * factor);
   }
-  return {width,height};
+  return {width:Math.max(1,width), height:Math.max(1,height)};
 }
 function hvsStreamAspectMismatched() {
-  const video=document.querySelector('#video-container video');
-  if(!video?.videoWidth || !video?.videoHeight) return true;
-  const rect=document.getElementById('video-container')?.getBoundingClientRect();
-  if(!rect?.width || !rect?.height) return false;
-  return Math.abs(video.videoWidth/video.videoHeight-rect.width/rect.height) > .025;
+  const video = document.querySelector('#video-container video');
+  const stage = document.getElementById('video-container');
+  if (!video?.videoWidth || !video?.videoHeight) return true;
+  if (!stage?.clientWidth || !stage?.clientHeight) return false;
+  return Math.abs(video.videoWidth/video.videoHeight - stage.clientWidth/stage.clientHeight) > .025;
 }
-function sendViewportResolutionToUnreal(reason='viewport',force=false) {
+function sendViewportResolutionToUnreal(reason='viewport', force=false) {
   if (screenshotRequestInFlight || screenshotBlob || document.hidden ||
       !unrealIsReadyForResolution || !application) return;
-  const {width,height}=getStreamingViewportResolution();
-  const resolution=`${width}x${height}`;
-  if (!force && resolution===lastSentViewportResolution) return;
-  const command=`r.SetRes ${resolution}w`;
-  if(sendUnreal({console:true,Command:command})) {
-    lastSentViewportResolution=resolution;
-    console.info(`[STREAM] ${reason} → ${command}`);
+  const {width,height} = getStreamingViewportResolution();
+  const key = `${width}x${height}`;
+  if (!force && key === lastSentViewportResolution) return;
+  const command = `r.SetRes ${key}w`;
+  if (sendUnreal({console:true, Command:command})) {
+    lastSentViewportResolution = key;
+    console.info(`[STREAM] ${reason}: ${command}`);
   }
 }
-function queueViewportResolutionSync(reason='resize',delay=220,force=false) {
+function queueViewportResolutionSync(reason='resize', delay=250, force=false) {
   clearTimeout(viewportSyncTimer);
-  viewportSyncTimer=setTimeout(()=>{
-    viewportSyncTimer=null;
+  viewportSyncTimer = setTimeout(() => {
+    viewportSyncTimer = null;
     sendViewportResolutionToUnreal(reason,force);
   },delay);
 }
 function startViewportResolutionSync() {
-  const container=document.getElementById('video-container');
-  if(!container) return;
-  const knownVideos=new WeakSet();
+  const stage = document.getElementById('video-container');
+  if (!stage) return;
+  const seenVideos = new WeakSet();
   function prepareVideos() {
-    for(const video of container.querySelectorAll('video')) {
-      if(knownVideos.has(video)) continue;
-      knownVideos.add(video);
+    for(const video of stage.querySelectorAll('video')) {
+      if (seenVideos.has(video)) continue;
+      seenVideos.add(video);
       hvsRegisterVideoForRecovery(video);
-      video.addEventListener('loadedmetadata',()=>queueViewportResolutionSync('video ready',240,true));
-      // Do not listen to video's own resize: that's the RESULT of a new
-      // Unreal resolution, not another reason to keep sending commands.
+      video.addEventListener('loadedmetadata',()=>queueViewportResolutionSync('video ready',250,true));
     }
   }
-  function clearRetries() {
-    viewportRetryTimers.forEach(clearTimeout);
-    viewportRetryTimers=[];
-  }
-  function settledViewport(reason) {
+  const clearRetries = () => {viewportRetryTimers.forEach(clearTimeout); viewportRetryTimers=[];};
+  let lastLayoutSize='';
+  function update(reason='resize',force=false) {
     prepareVideos();
+    const size=`${stage.clientWidth}x${stage.clientHeight}`;
+    if(!force && size === lastLayoutSize) return;
+    lastLayoutSize=size;
     clearRetries();
-    queueViewportResolutionSync(reason,240,false);
-    // Two bounded checks rather than repeated forced calls on every frame.
-    [900,2400].forEach(ms=>viewportRetryTimers.push(setTimeout(()=>{
-      if(!document.hidden && hvsStreamAspectMismatched())
-        sendViewportResolutionToUnreal(reason+' aspect check',true);
+    queueViewportResolutionSync(reason,280,force);
+  }
+  function recheckOrientation() {
+    // Layout and Unreal can settle at different times after rotating iOS.
+    // Send a bounded final request if the decoded aspect is still wrong.
+    clearRetries();
+    [450,1100,2400].forEach((ms,i)=>viewportRetryTimers.push(setTimeout(()=>{
+      const now = `${stage.clientWidth}x${stage.clientHeight}`;
+      const changed = now!==lastLayoutSize;
+      if(changed){
+        lastLayoutSize=now;
+        queueViewportResolutionSync('orientation layout settled',180,true);
+      }
+      if(i===2 && hvsStreamAspectMismatched())
+        sendViewportResolutionToUnreal('orientation aspect correction',true);
     },ms)));
   }
-  window.homeViewResyncStreamAspect=(reason='external aspect change')=>settledViewport(reason);
-  let previousSize='';
-  function onViewportChange(reason) {
-    const r=container.getBoundingClientRect();
-    const key=Math.round(r.width)+'x'+Math.round(r.height);
-    if(key===previousSize) return;
-    previousSize=key;
-    settledViewport(reason);
-  }
-  window.addEventListener('resize',()=>onViewportChange('window resize'),{passive:true});
-  window.addEventListener('orientationchange',()=>{
-    setTimeout(()=>onViewportChange('orientation'),250);
-    setTimeout(()=>onViewportChange('orientation settled'),800);
+  window.homeViewResyncStreamAspect=(reason='external aspect change')=>{
+    update(reason,true);
+    recheckOrientation();
+  };
+  window.addEventListener('resize',()=>{
+    // Ignore the virtual keyboard, which changes only visualViewport and may
+    // cause misleading height-only changes while a login input is focused.
+    if(document.activeElement?.matches?.('input:not([type=range]), textarea, select')) return;
+    update('window resize');
   },{passive:true});
-  window.visualViewport?.addEventListener('resize',()=>onViewportChange('visual viewport'),{passive:true});
+  window.addEventListener('orientationchange',()=>{
+    update('orientation',true);
+    recheckOrientation();
+  },{passive:true});
   if(typeof ResizeObserver!=='undefined')
-    new ResizeObserver(()=>onViewportChange('container resize')).observe(container);
-  document.addEventListener('visibilitychange',()=>{
-    if(!document.hidden) settledViewport('foregrounded');
-  });
-  window.addEventListener('pageshow',()=>settledViewport('page shown'),{passive:true});
-  new MutationObserver(prepareVideos).observe(container,{childList:true,subtree:true});
+    new ResizeObserver(()=>{
+      if (document.activeElement?.matches?.('input:not([type=range]), textarea, select')) return;
+      update('stage resized');
+    }).observe(stage);
+  window.addEventListener('pageshow',()=>{update('page shown',true);recheckOrientation();},{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)update('foregrounded',true);});
+  new MutationObserver(prepareVideos).observe(stage,{childList:true,subtree:true});
   prepareVideos();
-  onViewportChange('initial size');
+  update('initial viewport',true);
 }
 
 // ============================================================================
@@ -7910,10 +7925,9 @@ function hvsFitPhoneMenus(){
   const portrait=window.matchMedia('(orientation:portrait) and (max-width:700px)').matches;
   const landscape=window.matchMedia('(orientation:landscape) and (max-height:580px) and (max-width:1020px)').matches;
   if(!portrait&&!landscape)return;
-  const vw=window.visualViewport?.width || window.innerWidth;
-  const vh=window.visualViewport?.height || window.innerHeight;
-  const selectors=['cameraMenuWrapper','buildingMenuWrapper','confirmMenuWrapper','profileMenuWrapper',
-    'teleportMenuWrapper','kitchenMenuWrapper','kitchenFinishMenuWrapper','calculatorMenuWrapper','loginMenuWrapper'];
+  const vw=window.innerWidth;
+  const vh=window.innerHeight;
+  const selectors=['calculatorMenuWrapper','loginMenuWrapper'];
   for(const id of selectors){
     const element=document.getElementById(id);
     if(!element)continue;
@@ -7943,7 +7957,6 @@ window.addEventListener('resize',hvsSchedulePhoneMenuFit,{passive:true});
 window.addEventListener('orientationchange',()=>{
   hvsSchedulePhoneMenuFit();setTimeout(hvsSchedulePhoneMenuFit,480);
 },{passive:true});
-window.visualViewport?.addEventListener('resize',hvsSchedulePhoneMenuFit,{passive:true});
 document.addEventListener('homeview:menus-reset',hvsSchedulePhoneMenuFit);
 hvsFitPhoneMenus();
 
@@ -8568,9 +8581,9 @@ if (dev_mode) {
     if (!mobile) return;
     // Derive the panel from its CONTENT: a 960:2048 plan and a compact rail.
     // No percentage-of-window sidebar, so ultrawide windows cannot stretch it.
-    const scale = Math.max(.6, Number(document.getElementById('scaleSlider')?.value) || 1);
-    const cssWidth = window.visualViewport?.width || window.innerWidth;
-    const cssHeight = window.visualViewport?.height || window.innerHeight;
+    const scale = Math.max(.25, Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale')) || 1);
+    const cssWidth = window.innerWidth;
+    const cssHeight = window.innerHeight;
     const usableHeight = Math.max(200, cssHeight - 22);
     const reserveForDock = cssWidth < 950 ? 125 : 145;
     const availableWidth = Math.max(270, (cssWidth-reserveForDock)/scale);
@@ -8591,6 +8604,7 @@ if (dev_mode) {
   window.addEventListener('orientationchange',schedule,{passive:true});
   window.visualViewport?.addEventListener('resize',schedule,{passive:true});
   document.getElementById('scaleSlider')?.addEventListener('input',schedule);
+  document.addEventListener('homeview:menu-scale-fitted',schedule);
   query.addEventListener?.('change',schedule);
   schedule();
 })();
@@ -8611,15 +8625,15 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
 </script>
 
 <script id="hvs-per-menu-viewport-fit">
-/* One source of truth for the RIGHT-HAND scale slider.
-   Each panel remembers its own user-adjusted preferred size; switching from
-   a compact menu to a tall one never inherits the former's excessive scale.
-   A single viewport-fit ceiling prevents clipping. We do not add competing
-   per-breakpoint transform overrides or resize the Unreal video. */
+/* A single right-hand menu scale controller. Store the user's preferred
+   scale PER MENU, but never push a synthetic input event back into the slider:
+   that used to race with native touch dragging and the floor-plan resizer.
+   Use the STABLE layout viewport, so iOS keyboard/visualViewport zoom cannot
+   change menu scale or trigger an Unreal resolution change. */
 (() => {
   const slider=document.getElementById('scaleSlider');
   if(!slider)return;
-  const modePanels=[
+  const panels=[
     ['camera-mode','cameraMenuWrapper'],
     ['building-mode','buildingMenuWrapper'],
     ['confirm-mode','confirmMenuWrapper'],
@@ -8630,64 +8644,49 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
   ];
   const preferences=new Map([['uiWrapper', Number(slider.value)||1]]);
   let activeId=null;
-  let task=0;
-  function currentPanelId(){
-    for(const [mode,id] of modePanels)if(document.body.classList.contains(mode))return id;
+  let pending=0;
+  function panelId() {
+    for(const [mode,id] of panels)
+      if(document.body.classList.contains(mode)) return id;
     return 'uiWrapper';
   }
-  function viewport(){
-    return {
-      width:window.visualViewport?.width||window.innerWidth,
-      height:window.visualViewport?.height||window.innerHeight
-    };
-  }
-  function fitCurrentPanel(){
-    task=0;
-    const id=currentPanelId();
-    const el=document.getElementById(id);
-    if(!el)return;
-    const changed=id!==activeId;
+  function fit(){
+    pending=0;
+    const id=panelId();
+    const panel=document.getElementById(id);
+    if(!panel)return;
+    const switched=id!==activeId;
     activeId=id;
     const preferred=preferences.get(id)??1;
-    const vw=viewport().width,vh=viewport().height;
-    const computed=getComputedStyle(el);
-    // Safari supports the independent CSS scale property used by our phone
-    // layouts; account for it rather than fighting their existing scale rules.
-    const extraScale=Math.max(.1,parseFloat(computed.scale)||1);
-    const w=el.offsetWidth||1;
-    const h=el.offsetHeight||1;
-    const right=parseFloat(computed.right)||0;
-    const leftReserve=id==='uiWrapper'?14:Math.min(20,vw*.035);
-    const verticalRoom=Math.max(80,vh-Math.max(22,Math.min(42,vh*.065)));
-    const horizontalRoom=Math.max(80,vw-right-leftReserve);
-    // Teleport Map on phone already fits its floor-plan/rail content by
-    // viewport dimensions; this is only the final no-clipping safety limit.
-    const ceiling=Math.max(.3,Math.min(2.6,
-      verticalRoom/(h*extraScale),horizontalRoom/(w*extraScale)));
-    const effective=Math.max(.3,Math.min(preferred,ceiling));
-    const inputValue=Math.min(Number(slider.max)||2.6,
-      Math.max(Number(slider.min)||.6,effective));
-    if(changed||Math.abs(Number(slider.value)-inputValue)>.009){
-      slider.value=inputValue.toFixed(2);
-      // The floor-plan size calculator and help menu already listen to
-      // this input event. This synthetic event must not save a preference.
-      slider.dispatchEvent(new Event('input',{bubbles:true}));
-    }
+    if(switched)slider.value=String(preferred); // programmatic assignment, no input event
+    const css=getComputedStyle(panel);
+    const vw=window.innerWidth, vh=window.innerHeight;
+    const naturalWidth=panel.offsetWidth||1;
+    const naturalHeight=panel.offsetHeight||1;
+    // Phone uses the same scaler as desktop; NO second phone CSS `scale`
+    // multiplied into these right-side menus.
+    const leftMargin=id==='uiWrapper'?14:Math.min(20,vw*.035);
+    const rightMargin=Math.max(0,Number.parseFloat(css.right)||0);
+    const verticalRoom=Math.max(80,vh-Math.max(18,Math.min(42,vh*.065)));
+    const horizontalRoom=Math.max(80,vw-rightMargin-leftMargin);
+    const ceiling=Math.max(.25,Math.min(2.6,
+      verticalRoom/naturalHeight,horizontalRoom/naturalWidth));
+    const effective=Math.max(.25,Math.min(preferred,ceiling));
     document.documentElement.style.setProperty('--ui-scale',effective.toFixed(4));
+    // Floor plan stage recalculates only after actual changes, not every
+    // internal slider adjustment. It reads the effective (capped) scale.
+    document.dispatchEvent(new Event('homeview:menu-scale-fitted'));
   }
-  function schedule(){if(task)cancelAnimationFrame(task);task=requestAnimationFrame(fitCurrentPanel);}
+  function schedule(){if(pending)cancelAnimationFrame(pending);pending=requestAnimationFrame(fit);}
   slider.addEventListener('input',event=>{
-    if(!event.isTrusted)return;
-    preferences.set(currentPanelId(),Number(slider.value)||1);
+    if(event.isTrusted)preferences.set(panelId(),Number(slider.value)||1);
     schedule();
   });
   new MutationObserver(mutations=>{
     if(mutations.some(m=>m.attributeName==='class'))schedule();
   }).observe(document.body,{attributes:true,attributeFilter:['class']});
-  window.addEventListener('resize',()=>{schedule();setTimeout(schedule,160);},{passive:true});
-  window.visualViewport?.addEventListener('resize',()=>{schedule();setTimeout(schedule,160);},{passive:true});
-  window.addEventListener('orientationchange',()=>setTimeout(schedule,210),{passive:true});
-  // SDK/phone CSS can finish sizing just after the first frame.
+  window.addEventListener('resize',schedule,{passive:true});
+  window.addEventListener('orientationchange',()=>{schedule();setTimeout(schedule,450);},{passive:true});
   schedule();
   window.homeViewMenuFitStatus=()=>({panel:activeId,
     preferred:preferences.get(activeId)??1,
