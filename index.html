@@ -3988,6 +3988,56 @@ html.hvs-ios-viewport-stable #homeViewUI {
   }
 }
 </style>
+
+<style id="hvs-client-demo-session-and-mobile-picker-polish">
+/* Session ended: use the same muted media as the established loading screen.
+   The video stays unloaded/paused until the session overlay actually opens. */
+#hvsSessionScreen {isolation:isolate;background:#050505;overflow:hidden;}
+#hvsSessionBgVideo {
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;z-index:0;pointer-events:none;
+}
+#hvsSessionScreen::before {
+  content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:rgba(0,0,0,.49);
+}
+#hvsSessionScreen > .hvsSystemCard {
+  position:relative;z-index:2;
+  background:linear-gradient(168deg,rgba(30,36,40,.75),rgba(8,11,14,.82) 100%);
+}
+/* logo_movie contains a wordmark and a tagline, unlike the old icon-only logo. */
+#hvsSessionScreen .hvsSystemLogo {
+  width:min(180px,45vw);height:auto;max-height:min(120px,25dvh);
+  object-fit:contain;margin:0 auto 14px;
+}
+@media (orientation:landscape) and (max-height:440px) {
+  #hvsSessionScreen .hvsSystemCard {padding-top:15px;padding-bottom:15px;}
+  #hvsSessionScreen .hvsSystemLogo {width:min(170px,35vw);max-height:24dvh;margin-bottom:7px;}
+  #hvsSessionScreen .hvsSystemCard h2 {margin-top:5px;margin-bottom:9px;}
+  #hvsSessionScreen .hvsSystemCard p {margin-bottom:12px;}
+}
+/* Fix the compact one-column material picker header: three explicit slots.
+   Text alone becomes a little smaller; prices and thumbnail sizes stay as is. */
+@media (pointer:coarse) and (max-width:1024px) {
+  #homeViewUI #kitchenFinishTop {
+    grid-template-columns:40px minmax(0,1fr) 32px;
+    gap:4px;padding:3px 5px 8px 2px;
+  }
+  #homeViewUI #kitchenFinishTop .hvsCostLogoSlot {
+    width:40px;flex:0 0 40px;height:37px;min-width:0;
+  }
+  #homeViewUI #kitchenFinishTop .hvsCostShortcut {width:40px;height:37px;}
+  #homeViewUI #kitchenFinishTop .hvsCostShortcut img {width:39px;height:36px;}
+  #homeViewUI #kitchenFinishTitle {
+    min-width:0;font-size:11px;line-height:1.06;
+    letter-spacing:.025em;overflow-wrap:normal;
+  }
+  #homeViewUI #kitchenFinishClose {
+    width:30px;height:34px;justify-self:end;margin-right:1px;
+  }
+  #homeViewUI #kitchenFinishClose img {width:24px;height:24px;}
+}
+</style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <div id="introOverlay">
@@ -4087,6 +4137,7 @@ html.hvs-ios-viewport-stable #homeViewUI {
 
 <!-- Separate exit/connection state: intentional end never looks like a crash. -->
 <div id="hvsSessionScreen" hidden role="dialog" aria-modal="true" aria-label="Session status">
+  <video id="hvsSessionBgVideo" src="LOADING_BG.mp4" muted playsinline webkit-playsinline loop preload="none" aria-hidden="true"></video>
   <section class="hvsSystemCard"><img src="logo_movie.png" alt="Home View" class="hvsSystemLogo"><h2 id="hvsSessionTitle">SESSION ENDED</h2><p id="hvsSessionMessage">Your session has ended.</p><div class="hvsSystemActions"><button type="button" id="hvsSessionRecover" class="hvsSystemPrimary" hidden>TRY TO RECONNECT</button><button type="button" id="hvsSessionRelaunch">RELAUNCH</button></div></section>
 </div>
 
@@ -7383,6 +7434,7 @@ let hvsHowToCloseTimer = null;
 const hvsHowToWindow = document.getElementById('hvsHowToWindow');
 const hvsAfkOverlay = document.getElementById('hvsAfkOverlay');
 const hvsSessionScreen = document.getElementById('hvsSessionScreen');
+const hvsSessionBgVideo = document.getElementById('hvsSessionBgVideo');
 
 // The illustration uses a literal DOM clone of the CURRENT main menu, not a
 // manually outdated screenshot. IDs are stripped, all controls are disabled,
@@ -7528,6 +7580,11 @@ window.homeViewDisplaySessionState=(intentional,message)=>{
   if(body) body.textContent=message||(intentional?'Your session has ended.':'The streaming connection was interrupted. You can relaunch the demo.');
   document.body.classList.add('hvs-session-ended');
   hvsSessionScreen.hidden=false;
+  // Muted inline playback is allowed on iOS; load it only when needed.
+  if(hvsSessionBgVideo){
+    try{ hvsSessionBgVideo.currentTime=0; }catch(_){}
+    hvsSessionBgVideo.play().catch(()=>{});
+  }
   const recover=document.getElementById('hvsSessionRecover');
   if(recover)recover.hidden=Boolean(intentional);
   requestAnimationFrame(()=>hvsSessionScreen.classList.add('is-visible'));
@@ -7538,6 +7595,7 @@ window.homeViewClearConnectionNotice=()=>{
   document.body.classList.remove('hvs-session-ended');
   hvsSessionScreen.classList.remove('is-visible');
   hvsSessionScreen.hidden=true;
+  if(hvsSessionBgVideo)hvsSessionBgVideo.pause();
   hvsResetAfkTimer();
 };
 document.getElementById('hvsSessionRecover')?.addEventListener('click',()=>window.homeViewTryReconnect?.(true));
