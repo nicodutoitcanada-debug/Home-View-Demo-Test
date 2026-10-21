@@ -3330,9 +3330,9 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 @supports (width: 1cqw) {
     #teleportMapStage .teleportJumpTarget {
         box-sizing: border-box;
-        width: clamp(24px, 16cqw, 52px);
-        height: clamp(24px, 16cqw, 52px);
-        padding: clamp(3px, 2.8cqw, 10px);
+        width: clamp(28px, 18.5cqw, 58px);
+        height: clamp(28px, 18.5cqw, 58px);
+        padding: clamp(3px, 3cqw, 10px);
         border-width: clamp(1px, .45cqw, 1.5px);
     }
     #teleportMapStage #teleportYouAreHereWrap {
@@ -3748,7 +3748,7 @@ body.hvs-user-scaling #homeViewUI #kitchenFinishMenuWrapper {
    The original desktop positions and all existing slide-in transitions stay intact. */
 @media (max-width: 1280px), (max-height: 720px) {
   :root {
-    --hvs-rail-edge-right: max(env(safe-area-inset-right, 0px), clamp(7px, 1.25vw, 20px));
+    --hvs-rail-edge-right: clamp(7px, .8vw, 13px);
     --hvs-rail-edge-left: max(env(safe-area-inset-left, 0px), clamp(5px, .56vw, 9px));
     --hvs-rail-menu-gap: clamp(8px, 1.1vw, 17px);
     --hvs-rail-cost-gap: clamp(7px, .75vw, 10px);
@@ -3838,7 +3838,7 @@ body:not(.cost-open) .hvsCostLogoSlot > .hvsCostShortcut {display:inline-flex;}
 /* Narrow only Personalize. Existing scale rails, teleport map and video-fit
    fixes remain untouched. A single selector wins across the old breakpoints. */
 #homeViewUI #profileOuterBox {
-  width:240px;
+  width:226px;
   max-width:calc(100vw - 38px);
   box-sizing:border-box;
 }
@@ -3849,7 +3849,7 @@ body:not(.cost-open) .hvsCostLogoSlot > .hvsCostShortcut {display:inline-flex;}
   padding-inline:7px;
 }
 #homeViewUI #profileTopBar .hvsCostLogoSlot {width:48px;}
-#homeViewUI .editOptionButton {min-height:41px;padding:8px 8px;letter-spacing:.085em;}
+#homeViewUI .editOptionButton {min-height:41px;padding:8px 7px;letter-spacing:.065em;}
 /* Floor title stays centred in the sidebar and no longer grazes its edge. */
 #teleportMobileRail #teleportTopBar {padding-left:8px;padding-right:8px;}
 #teleportMobileRail #teleportMapTitle {
@@ -3894,6 +3894,18 @@ body.login-mode.hvs-login-exiting #homeViewUI.is-ready #loginMenuWrapper {
   transition:opacity .7s ease,
              transform .82s cubic-bezier(.22,1,.36,1),
              visibility 0s linear .82s;
+}
+</style>
+<style id="hvs-ios-keyboard-viewport-stability">
+/* iOS can temporarily retain its keyboard-sized layout viewport after blur.
+   The game and overlay must share one stable stage size. We never scale their
+   content: this only restores the original dimensions (full-frame joystick). */
+html.hvs-ios-viewport-stable #video-container,
+html.hvs-ios-viewport-stable #homeViewUI {
+  position:fixed;
+  top:0;left:0;right:auto;bottom:auto;
+  width:var(--hvs-stable-viewport-width) !important;
+  height:var(--hvs-stable-viewport-height) !important;
 }
 </style>
 </head><body>
@@ -7052,7 +7064,8 @@ hvsById('hvsLogoutButton').addEventListener('click',()=>{
     hvsCurrentAccount=null;hvsGuestProfile=hvsEmptyProfile();hvsOverBudget=false;hvsPreviousTotal=null;hvsLastChangedKey=null;
     hvsAuthNotice('Logged out. Log in again to restore your local project.');
     hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();
-    window.homeViewSend?.({layout:'lounge'});
+    // Logging out only changes the local account/UI. Do NOT send layout or
+    // property commands: Unreal may teleport the player on a layout change.
     hvsRenderLogin();
 });
 hvsById('hvsSaveNowButton').addEventListener('click',()=>{hvsPersistProfile();hvsShowBudgetToast('PROGRESS SAVED ON THIS DEVICE');hvsRestoreToUnreal();});
@@ -7518,8 +7531,8 @@ function hvsUpdateHowToScale(){
     const scale=Number(hvsById('scaleSlider').value)||1;
     const reserve=window.innerWidth<680?108:152;
     const availableWidth=Math.max(200,window.innerWidth-reserve);
-    const width=Math.min(1000,Math.max(205,availableWidth/scale));
-    const height=Math.max(125,(window.innerHeight-30)/scale);
+    const width=Math.min(850,Math.max(205,(availableWidth*.78)/scale));
+    const height=Math.max(155,((window.innerHeight-30)*.80)/scale);
     card.style.zoom=String(scale);
     card.style.width=`${width}px`;
     card.style.maxHeight=`${height}px`;
@@ -8723,6 +8736,70 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
     if(changes.some(change=>change.attributeName==='class'))choose();
   }).observe(document.body,{attributes:true,attributeFilter:['class']});
   window.homeViewMenuScaleStatus=()=>({active,desired:preferred.get(active),applied:Number(slider.value)});
+})();
+</script>
+<script id="hvs-ios-keyboard-viewport-stability-script">
+/* Keep the video stage and overlay aligned during/after iOS keyboard focus.
+   Safari sometimes reports the smaller keyboard viewport after form submission,
+   leaving BOTH stream and menus stranded above a black bottom/right strip.
+   One orientation-specific maximum is remembered until a REAL rotation.
+   No periodic layout loops, browser zoom hacks, or menu resizing. */
+(() => {
+  if (!/iPad|iPhone|iPod/.test(navigator.userAgent)) return;
+  const root = document.documentElement;
+  let orientation = window.innerWidth >= window.innerHeight ? 'landscape' : 'portrait';
+  let stableWidth = Math.max(1, window.innerWidth, root.clientWidth);
+  let stableHeight = Math.max(1, window.innerHeight, root.clientHeight);
+  let editing = false;
+  let settleTimer;
+  const editable = element => element?.matches?.('input:not([type="range"]), textarea, select, [contenteditable="true"]');
+  function apply() {
+    root.style.setProperty('--hvs-stable-viewport-width', `${Math.round(stableWidth)}px`);
+    root.style.setProperty('--hvs-stable-viewport-height', `${Math.round(stableHeight)}px`);
+    root.classList.add('hvs-ios-viewport-stable');
+  }
+  function measure(allowOrientationChange=false) {
+    const w = Math.max(1, window.innerWidth, root.clientWidth);
+    const h = Math.max(1, window.innerHeight, root.clientHeight);
+    const candidate = w >= h ? 'landscape' : 'portrait';
+    // The keyboard can make a portrait visual viewport LOOK landscape; only
+    // orientationchange or a non-editable resize may change orientation.
+    if (allowOrientationChange && !editing && candidate !== orientation) {
+      orientation = candidate;
+      stableWidth = w;
+      stableHeight = h;
+    } else if (!editing) {
+      stableWidth = Math.max(stableWidth, w);
+      stableHeight = Math.max(stableHeight, h);
+    }
+    apply();
+  }
+  function settle(allowOrientationChange=false) {
+    clearTimeout(settleTimer);
+    requestAnimationFrame(() => measure(allowOrientationChange));
+    settleTimer = setTimeout(() => measure(allowOrientationChange), 500);
+  }
+  document.addEventListener('focusin', e => {
+    if (editable(e.target)) { editing = true; apply(); }
+  }, true);
+  document.addEventListener('focusout', e => {
+    if (!editable(e.target)) return;
+    // Blur precedes Safari's asynchronous keyboard close; preserve dimensions.
+    editing = false;
+    settle(false);
+    setTimeout(() => measure(false), 1200);
+  }, true);
+  window.addEventListener('resize', () => { if (!editing) settle(true); }, {passive:true});
+  window.addEventListener('orientationchange', () => {
+    clearTimeout(settleTimer);
+    // Wait for the new orientation to have real dimensions rather than a
+    // transient 1:1 viewport during rotation.
+    settleTimer = setTimeout(() => measure(true), 450);
+  }, {passive:true});
+  window.addEventListener('pageshow', () => settle(true), {passive:true});
+  window.homeViewStableViewportStatus = () => ({width:stableWidth,height:stableHeight,orientation,editing,
+    currentWidth:window.innerWidth,currentHeight:window.innerHeight});
+  apply();
 })();
 </script>
 </body></html>
