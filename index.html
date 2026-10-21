@@ -1757,17 +1757,17 @@ body.profile-mode #profileMenuWrapper {
 #video-container { position:fixed; inset:0; width:100%; height:100%; z-index:1; overflow:hidden; }
 #video-container > * { position:absolute!important; inset:0!important; width:100%!important; height:100%!important; max-width:none!important; max-height:none!important; }
 
-/* PIXEL STREAMING FULL-BLEED FIX
-   The Unreal stream may initially use a different aspect ratio than the browser.
-   Fill the viewport without stretching it or showing black side bars. Unreal's
-   resolution is also synchronised below to avoid losing content to cropping. */
+/* PIXEL STREAMING — NEVER CROP THE INTERACTIVE WORLD.
+   Before Unreal's resolution follows an iPhone rotation, the decoded frame can
+   have a different aspect ratio. COVER clipped the virtual joystick offscreen;
+   CONTAIN preserves every interactive pixel until r.SetRes catches up. */
 #video-container video {
   display:block !important;
   width:100% !important;
   height:100% !important;
   max-width:none !important;
   max-height:none !important;
-  object-fit:var(--hvs-stream-video-fit,cover) !important;
+  object-fit:var(--hvs-stream-video-fit,contain) !important;
   object-position:center center !important;
 }
 body { background:#000; touch-action:auto; }
@@ -2634,7 +2634,7 @@ body.kitchen-mode #homeViewUI.is-ready #kitchenMenuWrapper {
 
 #kitchenFinishMenuWrapper {
     position:absolute;right:120px;top:50%;
-    width:min(382px,calc(100vw - 135px));max-height:calc(100dvh - 30px);
+    width:min(348px,calc(100vw - 135px));max-height:calc(100dvh - 30px);
     z-index:21;opacity:0;visibility:hidden;pointer-events:none;
     transform:translate3d(260px,-50%,0) scale(var(--ui-scale));
     transform-origin:right center;
@@ -3543,10 +3543,9 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
   line-height:1;
   text-shadow:0 2px 5px rgba(0,0,0,.35) !important;
 }
-/* Video fills the entire stage on all devices. The single resolution sync
-   maintains aspect ratio; a temporary stale square stream cannot letterbox
-   the whole touch viewport during orientation changes. */
-:root { --hvs-stream-video-fit:cover; }
+/* Keep complete frames and virtual joysticks visible, even before Unreal
+   reports its final rotation/portrait render size. */
+:root { --hvs-stream-video-fit:contain; }
 
 </style>
 <style>
@@ -3717,14 +3716,14 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 #homeViewUI #calculatorMenuWrapper .hvsPanelTop {padding-inline:10px;gap:5px;}
 #homeViewUI #calculatorMenuWrapper .hvsPanelTop .hvsTitle {font-size:12px;}
 /* Keep finish thumbnails compact, with the original price type size. */
-#homeViewUI #kitchenFinishOptions {grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
-#homeViewUI .kitchenFinishThumb {max-width:124px;margin-inline:auto;}
-#homeViewUI .kitchenFinishCard {padding:7px 6px;}
+#homeViewUI #kitchenFinishOptions {grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding-inline:2px;}
+#homeViewUI .kitchenFinishThumb {max-width:120px;margin-inline:auto;}
+#homeViewUI .kitchenFinishCard {padding:7px 4px;}
 /* PERSONALIZE: opening/room verification must not shift the panel.
    Previously translateY(-50%) recentered whenever CHECKING LOCATION was
    replaced with variable-height buttons. Keep one fixed top anchor instead. */
 #homeViewUI #profileMenuWrapper {
-  top:max(10px, calc(50% - 154px)) !important;
+  top:max(16px, calc(50% - 124px)) !important;
   transform-origin:right top;
   transform:translate3d(var(--profile-x),0,0) scale(var(--ui-scale));
 }
@@ -3857,6 +3856,44 @@ body:not(.cost-open) .hvsCostLogoSlot > .hvsCostShortcut {display:inline-flex;}
   box-sizing:border-box;padding:3px 8px 0;
   font-size:clamp(14px,3.1dvh,18px);
   letter-spacing:.06em;
+}
+</style>
+
+<style id="hvs-v2-mobile-interaction-polish">
+/* The range slider alone controls calculator scale. While touching it, avoid
+   the 950ms opening transition fighting every input event. On release the
+   normal entrance/exit animation remains available. */
+body.hvs-cost-user-scaling #homeViewUI.is-ready #calculatorMenuWrapper {
+  transition-property:opacity !important;
+  transition-duration:0s !important;
+  transition-delay:0s !important;
+}
+/* One compact panel width; preserve the two side-by-side admin actions. */
+#homeViewUI #kitchenFinishMenuWrapper {
+  width:min(348px,calc(100vw - 120px));
+}
+#homeViewUI #calculatorMenuWrapper {
+  width:288px;
+  max-width:calc(100vw - 100px);
+  box-sizing:border-box;
+}
+#homeViewUI #calculatorMenuWrapper .hvsCostFooter .hvsActionButton,
+#homeViewUI #calculatorMenuWrapper #costFooterLabel {
+  min-width:0;
+  font-size:10px;
+  line-height:1.15;
+  overflow-wrap:normal;
+}
+/* Keep the LOGIN contents steady while the entire window gently retreats.
+   Changing signed-out form to signed-in admin tools before fade caused an
+   abrupt size jump; UI swap now happens AFTER the window has disappeared. */
+body.login-mode.hvs-login-exiting #homeViewUI.is-ready #loginMenuWrapper {
+  opacity:0;
+  transform:translate3d(-50%,-50%,0) scale(.84);
+  pointer-events:none;
+  transition:opacity .7s ease,
+             transform .82s cubic-bezier(.22,1,.36,1),
+             visibility 0s linear .82s;
 }
 </style>
 </head><body>
@@ -6742,7 +6779,24 @@ function hvsOpenCost(){
     hvsRenderCost();
 }
 function hvsCloseCost(){document.body.classList.remove('cost-open');hvsPriceEditorOpen=false;hvsBudgetEditorOpen=false;hvsById('hvsPriceEditor').classList.remove('is-visible');hvsById('costBudgetEditor').classList.remove('is-visible');}
-function hvsCloseLogin(){document.body.classList.remove('login-mode');const focus=document.activeElement;if(focus instanceof HTMLElement&&focus.closest('#loginMenuWrapper'))focus.blur();}
+function hvsCloseLogin(){
+    document.body.classList.remove('login-mode','hvs-login-exiting');
+    const focus=document.activeElement;
+    if(focus instanceof HTMLElement&&focus.closest('#loginMenuWrapper'))focus.blur();
+}
+function hvsCloseLoginAfterSuccess(title,description){
+    // The form must stay rendered until the fade finishes. Switching to Marie's
+    // long admin form first would change its height and create an exit jump.
+    const focus=document.activeElement;
+    if(focus instanceof HTMLElement&&focus.closest('#loginMenuWrapper'))focus.blur();
+    document.body.classList.add('hvs-login-exiting');
+    setTimeout(()=>{
+        if(!document.body.classList.contains('hvs-login-exiting'))return;
+        hvsCloseLogin();
+        hvsRenderLogin();
+        showHomeViewAnimatedStatus(title,description);
+    },850);
+}
 function hvsOpenLogin(){
     hvsCloseCost();clearModes();document.body.classList.add('login-mode');
     hvsCreatingAccount=false;hvsLoginError('');hvsRenderLogin();
@@ -6810,15 +6864,13 @@ async function hvsHandleLogin(event){
         hvsLoginError('');
         hvsCurrentAccount={name:account.name,role:account.role};
         hvsCurrentProfile();hvsGuestProfile=hvsEmptyProfile();hvsPreviousTotal=null;hvsLastChangedKey=null;hvsOverBudget=false;
-        hvsAuthNotice('Signed in. Your saved project is now active.');
         hvsById('hvsLoginPassword').value='';
         // Authentication changes only the frontend account, prices, and UI.
         // Do not replay saved layout/property/restoreUserState commands here:
         // Unreal can treat those as navigation and teleport the player.
         // The explicit SAVE PROGRESS action retains the existing replay.
-        hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();hvsRenderLogin();
-        hvsCloseLogin();
-        showHomeViewAnimatedStatus(
+        hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();
+        hvsCloseLoginAfterSuccess(
             `Welcome back ${hvsCurrentAccount.name}`,
             hvsIsAdmin()
                 ? 'Your admin privileges are now active. You can adjust default settings.'
@@ -6950,12 +7002,24 @@ hvsById('costScaleSlider').addEventListener('input',event=>document.documentElem
 // Mirror the right-side slider's orange engaged highlight during dragging.
 const hvsCostScaleBar = hvsById('costScaleControl');
 const hvsCostScaleInput = hvsById('costScaleSlider');
-for (const type of ['pointerdown', 'mousedown', 'touchstart']) {
-    hvsCostScaleInput.addEventListener(type, () => hvsCostScaleBar.classList.add('engaged'), {passive:true});
+for (const type of ['pointerdown','mousedown','touchstart']) {
+    hvsCostScaleInput.addEventListener(type, () => {
+        hvsCostScaleBar.classList.add('engaged');
+        document.body.classList.add('hvs-cost-user-scaling');
+    }, {passive:true});
 }
-for (const type of ['pointerup','pointercancel','mouseup','touchend','touchcancel','blur']) {
-    hvsCostScaleInput.addEventListener(type, () => hvsCostScaleBar.classList.remove('engaged'));
+// Keep the no-transition state even if Safari skips pointerdown on a range.
+hvsCostScaleInput.addEventListener('input',()=>document.body.classList.add('hvs-cost-user-scaling'));
+function hvsEndCostScaleDrag(){
+    hvsCostScaleBar.classList.remove('engaged');
+    document.body.classList.remove('hvs-cost-user-scaling');
 }
+for (const type of ['pointerup','pointercancel','mouseup','touchend','touchcancel','blur','change']) {
+    hvsCostScaleInput.addEventListener(type,hvsEndCostScaleDrag);
+}
+// The pointer may release beyond the narrow rail (common on touch devices).
+window.addEventListener('pointerup',hvsEndCostScaleDrag,{passive:true});
+window.addEventListener('pointercancel',hvsEndCostScaleDrag,{passive:true});
 hvsById('costSetBudgetButton').addEventListener('click',()=>{
     hvsBudgetEditorOpen=!hvsBudgetEditorOpen;
     hvsById('costBudgetEditor').classList.toggle('is-visible',hvsBudgetEditorOpen);
