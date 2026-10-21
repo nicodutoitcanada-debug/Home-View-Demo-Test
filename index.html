@@ -1766,7 +1766,7 @@ body.profile-mode #profileMenuWrapper {
   height:100% !important;
   max-width:none !important;
   max-height:none !important;
-  object-fit:cover !important;
+  object-fit:var(--hvs-stream-video-fit,cover) !important;
   object-position:center center !important;
 }
 body { background:#000; touch-action:auto; }
@@ -1814,11 +1814,11 @@ body.walk-mode #homeViewUI.is-ready #sliderContainer { pointer-events:none; }
    used by the surrounding Home View menus.
    ================================================================ */
 #profileOuterBox {
-    width: 302px;
+    width: 270px;
     max-width: calc(100vw - 150px);
 }
 #profileInnerBox {
-    padding: 14px 13px 15px;
+    padding: 5px 11px 12px;
 }
 #editMenuTitle {
     position: relative;
@@ -1853,8 +1853,8 @@ body.walk-mode #homeViewUI.is-ready #sliderContainer { pointer-events:none; }
     align-items: center;
     justify-content: center;
     width: 100%;
-    min-height: 47px;
-    padding: 12px 16px;
+    min-height: 43px;
+    padding: 9px 12px;
     appearance: none;
     -webkit-appearance: none;
     border: 1px solid rgba(255,255,255,.075);
@@ -1897,7 +1897,7 @@ body.walk-mode #homeViewUI.is-ready #sliderContainer { pointer-events:none; }
 #editMenuEmptyMessage.is-visible { display: block; }
 @media (max-width: 560px) {
     #profileMenuWrapper { right: 18px; }
-    #profileOuterBox { width: min(302px, calc(100vw - 36px)); max-width: none; }
+    #profileOuterBox { width: min(270px, calc(100vw - 36px)); max-width: none; }
 }
 
 
@@ -2007,10 +2007,42 @@ body.walk-mode #homeViewUI.is-ready #sliderContainer { pointer-events:none; }
     }
 }
 
+/* ADMIN LOGIN FEEDBACK — shares the exact Teleport status animations. */
+#hvsAdminModeBadge {
+    position:fixed;z-index:4300;
+    top:max(7px, env(safe-area-inset-top, 0px));left:50%;
+    transform:translateX(-50%);
+    max-width:calc(100vw - 80px);
+    padding:5px 10px;
+    border:0;
+    border-radius:0;
+    background:transparent;
+    backdrop-filter:none;-webkit-backdrop-filter:none;
+    box-shadow:none;
+    color:rgba(255,255,255,.91);
+    font:700 clamp(9px,1.08vw,12px)/1.25 "HomeView Myriad",Arial,sans-serif;
+    letter-spacing:.115em;text-align:center;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;pointer-events:none;
+    text-shadow:0 1px 3px rgba(0,0,0,.3);
+}
+#hvsAdminModeBadge[hidden] {display:none!important;}
+body.hvs-movie-active #hvsAdminModeBadge,
+body.movie-ui-hidden #hvsAdminModeBadge {display:none!important;}
+@media (max-height:550px){#hvsAdminModeBadge{padding:3px 9px;font-size:9px;}}
+#hvsLoginInlineError[hidden] {display:none!important;}
+#hvsLoginInlineError {
+    margin:11px 0 0;padding:9px 12px;
+    border:1px solid rgba(255,153,115,.45);border-radius:11px;
+    background:rgba(144,30,12,.32);
+    color:#ffdfd1;font:700 12px/1.35 "HomeView Myriad",Arial,sans-serif;
+    animation:hvsLoginErrorAppear 260ms ease-out both;
+}
+@keyframes hvsLoginErrorAppear {from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+
 /* HOME VIEW ACCOUNT + FRONTEND COST SYSTEM — 2026-10 */
 :root { --cost-ui-scale:1; --hvs-orange:#ec500f; --hvs-orange-dim:#982806; }
 #calculatorMenuWrapper, #loginMenuWrapper { position:absolute; z-index:45; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .65s ease, transform .95s cubic-bezier(.22,1,.36,1),visibility 0s linear .95s; color:#f8f8f8; font-family:"HomeView Myriad",Arial,sans-serif; }
-#calculatorMenuWrapper { top:50%; left:92px; width:342px; max-width:calc(100vw - 130px); transform:translate3d(-470px,-50%,0) scale(var(--cost-ui-scale)); transform-origin:left center; }
+#calculatorMenuWrapper { top:50%; left:92px; width:308px; max-width:calc(100vw - 130px); transform:translate3d(-470px,-50%,0) scale(var(--cost-ui-scale)); transform-origin:left center; }
 body.cost-open #homeViewUI.is-ready #calculatorMenuWrapper { opacity:1; visibility:visible; pointer-events:auto; transform:translate3d(0,-50%,0) scale(var(--cost-ui-scale)); transition-delay:0s; }
 #loginMenuWrapper { top:50%; left:50%; width:min(435px,calc(100vw - 35px)); transform:translate3d(-50%,-46%,0) scale(.92); transform-origin:center center; }
 body.login-mode #homeViewUI.is-ready #loginMenuWrapper { opacity:1; visibility:visible; pointer-events:auto; transform:translate3d(-50%,-50%,0) scale(1); transition-delay:0s; }
@@ -2071,7 +2103,7 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
 .hvsSettingInfo { font-size:11px; opacity:.7; line-height:1.4; margin-top:10px; }
 #hvsBudgetToast { position:fixed; z-index:6000; left:50%; bottom:12%; transform:translate(-50%,25px) scale(.9); opacity:0; pointer-events:none; background:rgba(44,17,6,.94); border:1px solid rgba(255,123,58,.65); color:#fff; padding:13px 22px; border-radius:14px; font:700 13px "HomeView Myriad",Arial,sans-serif; letter-spacing:.06em; box-shadow:0 12px 35px rgba(0,0,0,.25); transition:opacity .35s,transform .55s cubic-bezier(.22,1,.36,1); }
 #hvsBudgetToast.is-visible { opacity:1; transform:translate(-50%,0) scale(1); }
-@media (max-width:650px) { #calculatorMenuWrapper {left:75px;width:min(315px,calc(100vw - 90px));} #costScaleControl {width:51px;left:7px;height:236px;} #costScaleControl input{width:170px;} #loginMenuWrapper .hvsAccountBody{padding:12px 15px;} }
+@media (max-width:650px) { #calculatorMenuWrapper {left:75px;width:min(308px,calc(100vw - 90px));} #costScaleControl {width:51px;left:7px;height:236px;} #costScaleControl input{width:170px;} #loginMenuWrapper .hvsAccountBody{padding:12px 15px;} }
 
 
 /* =============================================================
@@ -2311,7 +2343,7 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
     opacity:.7;border:0;border-radius:0;cursor:pointer;
 }
 @media(max-width:650px) {
-    #calculatorMenuWrapper {left:79px;width:min(315px,calc(100vw - 93px));}
+    #calculatorMenuWrapper {left:79px;width:min(308px,calc(100vw - 93px));}
     #costScaleControl {left:5px;width:66px;height:min(390px,calc(100dvh - 30px));border-radius:34px;}
     #costScaleSlider {width:305px;height:66px;}
     #costScaleSlider::-webkit-slider-runnable-track {height:66px;}
@@ -2601,7 +2633,7 @@ body.kitchen-mode #homeViewUI.is-ready #kitchenMenuWrapper {
 
 #kitchenFinishMenuWrapper {
     position:absolute;right:120px;top:50%;
-    width:min(486px,calc(100vw - 150px));max-height:calc(100dvh - 30px);
+    width:min(382px,calc(100vw - 135px));max-height:calc(100dvh - 30px);
     z-index:21;opacity:0;visibility:hidden;pointer-events:none;
     transform:translate3d(260px,-50%,0) scale(var(--ui-scale));
     transform-origin:right center;
@@ -2648,8 +2680,8 @@ body.kitchen-mode #homeViewUI.is-ready #kitchenMenuWrapper {
     margin:12px 8px 13px;
 }
 #kitchenFinishOptions {
-    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-    gap:10px;overflow-y:auto;min-height:0;
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;overflow-y:auto;min-height:0;
     padding:4px 5px 9px;scrollbar-width:thin;
     scrollbar-color:rgba(255,255,255,.27) transparent;
     position:relative;z-index:4;
@@ -2684,7 +2716,7 @@ body.kitchen-mode #homeViewUI.is-ready #kitchenMenuWrapper {
     letter-spacing:.025em;min-height:15px;font-variant-numeric:tabular-nums;
 }
 .kitchenFinishThumb {
-    width:100%;aspect-ratio:1.13/1;object-fit:cover;display:block;
+    width:min(100%,124px);aspect-ratio:1.13/1;object-fit:cover;display:block;
     border-radius:10px;background:rgba(220,222,220,.12);
     border:1px solid rgba(255,255,255,.08);pointer-events:none;
 }
@@ -2716,7 +2748,7 @@ body.kitchen-finish-mode #homeViewUI.is-ready #kitchenFinishMenuWrapper {
     transition-delay:0s;
 }
 @media(max-width:670px){
-    #kitchenFinishMenuWrapper {right:88px;width:min(420px,calc(100vw - 100px));}
+    #kitchenFinishMenuWrapper {right:88px;width:min(382px,calc(100vw - 100px));}
     #kitchenFinishOptions {gap:6px;grid-template-columns:repeat(2,minmax(0,1fr));}
     .kitchenFinishCard {padding:6px 5px;}
     .kitchenFinishCost {font-size:11px;}
@@ -3183,10 +3215,10 @@ body.hvs-movie-active #screenshotOverlay {
 <style>
 /* FINAL POLISH — tutorial scaling, calculator drag, and Marie demo controls. */
 :root{--hvs-cost-drag-x:0px}
-#calculatorMenuWrapper{left:calc(101px + var(--hvs-cost-drag-x))!important}
+#calculatorMenuWrapper{left:calc(9px + var(--hvs-scale-bar-width) + 10px + var(--hvs-cost-drag-x))!important}
 #costScaleControl{left:calc(9px + var(--hvs-cost-drag-x))!important}
 @media(max-width:650px){
-  #calculatorMenuWrapper{left:calc(79px + var(--hvs-cost-drag-x))!important}
+  #calculatorMenuWrapper{left:calc(5px + var(--hvs-scale-bar-width) + 8px + var(--hvs-cost-drag-x))!important}
   #costScaleControl{left:calc(5px + var(--hvs-cost-drag-x))!important}
 }
 #calculatorMenuWrapper .hvsGlass:has(#hvsPriceEditor.is-visible){max-height:calc(100dvh - 24px);overflow-x:hidden;overflow-y:auto;scrollbar-color:rgba(255,255,255,.26) transparent}
@@ -3220,9 +3252,9 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 :root {
     --hvs-scale-safe-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     --hvs-scale-bar-height: min(500px, calc(var(--hvs-scale-safe-height) - 24px));
-    --hvs-scale-bar-width: clamp(54px, 11dvh, 82px);
+    --hvs-scale-bar-width: clamp(50px, 10dvh, 74px);
     --hvs-scale-track-length: min(400px, calc(var(--hvs-scale-safe-height) - 155px));
-    --hvs-scale-art-size: clamp(83px, 25dvh, 175px);
+    --hvs-scale-art-size: clamp(78px, 23dvh, 158px);
 }
 /* The right-hand UI scale controller and left-hand calculator controller
    share exactly the same viewport-relative dimensions. */
@@ -3314,8 +3346,8 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
    upstairs layout control does not crowd the bottom teleport target. */
 @media (max-height: 620px) and (orientation: landscape) {
     :root {
-        --hvs-scale-bar-width: clamp(48px, 11dvh, 60px);
-        --hvs-scale-art-size: clamp(75px, 25dvh, 114px);
+        --hvs-scale-bar-width: clamp(43px, 10dvh, 54px);
+        --hvs-scale-art-size: clamp(70px, 23dvh, 103px);
         --hvs-scale-track-length: min(400px, calc(var(--hvs-scale-safe-height) - 135px));
     }
     #homeViewUI #sliderContainer { right: max(9px, env(safe-area-inset-right, 0px)); }
@@ -3341,13 +3373,13 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
    Original desktop / tablet DOM and animation rules remain intact.
    ================================================================ */
 #teleportMobileRail { display:none; }
-@media (orientation:landscape) and (max-height:580px) and (max-width:1020px) {
+
   #teleportMenuWrapper #teleportOuterBox {
     width:var(--hvs-mobile-map-width, 510px);
     max-width:none;
     box-sizing:border-box;
     display:grid;
-    grid-template-columns:calc(var(--hvs-mobile-map-stage-w, 150px) + 14px) minmax(0, 1fr);
+    grid-template-columns:calc(var(--hvs-mobile-map-stage-w, 150px) + 14px) var(--hvs-map-rail-width, 154px);
     grid-template-rows:auto;
     align-items:stretch;
     column-gap:8px;
@@ -3380,7 +3412,7 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
     grid-column:2; grid-row:1;
     display:flex; flex-direction:column;
     box-sizing:border-box;
-    width:100%; min-width:0;
+    width:var(--hvs-map-rail-width, 154px); min-width:0;
     height:calc(var(--hvs-mobile-map-stage-h, 320px) + 10px);
     gap:8px;
     padding:4px 4px 6px 0;
@@ -3415,7 +3447,7 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
     margin:4px 0 0;padding:0;
   }
   #teleportMobileRail #teleportFloorButtons .teleportFloorButton {
-    display:block; width:100%;
+    display:block; width:100%; max-width:100%;
     height:clamp(34px, 10dvh, 44px);
     min-height:0;
     font-size:clamp(10px,2.5dvh,12px);
@@ -3446,11 +3478,11 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
   }
   #teleportMenuWrapper #upstairsLayoutOverlay {z-index:55;}
   #teleportMenuWrapper #upstairsLayoutDialog {max-height:94%;overflow:auto;}
-}
+
 /* MOBILE LANDSCAPE MAP POLISH. Zoom the plan artwork, marker AND teleport
    targets together so XY calibration/hit areas remain mathematically aligned. */
 #teleportMobileLayoutExplainer {display:none;}
-@media (orientation:landscape) and (max-height:580px) and (max-width:1020px) {
+
   #teleportMenuWrapper #teleportMapStage > .teleportPlanImage,
   #teleportMenuWrapper #teleportMapStage > #teleportYouAreHereLayer,
   #teleportMenuWrapper #teleportMapStage > #teleportJumpTargetsLayer {
@@ -3496,7 +3528,7 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
     display:block;
   }
   #teleportMobileRail #upstairsLayoutOpen {margin-top:3px;}
-}
+
 /* Larger mobile AFK countdown: white with a SOFT dark shadow, no glow. */
 #hvsAfkCountdown {
   color:#fff !important;
@@ -3506,18 +3538,10 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
   line-height:1;
   text-shadow:0 2px 5px rgba(0,0,0,.35) !important;
 }
-/* Never crop Unreal's touch joystick off the edge on landscape phones.
-   Arcware may stream in 16:9 until r.SetRes takes effect: cover trims the
-   sides on a wider phone, and clips in-game UI. Contain keeps every pixel. */
-@media screen and (orientation:landscape) and (max-height:700px) and (max-width:1366px),
-       screen and (orientation:portrait) and (max-width:700px) {
-  /* Pixel Streaming should never crop the Unreal in-game joystick.  Do not
-     transform, zoom, or remount the video: that would desync touch input. */
-  #video-container video {
-    object-fit:contain !important;
-    object-position:center center !important;
-  }
-}
+/* One display-fit choice: protect Unreal joystick on touch devices; avoid
+   competing per-breakpoint overrides to object-fit. The resolution sync below
+   asks Unreal to match this viewport, eliminating the need for letterboxing. */
+@media (pointer:coarse) { :root { --hvs-stream-video-fit:contain; } }
 
 </style>
 <style>
@@ -3639,7 +3663,7 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
     inset -1px 0 0 rgba(255,255,255,.055),
     0 6px 19px rgba(0,0,0,.095) !important;
 }
-@media(orientation:landscape) and (max-height:580px) and (max-width:1020px){
+
   #teleportMobileRail #teleportTopBar{
     height:45px;min-height:45px;
     padding-left:3px;padding-right:3px;
@@ -3671,7 +3695,38 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
     font-size:clamp(10px,2.4dvh,12px);
     font-weight:700;
   }
+
+</style>
+
+
+<style id="hvs-compact-panel-layout">
+/* Compact panels share existing layout and animation logic: no extra breakpoints. */
+#homeViewUI #profileTopBar {
+  display:grid;grid-template-columns:52px minmax(0,1fr) 32px;
+  align-items:center;column-gap:5px;height:48px;min-height:48px;
+  box-sizing:border-box;padding:4px 9px;margin:0;
 }
+#homeViewUI #profileTopBar #editMenuTitle {
+  position:static;min-width:0;margin:0;padding:0;white-space:nowrap;
+  text-align:center;font:700 13px/1.1 "HomeView Myriad",Arial,sans-serif;
+  letter-spacing:.075em;
+}
+#homeViewUI #profileTopBar .hvsCostLogoSlot {height:37px;width:52px;}
+#homeViewUI #profileInnerBox {padding-top:5px;}
+/* Slightly smaller calculator without losing either admin action label. */
+#homeViewUI .hvsCostFooter {grid-template-columns:repeat(2,minmax(0,1fr));}
+#homeViewUI .hvsCostFooter .hvsActionButton,
+#homeViewUI #costFooterLabel {
+  min-width:0;box-sizing:border-box;overflow-wrap:anywhere;
+  white-space:normal;font-size:10px;line-height:1.15;
+}
+#homeViewUI #costTotalValue{font-size:clamp(21px,2.2vw,25px);}
+#homeViewUI #calculatorMenuWrapper .hvsPanelTop {padding-inline:10px;gap:5px;}
+#homeViewUI #calculatorMenuWrapper .hvsPanelTop .hvsTitle {font-size:12px;}
+/* Keep finish thumbnails compact, with the original price type size. */
+#homeViewUI #kitchenFinishOptions {grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+#homeViewUI .kitchenFinishThumb {max-width:124px;margin-inline:auto;}
+#homeViewUI .kitchenFinishCard {padding:7px 6px;}
 </style>
 
 <style id="hvs-relative-rail-anchors">
@@ -3740,33 +3795,55 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
   box-sizing:border-box;
   align-items:center;
   justify-content:center;
-  width:42px;
-  height:39px;
-  padding:7px;
+  width:48px;
+  height:43px;
+  padding:0;
   appearance:none;
-  border:1px solid rgba(255,255,255,.19);
-  border-radius:12px;
-  background:linear-gradient(155deg,rgba(255,255,255,.16),rgba(15,24,29,.22) 65%,rgba(0,0,0,.23));
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 3px 9px rgba(0,0,0,.08);
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
   color:white;
   cursor:pointer;
   -webkit-tap-highlight-color:transparent;
   touch-action:manipulation;
-  transition:background .2s ease,border-color .2s ease,transform .18s ease;
+  transition:transform .18s ease;
 }
 .hvsCostShortcut img {
   display:block;
-  width:100%;height:100%;object-fit:contain;
-  opacity:.93;pointer-events:none;
+  width:46px;height:42px;max-width:100%;max-height:100%;
+  object-fit:contain;opacity:1;pointer-events:none;
 }
-.hvsCostShortcut:hover,
-.hvsCostShortcut:focus-visible {
-  border-color:rgba(255,255,255,.36);
-  background:linear-gradient(160deg,rgba(255,255,255,.22),rgba(24,35,41,.35));
-}
+.hvsCostShortcut:hover img { transform:scale(1.06); }
+.hvsCostShortcut:focus-visible { outline:1px solid rgba(255,255,255,.6);outline-offset:2px; }
 .hvsCostShortcut:active {transform:scale(.95);}
 body:not(.cost-open) .hvsCostLogoSlot > .hvsOriginalLogo {display:none!important;}
 body:not(.cost-open) .hvsCostLogoSlot > .hvsCostShortcut {display:inline-flex;}
+</style>
+
+<style id="hvs-location-verified-compact-2026-10-21">
+/* Narrow only Personalize. Existing scale rails, teleport map and video-fit
+   fixes remain untouched. A single selector wins across the old breakpoints. */
+#homeViewUI #profileOuterBox {
+  width:240px;
+  max-width:calc(100vw - 38px);
+  box-sizing:border-box;
+}
+#homeViewUI #profileInnerBox {padding:4px 9px 10px;}
+#homeViewUI #profileTopBar {
+  grid-template-columns:48px minmax(0,1fr) 29px;
+  column-gap:4px;
+  padding-inline:7px;
+}
+#homeViewUI #profileTopBar .hvsCostLogoSlot {width:48px;}
+#homeViewUI .editOptionButton {min-height:41px;padding:8px 8px;letter-spacing:.085em;}
+/* Floor title stays centred in the sidebar and no longer grazes its edge. */
+#teleportMobileRail #teleportTopBar {padding-left:8px;padding-right:8px;}
+#teleportMobileRail #teleportMapTitle {
+  box-sizing:border-box;padding:3px 8px 0;
+  font-size:clamp(14px,3.1dvh,18px);
+  letter-spacing:.06em;
+}
 </style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
@@ -4069,13 +4146,13 @@ body:not(.cost-open) .hvsCostLogoSlot > .hvsCostShortcut {display:inline-flex;}
   <img class="hvsOriginalLogo" id="profileLogo" src="LOGO.png" alt="Home View logo">
   <button class="hvsCostShortcut" type="button" aria-label="Open Cost Estimate from Personalize finishes" title="Open Cost Estimate"><img src="01 HOME.png" alt=""></button>
 </span>
+            <div id="editMenuTitle">PERSONALIZE</div>
             <button class="topIconButton" id="profileMenuCloseButton" type="button" aria-label="Close Personalize menu">
                 <img src="01 DOCK MENU.png" alt="Close">
             </button>
         </div>
         <div id="profileInnerBoxWrapper">
             <div id="profileInnerBox">
-                <div id="editMenuTitle">PERSONALIZE</div>
                 <!-- Populated from Unreal's {"EditMenuOptions":"..."} message. -->
                 <div id="editOptionButtons" role="group" aria-label="Available room personalization options"></div>
                 <div id="editMenuEmptyMessage" role="status">WAITING FOR ROOM...</div>
@@ -4215,7 +4292,7 @@ body:not(.cost-open) .hvsCostLogoSlot > .hvsCostShortcut {display:inline-flex;}
  <div class="hvsAccountBody">
    <div id="hvsSignedOut">
      <div class="hvsTabs"><button type="button" data-auth-tab="user" class="active">USER LOGIN</button><button type="button" data-auth-tab="admin">ADMIN LOGIN</button></div>
-     <form id="hvsLoginForm"><label class="hvsField" for="hvsLoginUsername">USERNAME</label><input id="hvsLoginUsername" class="hvsTextInput" autocomplete="username" required maxlength="48"><label class="hvsField" for="hvsLoginPassword">PASSWORD</label><input id="hvsLoginPassword" class="hvsTextInput" type="password" autocomplete="current-password" required><div class="hvsFormActions"><button class="hvsActionButton primary" type="submit">LOG IN</button><button class="hvsActionButton" id="hvsCreateToggle" type="button">CREATE ACCOUNT</button></div></form>
+     <form id="hvsLoginForm"><label class="hvsField" for="hvsLoginUsername">USERNAME</label><input id="hvsLoginUsername" class="hvsTextInput" autocomplete="username" required maxlength="48"><label class="hvsField" for="hvsLoginPassword">PASSWORD</label><input id="hvsLoginPassword" class="hvsTextInput" type="password" autocomplete="current-password" required><div class="hvsFormActions"><button class="hvsActionButton primary" type="submit">LOG IN</button><button class="hvsActionButton" id="hvsCreateToggle" type="button">CREATE ACCOUNT</button></div><div id="hvsLoginInlineError" role="alert" hidden></div></form>
      <form id="hvsCreateForm" hidden><div class="hvsSecondaryHeading">CREATE A USER ACCOUNT</div><label class="hvsField" for="hvsCreateUsername">USERNAME</label><input id="hvsCreateUsername" class="hvsTextInput" autocomplete="username" maxlength="48" required><label class="hvsField" for="hvsCreatePassword">PASSWORD (MIN 8 CHARACTERS)</label><input id="hvsCreatePassword" class="hvsTextInput" type="password" autocomplete="new-password" minlength="8" required><div class="hvsFormActions"><button type="submit" class="hvsActionButton primary">CREATE USER</button><button type="button" class="hvsActionButton" id="hvsCancelCreate">BACK</button></div></form>
    </div>
    <div id="hvsSignedIn" hidden><p class="hvsAccountSummary" id="hvsWelcomeText"></p><div class="hvsFormActions"><button type="button" class="hvsActionButton" id="hvsLogoutButton">LOG OUT</button><button type="button" class="hvsActionButton primary" id="hvsSaveNowButton">SAVE PROGRESS</button></div><div id="hvsMarieTools" hidden>
@@ -4287,6 +4364,9 @@ body:not(.cost-open) .hvsCostLogoSlot > .hvsCostShortcut {display:inline-flex;}
         <div id="teleportStatusSubtitle" class="teleport-status-subtitle"></div>
     </div>
 </div>
+
+<!-- Persistent, non-interactive admin mode reminder. -->
+<div id="hvsAdminModeBadge" role="status" aria-live="polite" hidden></div>
 
 <!-- PROPERTY SELECTOR — automatic first-time offer / manual Personalize action. -->
 <div id="hvsPropertyPrompt" role="presentation" aria-hidden="true">
@@ -4459,16 +4539,14 @@ let teleportStatusExitTimer = null;
 let teleportStatusHideTimer = null;
 let teleportStatusSequence = 0;
 
-function showTeleportStatus(enabled) {
+// Shared two-line AE-style status animation: Teleport + successful login.
+// A new notice replaces the old one and invalidates its pending exit timers.
+function showHomeViewAnimatedStatus(title, subtitle = '') {
     const sequence = ++teleportStatusSequence;
     clearTimeout(teleportStatusExitTimer);
     clearTimeout(teleportStatusHideTimer);
-    teleportStatusTitle.textContent = enabled
-        ? 'TELEPORT TARGETS LOADED'
-        : 'TELEPORT TARGETS UNLOADED';
-    teleportStatusSubtitle.textContent = enabled
-        ? 'Click an orange-ringed target on the floor to teleport.'
-        : '';
+    teleportStatusTitle.textContent = title;
+    teleportStatusSubtitle.textContent = subtitle;
     teleportStatusOverlay.hidden = false;
     teleportStatusOverlay.classList.remove('is-entering', 'is-leaving');
     // Force animation restart when the user toggles again before fade-out.
@@ -4486,6 +4564,13 @@ function showTeleportStatus(enabled) {
             teleportStatusOverlay.classList.remove('is-leaving');
         }, 1500); // 1333ms animation + 90ms stagger + margin
     }, 3500);
+}
+
+function showTeleportStatus(enabled) {
+    showHomeViewAnimatedStatus(
+        enabled ? 'TELEPORT TARGETS LOADED' : 'TELEPORT TARGETS UNLOADED',
+        enabled ? 'Click an orange-ringed target on the floor to teleport.' : ''
+    );
 }
 
 function activateTeleportIcon() {
@@ -4541,8 +4626,11 @@ const profileMenuCloseButton = document.getElementById('profileMenuCloseButton')
 // ================================================================
 const EDIT_MENU_BUTTONS_BY_ROOM = Object.freeze({
     GroundLiving:      ['FLOORING', 'CARPETS', 'KITCHEN', 'RAILING'],
-    Kitchen:           ['FLOORING', 'CARPETS', 'KITCHEN'],
-    GroundKitchen:     ['FLOORING', 'CARPETS', 'KITCHEN'],
+    Kitchen:           ['FLOORING', 'KITCHEN'],
+    GroundKitchen:     ['FLOORING', 'KITCHEN'],
+    GroundPlain:       ['FLOORING', 'KITCHEN'],
+    GroundBlue:        ['FLOORING', 'CARPETS', 'KITCHEN', 'RAILING'],
+    GroundGreen:       ['FLOORING'],
     GroundWashroom:    ['CUPBOARD', 'COUNTER', 'BACK SPLASH', 'FLOORING'],
     UpperWashroom:     ['CUPBOARD', 'COUNTER', 'BACK SPLASH', 'FLOORING'],
     MainBedWashroom:   ['CUPBOARD', 'COUNTER', 'BACK SPLASH', 'FLOORING'],
@@ -4553,23 +4641,38 @@ const EDIT_MENU_BUTTONS_BY_ROOM = Object.freeze({
 const HVS_WASHROOM_ROOM_NAMES = new Set(['GroundWashroom','UpperWashroom','MainBedWashroom']);
 function hvsPersonalizeOptionsForRoom(room) {
     const buttons=[...(EDIT_MENU_BUTTONS_BY_ROOM[room] || [])];
-    // Property selection is always last, but never offered inside washrooms.
-    if(!HVS_WASHROOM_ROOM_NAMES.has(room))buttons.push('CHOOSE PROPERTY');
+    // Property selection: indoor non-washrooms only. Outside has two actions.
+    if(room && room!=='Outside' && !HVS_WASHROOM_ROOM_NAMES.has(room))buttons.push('CHOOSE PROPERTY');
     return buttons;
 }
 let currentEditMenuRoom = null;
 let selectedEditMenuOption = null;
 const editOptionButtons = document.getElementById('editOptionButtons');
 const editMenuEmptyMessage = document.getElementById('editMenuEmptyMessage');
+// Personalize independently requests the existing location stream on click.
+let personalizeCheckPending = false;
+let personalizeCheckProblem = false;
+let personalizeLastTrigger = null;
+let personalizeCheckStarted = 0;
+let personalizeLocationFloorTime = 0;
+let personalizeLocationPointTime = 0;
+let personalizeCandidateRoom = null;
+let personalizeCandidateSamples = 0;
+let personalizeCheckTimer = null;
+let personalizeConfirmedRoom = null;
+let personalizeConfirmedPoint = null;
+let personalizeVerifiedAt = 0;
 
 function renderEditMenu() {
-    const options = hvsPersonalizeOptionsForRoom(currentEditMenuRoom);
+    const options = personalizeCheckPending ? [] : hvsPersonalizeOptionsForRoom(currentEditMenuRoom);
     editOptionButtons.replaceChildren();
     editMenuEmptyMessage.classList.toggle('is-visible', options.length === 0);
     if (options.length === 0) {
-        editMenuEmptyMessage.textContent = currentEditMenuRoom === null
-            ? 'WAITING FOR ROOM...'
-            : 'NO EDIT OPTIONS AVAILABLE HERE';
+        editMenuEmptyMessage.textContent = personalizeCheckPending
+            ? 'CHECKING YOUR LOCATION...'
+            : (personalizeCheckProblem
+                ? 'LOCATION NOT RECEIVED — CLOSE AND RETRY'
+                : (currentEditMenuRoom === null ? 'WAITING FOR ROOM...' : 'NO EDIT OPTIONS AVAILABLE HERE'));
         return;
     }
     for (const option of options) {
@@ -4619,18 +4722,18 @@ function renderEditMenu() {
             }
             // The main bedroom and ground floor share the same actual laminate
             // material. A change in either place changes both (one price line).
-            const groundLivingArea = ['GroundLiving','GroundKitchen','Kitchen'].includes(currentEditMenuRoom);
+            const groundLivingArea = ['GroundLiving','GroundKitchen','Kitchen','GroundPlain','GroundBlue','GroundGreen'].includes(currentEditMenuRoom);
             if ((groundLivingArea || currentEditMenuRoom==='FloorsOnlyMainBed') && option === 'FLOORING') {
                 openKitchenFinishMenu('10', 'personalize');
                 return;
             }
             // FloorsOnly now means carpets; same saved choice and Unreal key
             // everywhere carpet can be personalized.
-            if ((groundLivingArea || currentEditMenuRoom==='FloorsOnly') && option === 'CARPETS') {
+            if ((['GroundLiving','GroundBlue','FloorsOnly'].includes(currentEditMenuRoom)) && option === 'CARPETS') {
                 openKitchenFinishMenu('carpet', 'personalize');
                 return;
             }
-            if(groundLivingArea && option==='RAILING'){
+            if(['GroundLiving','GroundBlue'].includes(currentEditMenuRoom) && option==='RAILING'){
                 openKitchenFinishMenu('railing','personalize');
                 return;
             }
@@ -4662,6 +4765,21 @@ function setEditMenuRoom(room) {
     // previous room or reset the player's currently open interface.
     if (typeof room === 'string' && room.trim() === 'chooseProperty') {
         window.homeViewShowPropertyOfferOnce?.();
+        return;
+    }
+    // A room trigger can be stale by the time the user clicks Personalize.
+    // During an explicit location check, remember it for diagnostics only;
+    // only the freshly confirmed X/Y + floor may choose the options.
+    if (personalizeCheckPending) {
+        personalizeLastTrigger = typeof room === 'string' ? room.trim() : null;
+        console.info('[PERSONALIZE] Trigger received during location check:', personalizeLastTrigger);
+        return;
+    }
+    // A trailing trigger-box event can arrive just after the fresh location
+    // check succeeded. Do not immediately close the newly verified menu.
+    if (document.body.classList.contains('profile-mode') &&
+        Date.now()-personalizeVerifiedAt < 1000) {
+        console.info('[PERSONALIZE] Ignored late trigger after verified position:',room);
         return;
     }
     // ROOM_CHANGE_MAIN_MENU_RESET
@@ -5055,6 +5173,7 @@ const teleportHereLayer = document.getElementById('teleportYouAreHereLayer');
 const teleportHereWrap = document.getElementById('teleportYouAreHereWrap');
 const teleportHereLottie = document.getElementById('teleportYouAreHereLottie');
 let mapTrackingRequested = false;
+// Map and Personalize share a single location request subscription.
 let mapHereAnimation = null;
 let mapHereAnimationAttempted = false;
 let liveMapPoint = null;
@@ -5118,6 +5237,116 @@ function mapWorldToImage(x,y) {
         py:c.topPx+(y-c.minY)/(c.maxY-c.minY)*(c.bottomPx-c.topPx)
     };
 }
+/* ================================================================
+   PERSONALIZE — FRESH LOCATION CHECK ON EVERY OPEN
+   Uses the *same* Unreal messages/coordinate calibration as Teleport Map.
+   X/Y and camera-height are separate Tick messages. Require both to be
+   received AFTER the button was clicked, then two matching XY samples.
+   Region outlines were traced from the owner's coloured 960×2048 copies;
+   they are NOT additional images that must be uploaded to the website.
+   If the location does not arrive, keep options closed rather than showing
+   a potentially incorrect room. Blueprint needs no changes.
+   ================================================================ */
+const HVS_PERSONALIZE_MARKED_POLYGONS = Object.freeze({"ground":{"red":[[463,911],[464,1054],[559,1061],[512,1056],[574,1055],[575,1040],[589,1040],[592,1023],[607,1023],[610,913]],"blue":[[607,635],[514,640],[513,650],[502,653],[506,657],[472,656],[462,664],[465,672],[433,673],[431,688],[402,689],[399,704],[384,704],[382,689],[263,689],[259,674],[187,673],[177,665],[178,1295],[495,1295],[498,1087],[495,1073],[436,1072],[430,1062],[430,896],[606,894]],"green":[[514,1082],[514,1151],[558,1151],[559,1157],[562,1150],[577,1152],[575,1295],[818,1294],[818,1040],[609,1041],[607,1057],[603,1052],[592,1058],[592,1073],[577,1072],[575,1089]]},"first":{"red":[[609,494],[609,846],[815,849],[815,494]],"blue":[[624,864],[624,1344],[817,1343],[817,865]],"green":[[193,1354],[192,1467],[305,1472],[304,1805],[815,1805],[817,1361],[592,1361],[590,1328],[464,1327],[471,1326],[464,1326],[463,1361],[447,1355]]}});
+function hvsPointInPolygon(px,py,points) {
+    let inside=false;
+    for(let i=0,j=points.length-1;i<points.length;j=i++) {
+        const xi=points[i][0],yi=points[i][1],xj=points[j][0],yj=points[j][1];
+        if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))inside=!inside;
+    }
+    return inside;
+}
+function hvsRoomFromMapPosition(x,y,floor) {
+    if(!Number.isFinite(x)||!Number.isFinite(y)||!['ground','first'].includes(floor))return null;
+    const point=mapWorldToImage(x,y);
+    const px=point.px,py=point.py;
+    const p=HVS_PERSONALIZE_MARKED_POLYGONS[floor];
+    // Pink outdoor band of ground-floor reference, including *higher* Y on the map.
+    if(floor==='ground' && py<=104)return 'Outside';
+    if(hvsPointInPolygon(px,py,p.red))
+        return floor==='ground'?'GroundWashroom':'UpperWashroom';
+    if(floor==='ground') {
+        if(hvsPointInPolygon(px,py,p.green))return 'GroundGreen';
+        if(hvsPointInPolygon(px,py,p.blue))return 'GroundBlue';
+        return 'GroundPlain';
+    }
+    if(hvsPointInPolygon(px,py,p.blue))return 'MainBedWashroom';
+    if(hvsPointInPolygon(px,py,p.green))return 'FloorsOnlyMainBed';
+    return 'FloorsOnly';
+}
+function hvsStopPersonalizeCheck() {
+    const previouslyNeeded=mapTrackingRequested || personalizeCheckPending;
+    personalizeCheckPending=false;
+    clearTimeout(personalizeCheckTimer);
+    personalizeCheckTimer=null;
+    hvsSendLocationDemand(previouslyNeeded);
+}
+function hvsCompletePersonalizeCheck(room) {
+    if(!personalizeCheckPending)return;
+    const point=liveMapPoint;
+    personalizeConfirmedRoom=room;
+    personalizeConfirmedPoint=point?{x:point.x,y:point.y,px:mapWorldToImage(point.x,point.y).px,py:mapWorldToImage(point.x,point.y).py,floor:liveMapPlayerFloor}:null;
+    personalizeVerifiedAt=Date.now();
+    hvsStopPersonalizeCheck();  // Send {location:'stop'} unless teleport is using it.
+    personalizeCheckProblem=false;
+    currentEditMenuRoom=room;
+    selectedEditMenuOption=null;
+    renderEditMenu();
+    console.info('[PERSONALIZE] Verified live room:',room,'Blueprint trigger:',personalizeLastTrigger,'position:',personalizeConfirmedPoint);
+}
+function hvsTryConfirmPersonalize() {
+    if(!personalizeCheckPending || !document.body.classList.contains('profile-mode'))return;
+    // Never use location cached by the Teleport Map or an old trigger event.
+    if(personalizeLocationFloorTime<personalizeCheckStarted ||
+       personalizeLocationPointTime<personalizeCheckStarted ||
+       !liveMapPoint || !liveMapPlayerFloor)return;
+    // Height must belong to the current sample window; avoid stale floor if
+    // updates become one-sided or the player teleports while checking.
+    if(Date.now()-personalizeLocationFloorTime>1800)return;
+    const room=hvsRoomFromMapPosition(liveMapPoint.x,liveMapPoint.y,liveMapPlayerFloor);
+    if(!room)return;
+    if(personalizeCandidateRoom===room)personalizeCandidateSamples++;
+    else{personalizeCandidateRoom=room;personalizeCandidateSamples=1;}
+    if(personalizeCandidateSamples>=2)hvsCompletePersonalizeCheck(room);
+}
+function hvsBeginPersonalizeCheck() {
+    hvsStopPersonalizeCheck(); // Cancel any previous request and pending timeout.
+    personalizeCheckProblem=false;
+    personalizeLastTrigger=currentEditMenuRoom;
+    personalizeCandidateRoom=null;
+    personalizeCandidateSamples=0;
+    liveMapPoint=null;
+    liveMapPlayerFloor=null;
+    liveMapCameraHeight=null;
+    personalizeLocationFloorTime=0;
+    personalizeLocationPointTime=0;
+    personalizeCheckStarted=Date.now();
+    const previouslyNeeded=mapTrackingRequested || personalizeCheckPending;
+    personalizeCheckPending=true;
+    renderEditMenu();
+    hvsSendLocationDemand(previouslyNeeded);
+    // No fallback to potentially stale zone messages. Never show wrong finishes.
+    personalizeCheckTimer=setTimeout(()=>{
+        if(!personalizeCheckPending)return;
+        console.warn('[PERSONALIZE] Location check timed out; not displaying unverified finishes.');
+        hvsStopPersonalizeCheck();
+        personalizeCheckProblem=true;
+        currentEditMenuRoom=null;
+        renderEditMenu();
+    },5500);
+}
+window.homeViewPersonalizeRegionAt=(x,y,floor)=>hvsRoomFromMapPosition(Number(x),Number(y),floor);
+window.homeViewPersonalizeLocationDebug=()=>({checking:personalizeCheckPending,problem:personalizeCheckProblem,
+    trigger:personalizeLastTrigger,verified:personalizeConfirmedRoom,point:personalizeConfirmedPoint,
+    room:currentEditMenuRoom,options:hvsPersonalizeOptionsForRoom(currentEditMenuRoom)});
+// For offline verification from the Chrome console; does not send to Unreal.
+window.homeViewTestPersonalizeAt=(px,py,floor)=>{
+    const c=LIVE_MAP_CALIBRATION;
+    const x=c.minX+((Number(px)-c.leftPx)/(c.rightPx-c.leftPx))*(c.maxX-c.minX);
+    const y=c.minY+((Number(py)-c.topPx)/(c.bottomPx-c.topPx))*(c.maxY-c.minY);
+    const room=hvsRoomFromMapPosition(x,y,floor);
+    return {room,options:hvsPersonalizeOptionsForRoom(room),world:{x,y}};
+};
 function drawLiveMapMarker() {
     mapDrawQueued=false;
     if (!mapIsVisible() || !liveMapPoint) {
@@ -5152,9 +5381,19 @@ function queueLiveMapDraw() {
     mapDrawQueued=true;
     requestAnimationFrame(drawLiveMapMarker);
 }
+function hvsSendLocationDemand(previouslyNeeded) {
+    const needed = mapTrackingRequested || personalizeCheckPending;
+    if (needed === previouslyNeeded) return;
+    const message = {location:needed?'send':'stop'};
+    const sent = window.homeViewSend?.(message);
+    if(sent===false || !window.homeViewSend)
+        console.warn('[LOCATION] Unable to request:', message);
+    else console.info('[LOCATION] Location stream:', message.location);
+}
 function requestMapLocationTracking(enable) {
     const want=Boolean(enable);
     if (mapTrackingRequested===want) return;
+    const previouslyNeeded=mapTrackingRequested || personalizeCheckPending;
     mapTrackingRequested=want;
     if (want) {
         liveMapPoint=null; // Don't show stale location from a previous session.
@@ -5165,11 +5404,7 @@ function requestMapLocationTracking(enable) {
     } else {
         teleportHereLayer.classList.remove('is-tracking');
     }
-    const message={location:want?'send':'stop'};
-    const sent=window.homeViewSend?.(message);
-    if (sent===false || !window.homeViewSend)
-        console.warn('[LIVE MAP] Unreal sender not available for:',message);
-    else console.info('[LIVE MAP] Location updates:',message.location);
+    hvsSendLocationDemand(previouslyNeeded);
     queueLiveMapDraw();
 }
 // Unreal's Blueprint ToText(Float) may insert grouping separators at +/-1000:
@@ -5252,7 +5487,14 @@ function handleLiveMapResponse(data) {
     // {"groundOrFirst":"485.463"}. These update the floor classification,
     // but not the map's X/Y coordinates. Do not spam the console each Tick.
     if (Object.prototype.hasOwnProperty.call(data,'groundOrFirst')) {
-        if (mapTrackingRequested) updateLiveMapPlayerFloor(data.groundOrFirst);
+        if (mapTrackingRequested || personalizeCheckPending) {
+            updateLiveMapPlayerFloor(data.groundOrFirst);
+            if(personalizeCheckPending){
+                // Floor and XY are independent Tick messages; only a new
+                // XY position counts as another confirming sample.
+                personalizeLocationFloorTime=Date.now();
+            }
+        }
         if (Object.keys(data).length===1) return true;
     }
     if (Object.prototype.hasOwnProperty.call(data,'rotation') && Object.keys(data).length===1) {
@@ -5265,7 +5507,14 @@ function handleLiveMapResponse(data) {
     }
     const point=mapDecodeWorldPoint(data);
     if (point) {
-        if (mapTrackingRequested) {liveMapPoint=point;queueLiveMapDraw();}
+        if (mapTrackingRequested || personalizeCheckPending) {
+            liveMapPoint=point;
+            if(personalizeCheckPending){
+                personalizeLocationPointTime=Date.now();
+                hvsTryConfirmPersonalize();
+            }
+            queueLiveMapDraw();
+        }
         return true;
     }
     return false;
@@ -5323,7 +5572,7 @@ function openUpstairsLayoutDialog() {
 }
 function updateUpstairsLayoutButtons() {
     const isBedroom=currentFirstFloorLayout==='bedroom';
-    upstairsLayoutOpen.textContent=window.matchMedia('(orientation:landscape) and (max-height:580px) and (max-width:1020px)').matches
+    upstairsLayoutOpen.textContent=window.matchMedia('all').matches
       ? 'CHANGE LAYOUT' : (isBedroom?'UPSTAIRS LAYOUT · BEDROOM':'UPSTAIRS LAYOUT · LOUNGE');
     for(const [button,selected] of [[upstairsLayoutLounge,!isBedroom],[upstairsLayoutBedroom,isBedroom]]) {
         button.classList.toggle('is-selected',selected);
@@ -5490,6 +5739,7 @@ function setUIScale(value) {
 }
 
 function clearModes() {
+    if(personalizeCheckPending)hvsStopPersonalizeCheck();
     // Closing the Teleport Map by opening ANY other menu must also stop
     // location streaming, not only clicking its Exit icon.
     if (mapTrackingRequested) requestMapLocationTracking(false);
@@ -5581,12 +5831,13 @@ function closeConfirmMenu() {
 }
 
 function openProfileMenu() {
-    renderEditMenu(); // Always reflects the latest Unreal trigger-box message.
     clearModes();
     body.classList.add('profile-mode');
+    hvsBeginPersonalizeCheck(); // Fresh X/Y + height before offering any buttons.
 }
 
 function closeProfileMenu() {
+    hvsStopPersonalizeCheck();
     body.classList.remove('profile-mode');
 }
 
@@ -6478,8 +6729,19 @@ function hvsCloseCost(){document.body.classList.remove('cost-open');hvsPriceEdit
 function hvsCloseLogin(){document.body.classList.remove('login-mode');const focus=document.activeElement;if(focus instanceof HTMLElement&&focus.closest('#loginMenuWrapper'))focus.blur();}
 function hvsOpenLogin(){
     hvsCloseCost();clearModes();document.body.classList.add('login-mode');
-    hvsCreatingAccount=false;hvsRenderLogin();
+    hvsCreatingAccount=false;hvsLoginError('');hvsRenderLogin();
     if(!hvsCurrentAccount)setTimeout(()=>hvsById('hvsLoginUsername').focus(),130);
+}
+function hvsLoginError(message){
+    const el=hvsById('hvsLoginInlineError');
+    el.textContent=message;
+    el.hidden=!message;
+}
+function hvsUpdateAdminBadge(){
+    const badge=hvsById('hvsAdminModeBadge');
+    const admin=hvsIsAdmin();
+    badge.hidden=!admin;
+    badge.textContent=admin ? `ADMIN ACCOUNT ACTIVE · ${hvsCurrentAccount.name.toUpperCase()}` : '';
 }
 function hvsAuthNotice(message){hvsById('hvsAuthNotice').textContent=message;}
 function hvsRenderLogin(){
@@ -6490,6 +6752,7 @@ function hvsRenderLogin(){
     for(const tab of document.querySelectorAll('[data-auth-tab]'))tab.classList.toggle('active',tab.dataset.authTab===hvsLoginTab);
     hvsById('hvsCreateToggle').hidden=hvsLoginTab==='admin';
     hvsById('hvsMarieTools').hidden=!hvsIsMarie();
+    hvsUpdateAdminBadge();
     if(hvsCurrentAccount){hvsById('hvsWelcomeText').replaceChildren();hvsById('hvsWelcomeText').textContent=`SIGNED IN: ${hvsCurrentAccount.name} — ${hvsCurrentAccount.role==='owner'?'OWNER / MASTER ADMIN':hvsCurrentAccount.role==='admin'?'ADMIN':'USER'}. Your project is saved locally on this device.`;}
     if(hvsIsMarie()){hvsRenderAdminList();window.homeViewSyncMarieDemoFields?.();}
     hvsRenderCost();
@@ -6523,14 +6786,32 @@ async function hvsHandleLogin(event){
     const account=hvsStore.accounts[hvsNormalizeName(name)];
     try{
         if(!account || (hvsLoginTab==='admin'&&account.role==='user') || (hvsLoginTab==='user'&&account.role!=='user') || !await hvsVerify(account,pass)){
-            hvsAuthNotice('Incorrect username, password, or login type.');return;
+            const message='Login not accepted. Check your username, password and login type.';
+            hvsLoginError(message);hvsAuthNotice('');
+            hvsById('hvsLoginPassword').select();
+            return;
         }
+        hvsLoginError('');
         hvsCurrentAccount={name:account.name,role:account.role};
         hvsCurrentProfile();hvsGuestProfile=hvsEmptyProfile();hvsPreviousTotal=null;hvsLastChangedKey=null;hvsOverBudget=false;
         hvsAuthNotice('Signed in. Your saved project is now active.');
         hvsById('hvsLoginPassword').value='';
-        hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();hvsRenderLogin();hvsRestoreToUnreal();
-    }catch(error){hvsAuthNotice(error.message);}
+        // Authentication changes only the frontend account, prices, and UI.
+        // Do not replay saved layout/property/restoreUserState commands here:
+        // Unreal can treat those as navigation and teleport the player.
+        // The explicit SAVE PROGRESS action retains the existing replay.
+        hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();hvsRenderLogin();
+        hvsCloseLogin();
+        showHomeViewAnimatedStatus(
+            `Welcome back ${hvsCurrentAccount.name}`,
+            hvsIsAdmin()
+                ? 'Your admin privileges are now active. You can adjust default settings.'
+                : 'Your saved project is ready.'
+        );
+    }catch(error){
+        const message=error?.message||'Login could not be completed. Please try again.';
+        hvsLoginError(message);hvsAuthNotice('');
+    }
 }
 async function hvsCreateUser(event){
     event.preventDefault(); const name=hvsById('hvsCreateUsername').value.trim(),password=hvsById('hvsCreatePassword').value;
@@ -6544,7 +6825,8 @@ async function hvsCreateUser(event){
         hvsStore.profiles[key]=JSON.parse(JSON.stringify(hvsGuestProfile));
         if(!hvsPersist()){delete hvsStore.accounts[key];delete hvsStore.profiles[key];hvsAuthNotice('Browser storage unavailable. Account was not created.');return;}
         hvsCurrentAccount={name,role:'user'};hvsGuestProfile=hvsEmptyProfile();hvsCreatingAccount=false;
-        hvsById('hvsCreatePassword').value='';hvsAuthNotice('Account created and signed in on this device.');hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();hvsRenderLogin();hvsRestoreToUnreal();
+        hvsById('hvsCreatePassword').value='';hvsAuthNotice('Account created and signed in on this device.');hvsSyncLayoutUiToProfile();hvsSyncFinishUiToProfile();hvsRenderLogin();
+        // Creating an account must not reposition the player either.
     }catch(error){hvsAuthNotice(error.message);}
 }
 async function hvsManageAdminSave(){
@@ -6680,7 +6962,8 @@ hvsById('costShowPricesButton').addEventListener('click',()=>{
 });
 hvsById('costSavePrices').addEventListener('click',hvsSavePrices);
 hvsById('costAddItem').addEventListener('click',hvsAddPriceItem);
-for(const button of document.querySelectorAll('[data-auth-tab]'))button.addEventListener('click',()=>{hvsLoginTab=button.dataset.authTab;hvsCreatingAccount=false;hvsAuthNotice('');hvsRenderLogin();});
+for(const button of document.querySelectorAll('[data-auth-tab]'))button.addEventListener('click',()=>{hvsLoginTab=button.dataset.authTab;hvsCreatingAccount=false;hvsLoginError('');hvsAuthNotice('');hvsRenderLogin();});
+for(const id of ['hvsLoginUsername','hvsLoginPassword'])hvsById(id).addEventListener('input',()=>hvsLoginError(''));
 hvsById('hvsLoginForm').addEventListener('submit',hvsHandleLogin);
 hvsById('hvsCreateForm').addEventListener('submit',hvsCreateUser);
 hvsById('hvsCreateToggle').addEventListener('click',()=>{hvsCreatingAccount=true;hvsAuthNotice('');hvsRenderLogin();});
@@ -7168,20 +7451,20 @@ window.addEventListener('resize',hvsUpdateHowToScale);
 </script>
 
 <script id="hvs-login-keyboard-isolation">
-/* Keep keyboard controls out of Unreal while Login / Admin is open.
-   Installed before the SDK module starts, so its capture-phase listeners
-   prevent movement keys from reaching the Pixel Streaming keyboard handler.
-   Not preventing default on editable fields keeps normal typing intact. */
+/* Keep ALL login typing (including the Enter key used for submission)
+   from reaching Unreal through the Pixel Streaming keyboard handler.
+   This listener is installed before the local/cloud SDK module starts.
+   Do not prevent default on editable fields; native form submission,
+   keyboard shortcuts and text editing still work normally. */
 (() => {
   const movementKeys = new Set(['w','a','s','d','q','e','arrowup','arrowdown','arrowleft','arrowright',' ']);
   for (const type of ['keydown','keyup','keypress']) {
     window.addEventListener(type, (event) => {
       if (!document.body.classList.contains('login-mode')) return;
-      if (!movementKeys.has(String(event.key || '').toLowerCase())) return;
       const element = event.target;
       const editable = element instanceof Element &&
-        !!element.closest('input, textarea, [contenteditable="true"], [contenteditable=""]');
-      if (!editable && type === 'keydown') event.preventDefault();
+        !!element.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]');
+      if (!editable && movementKeys.has(String(event.key || '').toLowerCase()) && type === 'keydown') event.preventDefault();
       event.stopImmediatePropagation();
       event.stopPropagation();
     }, true);
@@ -7196,11 +7479,35 @@ window.addEventListener('resize',hvsUpdateHowToScale);
 // true  = connect to LOCAL Unreal Pixel Streaming signalling server
 // false = connect to LIVE Arcware cloud
 // ================================================================
-const dev_mode = false; // Search: dev_mode | true=local, false=Arcware
-const DEV_SIGNAL_URL = 'ws://127.0.0.1'; // Port 80: matches your working LUX Visualizer
+const dev_mode = false; // true=local Epic Pixel Streaming, false=Arcware
+const dev_mobile_mode = false; // true=connect local stream by this page's LAN IP (phone testing); false=127.0.0.1 (PC testing)
+// Mobile mode only changes the local signalling URL. Live Arcware mode is unchanged.
+// Live Server and phone must use the PC's LAN address (e.g. http://192.168.0.53:5501/index.html).
+const DEV_SIGNAL_URL = dev_mobile_mode
+  ? `ws://${window.location.hostname}` // Signalling server uses port 80, same as existing PC mode
+  : 'ws://127.0.0.1'; // Original local desktop signalling address
 const DEV_UE_VERSION = 'ue5.4'; // Use the SAME UE version as your working LUX project
 // ================================================================
 
+
+// Mobile diagnostics are local-only and never appear in Arcware/live mode.
+const MOBILE_DIAGNOSTICS = dev_mode && dev_mobile_mode;
+let mobileDiagnosticStep = 'Starting mobile test…';
+function mobileDevStatus(message, issue=false) {
+  if (!MOBILE_DIAGNOSTICS) return;
+  mobileDiagnosticStep = message;
+  let panel = document.getElementById('homeview-mobile-diagnostics');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'homeview-mobile-diagnostics';
+    panel.setAttribute('role', 'status');
+    panel.style.cssText = 'position:fixed;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:99999;max-width:min(450px,82vw);padding:9px 13px;border-radius:9px;background:rgba(5,5,5,.86);color:#fff;font:12px/1.35 Arial,sans-serif;pointer-events:none;white-space:normal;overflow-wrap:anywhere;';
+    document.body.appendChild(panel);
+  }
+  panel.style.border = issue ? '1px solid #ff9159' : '1px solid rgba(255,255,255,.3)';
+  panel.textContent = 'LOCAL MOBILE TEST · ' + message + ' · ' + DEV_SIGNAL_URL;
+  console.info('[MOBILE DEV]',message);
+}
 
 const SHARE_ID = 'share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8';
 let application = null;
@@ -7325,172 +7632,108 @@ function sendUnreal(payload) {
 window.homeViewSend = sendUnreal;
 
 // ============================================================================
-// PIXEL STREAMING VIEWPORT / ASPECT RATIO FIX
-// Your working LUX frontend sends an r.SetRes command matching the browser.
-// Retain that behaviour in BOTH developer and Arcware modes, while object-fit:
-// cover provides an immediate fallback before Unreal adopts the new resolution.
+// PIXEL STREAMING RESOLUTION — one debounced viewport source.
+// Retains the proven LUX {console:true,Command:"r.SetRes WxHw"} protocol.
+// A settled resize causes ONE resolution request; a small, bounded retry
+// handles iOS orientation settling. Never alters screenshot/share sessions.
 // ============================================================================
 let unrealIsReadyForResolution = false;
 let lastSentViewportResolution = '';
 let viewportSyncTimer = null;
-
-// The visible viewport can change BEFORE a fixed element is reflowed in an
-// iOS home-screen app. Prefer the settled visualViewport (as working LUX does),
-// use the safe-area stream rect only when it agrees with the phone orientation.
+let viewportRetryTimers = [];
 function getStreamingViewportResolution() {
-  const container=document.getElementById('video-container');
-  const rect=container?.getBoundingClientRect();
-  const vv=window.visualViewport;
-  const visibleWidth=(vv?.width>0 ? vv.width : window.innerWidth);
-  const visibleHeight=(vv?.height>0 ? vv.height : window.innerHeight);
-  const landscape=window.matchMedia('(orientation:landscape)').matches;
-  const matchingOrientation=(w,h)=>w>0&&h>0 && (landscape ? w>=h : h>=w);
-  let cssWidth=visibleWidth, cssHeight=visibleHeight;
-  if(!matchingOrientation(cssWidth,cssHeight)) {
-    cssWidth=window.innerWidth;cssHeight=window.innerHeight;
-  }
-  if(rect?.width>0 && rect?.height>0 && matchingOrientation(rect.width,rect.height)
-     && Math.abs(rect.width/cssWidth-1)<.23
-     && Math.abs(rect.height/cssHeight-1)<.23) {
-    // Installed app: account for safe-area insets without fitting the wrong
-    // portrait-shaped rect that WebKit can briefly report during rotation.
-    cssWidth=rect.width;cssHeight=rect.height;
-  }
-  const ratio=window.devicePixelRatio||1;
+  const rect=document.getElementById('video-container')?.getBoundingClientRect();
+  const cssWidth = rect?.width>0 ? rect.width : window.innerWidth;
+  const cssHeight = rect?.height>0 ? rect.height : window.innerHeight;
+  const ratio = window.devicePixelRatio || 1;
   let width=Math.max(1,Math.round(cssWidth*ratio));
   let height=Math.max(1,Math.round(cssHeight*ratio));
-  if(window.matchMedia('(pointer:coarse) and (orientation:landscape) and (max-height:700px)').matches ||
-     window.matchMedia('(pointer:coarse) and (orientation:portrait) and (max-width:700px)').matches) {
-    const maxSide=1920;
-    const shrink=Math.min(1,maxSide/Math.max(width,height));
-    width=Math.max(1,Math.round(width*shrink));
-    height=Math.max(1,Math.round(height*shrink));
+  if (window.matchMedia('(pointer:coarse)').matches) {
+    const factor=Math.min(1,1920/Math.max(width,height));
+    width=Math.max(1,Math.round(width*factor));
+    height=Math.max(1,Math.round(height*factor));
   }
   return {width,height};
 }
-
 function hvsStreamAspectMismatched() {
   const video=document.querySelector('#video-container video');
-  if(!video?.videoWidth || !video?.videoHeight)return true;
-  const viewport=getStreamingViewportResolution();
-  const wanted=viewport.width/viewport.height;
-  const actual=video.videoWidth/video.videoHeight;
-  return Math.abs(actual-wanted)/wanted>.048;
+  if(!video?.videoWidth || !video?.videoHeight) return true;
+  const rect=document.getElementById('video-container')?.getBoundingClientRect();
+  if(!rect?.width || !rect?.height) return false;
+  return Math.abs(video.videoWidth/video.videoHeight-rect.width/rect.height) > .025;
 }
-
-function sendViewportResolutionToUnreal(reason = 'viewport', force = false) {
-  // LUX never changes the Unreal render target during a native file save or
-  // share-sheet return; doing so can freeze the restored video decoder.
-  // Screenshot protection still blocks reconnect, but MUST NOT block a real
-  // orientation change after the in-app preview has closed. That 20s guard
-  // previously swallowed every r.SetRes request and left portrait video square.
-  if(screenshotRequestInFlight || screenshotBlob || document.hidden ||
-     !unrealIsReadyForResolution || !application)return;
-  const { width, height } = getStreamingViewportResolution();
-  const resolution = `${width}x${height}`;
-  if (!force && resolution === lastSentViewportResolution) return;
-
-  // This JSON format comes directly from the proven LUX Visualizer frontend.
-  const command = `r.SetRes ${resolution}w`;
-  if (sendUnreal({ console:true, Command:command })) {
-    lastSentViewportResolution = resolution;
-    console.info(`[STREAM] Requested ${resolution} (${reason}): ${command}`);
+function sendViewportResolutionToUnreal(reason='viewport',force=false) {
+  if (screenshotRequestInFlight || screenshotBlob || document.hidden ||
+      !unrealIsReadyForResolution || !application) return;
+  const {width,height}=getStreamingViewportResolution();
+  const resolution=`${width}x${height}`;
+  if (!force && resolution===lastSentViewportResolution) return;
+  const command=`r.SetRes ${resolution}w`;
+  if(sendUnreal({console:true,Command:command})) {
+    lastSentViewportResolution=resolution;
+    console.info(`[STREAM] ${reason} → ${command}`);
   }
 }
-
-function queueViewportResolutionSync(reason = 'resize', delay = 100, force = false) {
-  if (viewportSyncTimer) clearTimeout(viewportSyncTimer);
-  viewportSyncTimer = setTimeout(() => {
-    viewportSyncTimer = null;
-    sendViewportResolutionToUnreal(reason, force);
-  }, delay);
+function queueViewportResolutionSync(reason='resize',delay=220,force=false) {
+  clearTimeout(viewportSyncTimer);
+  viewportSyncTimer=setTimeout(()=>{
+    viewportSyncTimer=null;
+    sendViewportResolutionToUnreal(reason,force);
+  },delay);
 }
-
 function startViewportResolutionSync() {
   const container=document.getElementById('video-container');
-  if(!container)return;
-  const preparedVideos=new WeakSet();
-  let epoch=0;
-  let lastMismatchVideoEvent=0;
-  const mobileUncropped=()=>
-    window.matchMedia('(orientation:landscape) and (max-height:700px) and (max-width:1366px)').matches ||
-    window.matchMedia('(orientation:portrait) and (max-width:700px)').matches;
-  function applyVideoFill(){
-    const fit=mobileUncropped()?'contain':'cover';
-    for(const video of container.querySelectorAll('video')){
-      video.style.setProperty('object-fit',fit,'important');
-      video.style.setProperty('object-position','center center','important');
-      video.style.setProperty('width','100%','important');
-      video.style.setProperty('height','100%','important');
-      if(preparedVideos.has(video))continue;
-      preparedVideos.add(video);
+  if(!container) return;
+  const knownVideos=new WeakSet();
+  function prepareVideos() {
+    for(const video of container.querySelectorAll('video')) {
+      if(knownVideos.has(video)) continue;
+      knownVideos.add(video);
       hvsRegisterVideoForRecovery(video);
-      video.addEventListener('loadedmetadata',()=>{
-        queueViewportResolutionSync('video metadata',220,true);
-      });
-      video.addEventListener('playing',()=>{
-        if(hvsStreamAspectMismatched())resyncOrientation('video playing');
-      });
-      // WebKit may keep the old decoded frame ratio after a PWA rotation.
-      // The video's intrinsic resize fires once the streamer adopts r.SetRes.
-      video.addEventListener('resize',()=>{
-        console.info('[STREAM] Decoded video resolution',video.videoWidth+'x'+video.videoHeight);
-        const now=Date.now();
-        if(now-lastMismatchVideoEvent>1800 && hvsStreamAspectMismatched()){
-          lastMismatchVideoEvent=now;
-          resyncOrientation('video dimensions changed');
-        }
-      });
+      video.addEventListener('loadedmetadata',()=>queueViewportResolutionSync('video ready',240,true));
+      // Do not listen to video's own resize: that's the RESULT of a new
+      // Unreal resolution, not another reason to keep sending commands.
     }
   }
-  function resyncOrientation(reason){
-    const ticket=++epoch;
-    // Do not manufacture a new WebRTC session: request a render resolution
-    // through the EXISTING Unreal data channel, stopping once decoded ratio
-    // matches. Late requests cover the iOS standalone viewport settling.
-    [220,650,1250,2200,3600,5500,8100].forEach((ms,index)=>setTimeout(()=>{
-      if(ticket!==epoch || document.hidden || window.homeViewSessionIntentional)return;
-      applyVideoFill();
-      if(!hvsStreamAspectMismatched())return;
-      if(screenshotRequestInFlight || screenshotBlob)return; // still sharing
-      sendViewportResolutionToUnreal(`${reason} (${ms}ms)`,true);
-      if(index===6 && hvsStreamAspectMismatched()){
-        const video=container.querySelector('video');
-        console.warn('[STREAM] Awaiting correct Unreal aspect ratio',{
-          decoded:video?.videoWidth+'x'+video?.videoHeight,
-          viewport:getStreamingViewportResolution()
-        });
-      }
-    },ms));
+  function clearRetries() {
+    viewportRetryTimers.forEach(clearTimeout);
+    viewportRetryTimers=[];
   }
-  // Useful from screenshot-preview close; no resolution command is sent when
-  // incoming video already matches, so normal screenshot saves are untouched.
-  window.homeViewResyncStreamAspect=resyncOrientation;
-  let previousLandscape=window.matchMedia('(orientation:landscape)').matches;
-  function viewportChanged(reason){
-    applyVideoFill();
-    queueViewportResolutionSync(reason,170);
-    const current=window.matchMedia('(orientation:landscape)').matches;
-    if(current!==previousLandscape){
-      previousLandscape=current;
-      resyncOrientation('orientation '+reason);
-    }
+  function settledViewport(reason) {
+    prepareVideos();
+    clearRetries();
+    queueViewportResolutionSync(reason,240,false);
+    // Two bounded checks rather than repeated forced calls on every frame.
+    [900,2400].forEach(ms=>viewportRetryTimers.push(setTimeout(()=>{
+      if(!document.hidden && hvsStreamAspectMismatched())
+        sendViewportResolutionToUnreal(reason+' aspect check',true);
+    },ms)));
   }
-  window.addEventListener('resize',()=>viewportChanged('window resized'),{passive:true});
-  window.addEventListener('orientationchange',()=>resyncOrientation('orientation changed'),{passive:true});
-  window.visualViewport?.addEventListener('resize',()=>viewportChanged('visual viewport resized'),{passive:true});
+  window.homeViewResyncStreamAspect=(reason='external aspect change')=>settledViewport(reason);
+  let previousSize='';
+  function onViewportChange(reason) {
+    const r=container.getBoundingClientRect();
+    const key=Math.round(r.width)+'x'+Math.round(r.height);
+    if(key===previousSize) return;
+    previousSize=key;
+    settledViewport(reason);
+  }
+  window.addEventListener('resize',()=>onViewportChange('window resize'),{passive:true});
+  window.addEventListener('orientationchange',()=>{
+    setTimeout(()=>onViewportChange('orientation'),250);
+    setTimeout(()=>onViewportChange('orientation settled'),800);
+  },{passive:true});
+  window.visualViewport?.addEventListener('resize',()=>onViewportChange('visual viewport'),{passive:true});
   if(typeof ResizeObserver!=='undefined')
-    new ResizeObserver(()=>queueViewportResolutionSync('stream container resized',180))
-      .observe(container);
+    new ResizeObserver(()=>onViewportChange('container resize')).observe(container);
   document.addEventListener('visibilitychange',()=>{
-    if(!document.hidden)resyncOrientation('app foregrounded');
+    if(!document.hidden) settledViewport('foregrounded');
   });
-  window.addEventListener('pageshow',()=>resyncOrientation('page shown'),{passive:true});
-  new MutationObserver(applyVideoFill).observe(container,{childList:true,subtree:true});
-  applyVideoFill();
+  window.addEventListener('pageshow',()=>settledViewport('page shown'),{passive:true});
+  new MutationObserver(prepareVideos).observe(container,{childList:true,subtree:true});
+  prepareVideos();
+  onViewportChange('initial size');
 }
-
-// Viewport listeners are installed AFTER the recovery helpers are initialized.
 
 // ============================================================================
 // HVS_STREAM_RECOVERY: Mobile Save/Share can suspend WebRTC on iOS/Android.
@@ -7789,6 +8032,7 @@ for (const { id, messageKey } of cameraSliderBindings) {
 }
 
 function receiveUnrealResponse(response) {
+  if (MOBILE_DIAGNOSTICS && !levelReady) mobileDevStatus('Received message from Unreal');
   let data = response;
   try { if (typeof response === 'string') data = JSON.parse(response); } catch (_) {}
   // Some older Unreal builds return nested serialized strings.
@@ -7811,6 +8055,7 @@ function receiveUnrealResponse(response) {
     if (data.screenshot === 'generating' && screenshotRequestInFlight)
       showScreenshotOverlay('Generating high resolution image', true, false);
     if (data.Game === 'Loaded' && !loadRequested && !levelReady) {
+      mobileDevStatus('Game Loaded received; requesting homeViewDemo');
       // Do NOT send until Unreal explicitly declares Game:Loaded.
       unrealIsReadyForResolution = true;
       loadRequested = sendUnreal({ load:'homeViewDemo' });
@@ -7818,6 +8063,8 @@ function receiveUnrealResponse(response) {
       setTimeout(() => sendViewportResolutionToUnreal('Unreal initialised', true), 500);
     }
     if (data.Game === 'HomeViewLevelLoaded') {
+      mobileDevStatus('HomeViewLevelLoaded received; opening UI');
+      if (MOBILE_DIAGNOSTICS) setTimeout(() => document.getElementById('homeview-mobile-diagnostics')?.remove(), 4000);
       unrealIsReadyForResolution = true;
       revealHomeView();
       window.homeViewOnLevelReady?.();
@@ -8172,6 +8419,7 @@ async function importEpicModule(candidates, name) {
 
 async function initialiseEpicLocalPlayer() {
   console.info('[DEV MODE] Epic Pixel Streaming:', DEV_SIGNAL_URL, DEV_UE_VERSION);
+  mobileDevStatus('Loading Epic Pixel Streaming libraries');
   const frontendUrls = [
     `https://esm.sh/@epicgames-ps/lib-pixelstreamingfrontend-${DEV_UE_VERSION}?bundle&target=es2022`,
     `https://esm.sh/@epicgames-ps/lib-pixelstreamingfrontend-${DEV_UE_VERSION}?bundle`,
@@ -8204,6 +8452,7 @@ async function initialiseEpicLocalPlayer() {
     catch (error) { console.warn('[DEV MODE] Epic stylesheet:', error); }
   }
 
+  mobileDevStatus('Epic libraries ready; creating stream player');
   const config = new Config({
     useUrlParams:true,
     initialSettings: {
@@ -8246,13 +8495,16 @@ async function initialiseEpicLocalPlayer() {
   root.style.padding = '0';
   configureStreamingInputTarget(root);
   console.info('[DEV MODE] Local Epic player mounted; waiting for Unreal Game:Loaded.');
+  mobileDevStatus('Player mounted; waiting for Unreal Game Loaded');
+  if (MOBILE_DIAGNOSTICS) setTimeout(() => { if (!levelReady && !loadRequested) mobileDevStatus('Still waiting for Game Loaded. Check signaling / only one player open.',true); else if (!levelReady) mobileDevStatus('Load requested; waiting for HomeViewLevelLoaded',true); }, 12000);
 }
 
 startLoadingMedia();
+mobileDevStatus('Page loaded; contacting local Unreal stream');
 if (dev_mode) {
   console.info('%cHOME VIEW DEMO — EPIC SDK DEV MODE / NO ARCWARE', 'color:#6f6;font-weight:bold');
   try { await initialiseEpicLocalPlayer(); }
-  catch (error) { console.error('[DEV MODE] Epic Pixel Streaming initialization failed:', error); }
+  catch (error) { console.error('[DEV MODE] Epic Pixel Streaming initialization failed:', error); mobileDevStatus('ERROR: ' + (error?.message || String(error)),true); }
 } else {
   console.info('HOME VIEW DEMO — LIVE ARCWARE MODE');
   // Only download the Arcware SDK in live mode, preventing any cloud session in dev mode.
@@ -8291,7 +8543,7 @@ if (dev_mode) {
   const layout = document.getElementById('upstairsLayoutOpen');
   if (!rail || !map || !topBar || !title || !floors || !layout) return;
   const original = [topBar,title,floors,layout].map(node => ({node, parent:node.parentNode, next:node.nextSibling}));
-  const query = window.matchMedia('(orientation:landscape) and (max-height:580px) and (max-width:1020px)');
+  const query = window.matchMedia('all');
   let inRail = false;
   const px = value => `${Math.round(value * 10)/10}px`;
   function applyLayout() {
@@ -8314,20 +8566,23 @@ if (dev_mode) {
     layout.textContent=mobile?'CHANGE LAYOUT':
       'UPSTAIRS LAYOUT · '+(bedroom?.classList.contains('is-selected')?'BEDROOM':'LOUNGE');
     if (!mobile) return;
-    // Keep the ACTUAL rendered menu inside the short phone viewport even
-    // when the user increases the main UI scale. Plan dimensions remain 960:2048.
+    // Derive the panel from its CONTENT: a 960:2048 plan and a compact rail.
+    // No percentage-of-window sidebar, so ultrawide windows cannot stretch it.
     const scale = Math.max(.6, Number(document.getElementById('scaleSlider')?.value) || 1);
-    const usableHeight = Math.max(195, window.innerHeight - 20);
-    const stageHeight = Math.max(170, Math.min(525, usableHeight / scale - 27));
+    const cssWidth = window.visualViewport?.width || window.innerWidth;
+    const cssHeight = window.visualViewport?.height || window.innerHeight;
+    const usableHeight = Math.max(200, cssHeight - 22);
+    const reserveForDock = cssWidth < 950 ? 125 : 145;
+    const availableWidth = Math.max(270, (cssWidth-reserveForDock)/scale);
+    const railWidth = Math.max(144, Math.min(176, availableWidth * .38));
+    const stageHeight = Math.max(150, Math.min(525, usableHeight/scale - 29,
+                       Math.max(150, availableWidth-railWidth-32)*2048/960));
     const stageWidth = stageHeight * 960 / 2048;
-    const usableWidth = Math.max(340, window.innerWidth - 120);
-    // The previous 520px cap gave the sidebar too much width on phones.
-    // Keep full-height plan; narrow only the controls rail.
-    const outerWidth = Math.max(stageWidth + 158,
-      Math.min(452, usableWidth / scale, window.innerWidth * .57));
+    const outerWidth = stageWidth + railWidth + 32;
     const panel = document.getElementById('teleportOuterBox');
     panel.style.setProperty('--hvs-mobile-map-stage-h', px(stageHeight));
     panel.style.setProperty('--hvs-mobile-map-stage-w', px(stageWidth));
+    panel.style.setProperty('--hvs-map-rail-width', px(railWidth));
     panel.style.setProperty('--hvs-mobile-map-width', px(outerWidth));
   }
   let raf = 0;
@@ -8353,5 +8608,90 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
     }
   });
 });
+</script>
+
+<script id="hvs-per-menu-viewport-fit">
+/* One source of truth for the RIGHT-HAND scale slider.
+   Each panel remembers its own user-adjusted preferred size; switching from
+   a compact menu to a tall one never inherits the former's excessive scale.
+   A single viewport-fit ceiling prevents clipping. We do not add competing
+   per-breakpoint transform overrides or resize the Unreal video. */
+(() => {
+  const slider=document.getElementById('scaleSlider');
+  if(!slider)return;
+  const modePanels=[
+    ['camera-mode','cameraMenuWrapper'],
+    ['building-mode','buildingMenuWrapper'],
+    ['confirm-mode','confirmMenuWrapper'],
+    ['teleport-mode','teleportMenuWrapper'],
+    ['profile-mode','profileMenuWrapper'],
+    ['kitchen-mode','kitchenMenuWrapper'],
+    ['kitchen-finish-mode','kitchenFinishMenuWrapper']
+  ];
+  const preferences=new Map([['uiWrapper', Number(slider.value)||1]]);
+  let activeId=null;
+  let task=0;
+  function currentPanelId(){
+    for(const [mode,id] of modePanels)if(document.body.classList.contains(mode))return id;
+    return 'uiWrapper';
+  }
+  function viewport(){
+    return {
+      width:window.visualViewport?.width||window.innerWidth,
+      height:window.visualViewport?.height||window.innerHeight
+    };
+  }
+  function fitCurrentPanel(){
+    task=0;
+    const id=currentPanelId();
+    const el=document.getElementById(id);
+    if(!el)return;
+    const changed=id!==activeId;
+    activeId=id;
+    const preferred=preferences.get(id)??1;
+    const vw=viewport().width,vh=viewport().height;
+    const computed=getComputedStyle(el);
+    // Safari supports the independent CSS scale property used by our phone
+    // layouts; account for it rather than fighting their existing scale rules.
+    const extraScale=Math.max(.1,parseFloat(computed.scale)||1);
+    const w=el.offsetWidth||1;
+    const h=el.offsetHeight||1;
+    const right=parseFloat(computed.right)||0;
+    const leftReserve=id==='uiWrapper'?14:Math.min(20,vw*.035);
+    const verticalRoom=Math.max(80,vh-Math.max(22,Math.min(42,vh*.065)));
+    const horizontalRoom=Math.max(80,vw-right-leftReserve);
+    // Teleport Map on phone already fits its floor-plan/rail content by
+    // viewport dimensions; this is only the final no-clipping safety limit.
+    const ceiling=Math.max(.3,Math.min(2.6,
+      verticalRoom/(h*extraScale),horizontalRoom/(w*extraScale)));
+    const effective=Math.max(.3,Math.min(preferred,ceiling));
+    const inputValue=Math.min(Number(slider.max)||2.6,
+      Math.max(Number(slider.min)||.6,effective));
+    if(changed||Math.abs(Number(slider.value)-inputValue)>.009){
+      slider.value=inputValue.toFixed(2);
+      // The floor-plan size calculator and help menu already listen to
+      // this input event. This synthetic event must not save a preference.
+      slider.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+    document.documentElement.style.setProperty('--ui-scale',effective.toFixed(4));
+  }
+  function schedule(){if(task)cancelAnimationFrame(task);task=requestAnimationFrame(fitCurrentPanel);}
+  slider.addEventListener('input',event=>{
+    if(!event.isTrusted)return;
+    preferences.set(currentPanelId(),Number(slider.value)||1);
+    schedule();
+  });
+  new MutationObserver(mutations=>{
+    if(mutations.some(m=>m.attributeName==='class'))schedule();
+  }).observe(document.body,{attributes:true,attributeFilter:['class']});
+  window.addEventListener('resize',()=>{schedule();setTimeout(schedule,160);},{passive:true});
+  window.visualViewport?.addEventListener('resize',()=>{schedule();setTimeout(schedule,160);},{passive:true});
+  window.addEventListener('orientationchange',()=>setTimeout(schedule,210),{passive:true});
+  // SDK/phone CSS can finish sizing just after the first frame.
+  schedule();
+  window.homeViewMenuFitStatus=()=>({panel:activeId,
+    preferred:preferences.get(activeId)??1,
+    applied:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale'))});
+})();
 </script>
 </body></html>
