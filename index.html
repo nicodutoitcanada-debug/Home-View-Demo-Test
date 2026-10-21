@@ -3960,6 +3960,34 @@ html.hvs-ios-viewport-stable #homeViewUI {
  opacity:1;translate:0 0;
 }
 </style>
+
+<style id="hvs-2026-10-21-mobile-finish-and-cost-compact">
+/* Only touchscreen phone layouts: a narrower one-column picker leaves more
+   of Unreal visible when the calculator is also open. Scrolling preserves
+   access to all options; original cost/price font sizes are unchanged. */
+@media (pointer:coarse) and (max-width:1024px) {
+  #homeViewUI #kitchenFinishMenuWrapper {
+    width:min(225px,calc(100vw - 115px));
+  }
+  #homeViewUI #kitchenFinishOptions {
+    grid-template-columns:minmax(0,1fr);
+    gap:7px;
+    padding:3px 3px 8px;
+  }
+  #homeViewUI #kitchenFinishMenuWrapper .glassPanel {
+    padding:6px 6px 8px;
+  }
+  #homeViewUI #kitchenFinishSubtitle {
+    margin:8px 3px 9px;
+  }
+  #homeViewUI .kitchenFinishCard {
+    padding:7px 5px;
+  }
+  #homeViewUI #calculatorMenuWrapper {
+    width:276px;
+  }
+}
+</style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <div id="introOverlay">
@@ -4059,7 +4087,7 @@ html.hvs-ios-viewport-stable #homeViewUI {
 
 <!-- Separate exit/connection state: intentional end never looks like a crash. -->
 <div id="hvsSessionScreen" hidden role="dialog" aria-modal="true" aria-label="Session status">
-  <section class="hvsSystemCard"><img src="LOGO.png" alt="Home View" class="hvsSystemLogo"><h2 id="hvsSessionTitle">SESSION ENDED</h2><p id="hvsSessionMessage">Your session has ended.</p><div class="hvsSystemActions"><button type="button" id="hvsSessionRecover" class="hvsSystemPrimary" hidden>TRY TO RECONNECT</button><button type="button" id="hvsSessionRelaunch">RELAUNCH</button></div></section>
+  <section class="hvsSystemCard"><img src="logo_movie.png" alt="Home View" class="hvsSystemLogo"><h2 id="hvsSessionTitle">SESSION ENDED</h2><p id="hvsSessionMessage">Your session has ended.</p><div class="hvsSystemActions"><button type="button" id="hvsSessionRecover" class="hvsSystemPrimary" hidden>TRY TO RECONNECT</button><button type="button" id="hvsSessionRelaunch">RELAUNCH</button></div></section>
 </div>
 
 
@@ -7431,6 +7459,7 @@ function hvsOpenHowTo(){
   if(window.homeViewSessionIntentional || !hvsHowToWindow) return;
   clearTimeout(hvsHowToCloseTimer);
   hvsRefreshHowToMenuReplica();
+  hvsHowToOpenSliderValue=Number(hvsById('scaleSlider')?.value)||1;
   hvsHowToWindow.hidden=false;
   document.body.classList.add('hvs-tutorial-open');
   hvsUpdateHowToScale();
@@ -7629,18 +7658,28 @@ window.addEventListener('resize',()=>{
     if(hvsCostDragX)hvsApplyCostDrag(hvsCostDragX);
 });
 
+// How To has a wide two-column intrinsic layout. Scaling its width INVERSELY
+// against the menu slider squeezed that layout until Safari overflowed/zoomed.
+// Fit it ONCE from its nominal dimensions; subsequent slider movement is
+// relative to that initial size, not inherited from the previous menu.
+let hvsHowToOpenSliderValue = 1;
 function hvsUpdateHowToScale(){
-    if(!hvsHowToWindow||hvsHowToWindow.hidden)return;
+    if(!hvsHowToWindow || hvsHowToWindow.hidden) return;
     const card=hvsHowToWindow.querySelector('.hvsTutorialGlass');
     if(!card)return;
-    const scale=Number(hvsById('scaleSlider').value)||1;
-    const reserve=window.innerWidth<680?108:152;
-    const availableWidth=Math.max(200,window.innerWidth-reserve);
-    const width=Math.min(850,Math.max(205,(availableWidth*.78)/scale));
-    const height=Math.max(155,((window.innerHeight-30)*.80)/scale);
-    card.style.zoom=String(scale);
-    card.style.width=`${width}px`;
-    card.style.maxHeight=`${height}px`;
+    const sliderValue=Number(hvsById('scaleSlider')?.value)||1;
+    const zoomChange=Math.max(.25,sliderValue/Math.max(.01,hvsHowToOpenSliderValue));
+    const viewportWidth=window.innerWidth;
+    const viewportHeight=window.innerHeight;
+    const railSpace=viewportWidth<=1024?104:145;
+    const baseFit=Math.min(.86,
+      Math.max(.15,(viewportWidth-railSpace-20)/900),
+      Math.max(.15,(viewportHeight-28)/690));
+    // CSS zoom changes actual layout size. Keep a readable, uncompressed
+    // 900px base, with scroll inside the card when the user enlarges it.
+    card.style.width='900px';
+    card.style.zoom=String(baseFit*zoomChange);
+    card.style.maxHeight='690px';
     requestAnimationFrame(()=>requestAnimationFrame(hvsAlignHowToLabels));
 }
 window.homeViewResizeHowTo=hvsUpdateHowToScale;
@@ -7875,6 +7914,24 @@ function sendViewportResolutionToUnreal(reason='viewport', force=false) {
     console.info(`[STREAM] ${reason}: ${command}`);
   }
 }
+// LUX-style one-shot layout refresh. A fresh Pixel Streaming connection can
+// start with a 16:9 *decoded track* despite the phone already being landscape.
+// r.SetRes alone does not necessarily make the browser player's viewport
+// observer remeasure. A real rotation does both; replay its resize notification
+// only on INITIAL connection, and only if the decoded aspect still disagrees.
+let hvsInitialPlayerFitToken=0;
+function hvsRefreshInitialPlayerFit(){
+  const token=++hvsInitialPlayerFitToken;
+  [240,1000,2100].forEach(delay=>setTimeout(()=>{
+    if(token!==hvsInitialPlayerFitToken || !levelReady || document.hidden ||
+       screenshotRequestInFlight || screenshotBlob) return;
+    if(!hvsStreamAspectMismatched())return;
+    window.dispatchEvent(new Event('resize'));
+    // Epic and Arcware may listen to VisualViewport rather than window resize.
+    try {window.visualViewport?.dispatchEvent(new Event('resize'));}catch(_){}
+    sendViewportResolutionToUnreal('first video player layout refresh',true);
+  },delay));
+}
 function queueViewportResolutionSync(reason='resize', delay=250, force=false) {
   clearTimeout(viewportSyncTimer);
   viewportSyncTimer = setTimeout(() => {
@@ -7897,7 +7954,10 @@ function startViewportResolutionSync() {
         // Safari often reports its final decoded aspect AFTER Unreal level load.
         // A single check at the first playing frame is safer than a resize loop.
         setTimeout(()=>{
-          if(hvsStreamAspectMismatched())sendViewportResolutionToUnreal('initial playing video aspect',true);
+          if(hvsStreamAspectMismatched()) {
+            sendViewportResolutionToUnreal('initial playing video aspect',true);
+            hvsRefreshInitialPlayerFit();
+          }
         },480);
       },{once:true});
     }
@@ -8249,6 +8309,7 @@ function receiveUnrealResponse(response) {
       window.homeViewOnLevelReady?.();
       [100, 600, 1600].forEach(ms =>
         setTimeout(() => sendViewportResolutionToUnreal('Home View level ready', true), ms));
+      hvsRefreshInitialPlayerFit();
       // On initial mobile connection the Unreal video may still be 16:9 even
       // though the phone's stage is much wider. Rotation fixed this before;
       // perform the same aspect verification at startup with BOUNDED retries.
