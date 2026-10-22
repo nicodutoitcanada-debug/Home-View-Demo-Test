@@ -1858,11 +1858,12 @@ body.walk-mode #homeViewUI.is-ready #sliderContainer { pointer-events:none; }
     padding: 9px 12px;
     appearance: none;
     -webkit-appearance: none;
-    border: 1px solid rgba(255,255,255,.075);
+    border: 1px solid rgba(255,78,18,.65);
     border-radius: 999px;
-    color: rgba(255,255,255,.88);
-    background: linear-gradient(to bottom, rgba(255,255,255,.07), rgba(0,0,0,.30)), rgba(20,20,20,.22);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 5px rgba(0,0,0,.1);
+    color: rgba(255,255,255,.98);
+    /* Same translucent orange-red treatment as the active USER LOGIN tab. */
+    background: rgba(222,64,16,.40);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
     font: 700 11px/1.2 "HomeView Myriad", Arial, sans-serif;
     letter-spacing: 1.2px;
     text-align: center;
@@ -1874,13 +1875,13 @@ body.walk-mode #homeViewUI.is-ready #sliderContainer { pointer-events:none; }
 .editOptionButton:hover,
 .editOptionButton:focus-visible {
     color: white;
-    background: linear-gradient(to bottom, rgba(255,255,255,.12), rgba(0,0,0,.22)), rgba(83,32,19,.40);
-    border-color: rgba(255,255,255,.20);
+    background: rgba(228,68,19,.47);
+    border-color: rgba(255,95,38,.72);
 }
 .editOptionButton:active { transform: scale(.98); }
 .editOptionButton.is-selected {
-    background: linear-gradient(to bottom, rgba(238,70,17,.50), rgba(158,40,12,.58)), rgba(35,0,0,.25);
-    border-color: rgba(255,255,255,.20);
+    background: rgba(222,64,16,.48);
+    border-color: rgba(255,78,18,.70);
     color: #fff;
 }
 #editMenuEmptyMessage {
@@ -2165,21 +2166,20 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
 #buildingTopBar, #teleportTopBar, #profileTopBar, #confirmTopBar {
     border-bottom:1px solid rgba(255,255,255,.085);
 }
-#homeViewUI .editOptionButton,
 #homeViewUI .confirmButton, #homeViewUI .profilePillButton {
     background:linear-gradient(170deg,rgba(255,255,255,.105),
         rgba(29,35,37,.17) 38%,rgba(11,16,19,.26));
     border-color:rgba(255,255,255,.11);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 4px 12px rgba(0,0,0,.06);
 }
-#homeViewUI .editOptionButton:hover,
 #homeViewUI .confirmButton:hover, #homeViewUI .profilePillButton:hover {
     background:linear-gradient(170deg,rgba(255,255,255,.18),
         rgba(73,39,31,.3) 60%,rgba(20,21,22,.28));
 }
 #homeViewUI .editOptionButton.is-selected {
-    background:linear-gradient(to bottom,rgba(252,76,18,.51),rgba(175,46,13,.58));
-    border-color:rgba(255,78,18,.40);
+    background:rgba(222,64,16,.48);
+    border-color:rgba(255,78,18,.70);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
 }
 #homeViewUI .buildingCard {
     background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(17,22,25,.25));
@@ -4150,8 +4150,17 @@ body.hvs-stage-menu-entrance #homeViewUI #sliderContainer {
   transform:scaleX(-1); /* original arrow points right; dock is left */
   pointer-events:none;
 }
-#homeViewUI #hvsCostDragHandle #costCloseButton:hover {
-  background:rgba(255,255,255,.07);
+#homeViewUI #hvsCostDragHandle #costCloseButton:hover,
+#homeViewUI #hvsCostDragHandle #costCloseButton:active,
+#homeViewUI #hvsCostDragHandle #costCloseButton:focus-visible {
+  background:transparent;
+  border-color:transparent;
+  box-shadow:none;
+  outline:none;
+}
+/* Keyboard focus remains visible on the arrow icon, not a square surface. */
+#homeViewUI #hvsCostDragHandle #costCloseButton:focus-visible img {
+  filter:drop-shadow(0 0 4px rgba(255,255,255,.65));
 }
 #homeViewUI #hvsCalculatorHeaderLogo {
   grid-column:2;grid-row:1;
@@ -4344,6 +4353,52 @@ body.cost-open #homeViewUI.is-ready #calculatorMenuWrapper .hvsGlass,
   #hvsPropertyPrompt.is-open #hvsPropertyDialog {
     animation-duration: 120ms;
   }
+}
+</style>
+
+<style id="hvs-teleport-right-inner-panel-only">
+/* Teleport Map ONLY: move the visual inner-glass treatment from the floor
+   plan to the existing controls column. Retain the exact geometry, DOM,
+   hotspot calibration and floor-change animations. */
+#homeViewUI #teleportMenuWrapper #teleportInnerBox {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    animation: none !important;
+}
+/* Existing rail is already the right-hand column; give it the curved inset
+   surface the floor plan had, but darker and more see-through. */
+#homeViewUI #teleportMenuWrapper #teleportMobileRail {
+    border-radius: 19px;
+    border: 1px solid rgba(255,255,255,.10);
+    background:
+        linear-gradient(165deg,
+            rgba(255,255,255,.025) 0%,
+            rgba(3,7,12,.10) 32%,
+            rgba(0,3,8,.19) 100%),
+        rgba(4,8,13,.24);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.09),
+        inset 0 -7px 18px rgba(0,0,0,.07),
+        0 7px 19px rgba(0,0,0,.055);
+    -webkit-backdrop-filter: blur(10.5px) saturate(112%);
+    backdrop-filter: blur(10.5px) saturate(112%);
+    /* Keep the rail's measured width and height unchanged. */
+    box-sizing: border-box;
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-bottom: 17px; /* Space under CHANGE LAYOUT, teleport window only. */
+}
+/* When the Teleport Map opens, use the existing glass entrance easing for
+   the NEW inset glass layer, not the now-transparent plan wrapper. */
+#homeViewUI #teleportMenuWrapper #teleportMobileRail { --hvs-glass-radius: 10.5px; --hvs-glass-sat: 112%; }
+body.teleport-mode #homeViewUI.is-ready #teleportMobileRail {
+    animation: hvsGlassOpenBlur 2550ms cubic-bezier(.35,0,.18,1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+    body.teleport-mode #homeViewUI.is-ready #teleportMobileRail { animation-duration: 120ms; }
 }
 </style>
 </head><body>
@@ -9310,7 +9365,7 @@ if (dev_mode) {
     const stageHeight = Math.max(150, Math.min(525, usableHeight/scale - 29,
                        Math.max(150, availableWidth-railWidth-32)*2048/960));
     const stageWidth = stageHeight * 960 / 2048;
-    const outerWidth = stageWidth + railWidth + 32;
+    const outerWidth = stageWidth + railWidth + 38; // Keep the right glass inset equal to the top/bottom inset.
     const panel = document.getElementById('teleportOuterBox');
     panel.style.setProperty('--hvs-mobile-map-stage-h', px(stageHeight));
     panel.style.setProperty('--hvs-mobile-map-stage-w', px(stageWidth));
