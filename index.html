@@ -595,7 +595,7 @@ to{transform:rotate(360deg);}
 #cameraRedPlate {
     background: linear-gradient(
         to bottom,
-        rgba(188, 42, 12, 0.88),
+        rgba(188,35,12, 0.88),
         rgba(132, 21, 0, 0.92)
     );
     position: absolute;
@@ -703,7 +703,7 @@ to{transform:rotate(360deg);}
     border-radius: 50%;
     background: radial-gradient(
         ellipse at center,
-        rgba(220, 55, 20, 0.44) 0%,
+        rgba(220,47,20, 0.44) 0%,
         rgba(194, 37, 9, 0.30) 28%,
         rgba(166, 23, 0, 0.17) 48%,
         rgba(144, 19, 0, 0.08) 62%,
@@ -894,7 +894,7 @@ to{transform:rotate(360deg);}
     border-radius: 4px;
     background: linear-gradient(
         to bottom,
-        rgb(237, 57, 8),
+        rgb(237,39,8),
         rgb(197, 36, 4)
     );
     border: 1px solid rgba(0,0,0,0.35);
@@ -916,7 +916,7 @@ to{transform:rotate(360deg);}
     border-radius: 4px;
     background: linear-gradient(
         to bottom,
-        rgb(237, 57, 8),
+        rgb(237,39,8),
         rgb(197, 36, 4)
     );
     border: 1px solid rgba(0,0,0,0.35);
@@ -1879,7 +1879,7 @@ body.walk-mode #homeViewUI.is-ready #sliderContainer { pointer-events:none; }
 }
 .editOptionButton:active { transform: scale(.98); }
 .editOptionButton.is-selected {
-    background: linear-gradient(to bottom, rgba(220,51,16,.50), rgba(124,23,4,.58)), rgba(35,0,0,.25);
+    background: linear-gradient(to bottom, rgba(220,43,16,.50), rgba(124,23,4,.58)), rgba(35,0,0,.25);
     border-color: rgba(255,255,255,.20);
     color: #fff;
 }
@@ -2033,7 +2033,7 @@ body.movie-ui-hidden #hvsAdminModeBadge {display:none!important;}
 #hvsLoginInlineError[hidden] {display:none!important;}
 #hvsLoginInlineError {
     margin:11px 0 0;padding:9px 12px;
-    border:1px solid rgba(255,142,115,.45);border-radius:11px;
+    border:1px solid rgba(255,134,115,.45);border-radius:11px;
     background:rgba(144,25,12,.32);
     color:#ffdfd1;font:700 12px/1.35 "HomeView Myriad",Arial,sans-serif;
     animation:hvsLoginErrorAppear 260ms ease-out both;
@@ -2041,7 +2041,7 @@ body.movie-ui-hidden #hvsAdminModeBadge {display:none!important;}
 @keyframes hvsLoginErrorAppear {from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
 
 /* HOME VIEW ACCOUNT + FRONTEND COST SYSTEM — 2026-10 */
-:root { --cost-ui-scale:1; --hvs-orange:#ec3e0f; --hvs-orange-dim:#981e06; }
+:root { --cost-ui-scale:1; --hvs-orange:#ec2c0f; --hvs-orange-dim:#981e06; }
 #calculatorMenuWrapper, #loginMenuWrapper { position:absolute; z-index:45; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .65s ease, transform .95s cubic-bezier(.22,1,.36,1),visibility 0s linear .95s; color:#f8f8f8; font-family:"HomeView Myriad",Arial,sans-serif; }
 #calculatorMenuWrapper { top:50%; left:92px; width:308px; max-width:calc(100vw - 130px); translate:0 -50%; transform:translate3d(-470px,0,0) scale(var(--cost-ui-scale)); transform-origin:left center; }
 body.cost-open #homeViewUI.is-ready #calculatorMenuWrapper { opacity:1; visibility:visible; pointer-events:auto; transform:translate3d(0,0,0) scale(var(--cost-ui-scale)); transition-delay:0s; }
@@ -2060,18 +2060,18 @@ body.login-mode #homeViewUI #uiWrapper,body.login-mode #homeViewUI #sliderContai
 .hvsCostAmount { flex:0 0 83px; font-weight:600; color:rgba(255,255,255,.95); font-variant-numeric:tabular-nums; }
 .hvsCostDescription { flex:1; min-width:0; overflow-wrap:anywhere; }
 .hvsCostRow.is-changed { animation:hvsCostFlash 1.2s ease-out; }
-@keyframes hvsCostFlash { 0%{background:rgba(255,104,47,.68)} 25%{background:rgba(240,65,12,.31)} 100%{background:transparent} }
+@keyframes hvsCostFlash { 0%{background:rgba(255,75,47,.68)} 25%{background:rgba(240,42,12,.31)} 100%{background:transparent} }
 #costTotalPanel { background:linear-gradient(155deg,rgba(51,62,66,.95),rgba(24,29,31,.97)); border-top:1px solid rgba(255,255,255,.12); padding:15px 14px 13px; display:flex; align-items:center; gap:15px; }
 #costTotalPanel .hvsTotalLabel { flex:0 0 auto; font-size:17px; font-weight:300; opacity:.74; }
 #costTotalValue { font-size:25px; font-weight:300; font-variant-numeric:tabular-nums; letter-spacing:.01em; display:inline-flex; flex-wrap:wrap; gap:0; }
 #costTotalValue .hvsAmountGlyph { display:inline-block; animation:hvsDigitEnter .48s cubic-bezier(.22,1,.36,1) both; }
 @keyframes hvsDigitEnter { from{opacity:0;transform:translateY(11px) scale(.84)}to{opacity:1;transform:translateY(0) scale(1)} }
-#costBudgetWarning { display:none; padding:9px 14px; font-size:11px; font-weight:700; letter-spacing:.04em; background:rgba(209,49,9,.26); color:#ffe1cd; }
+#costBudgetWarning { display:none; padding:9px 14px; font-size:11px; font-weight:700; letter-spacing:.04em; background:rgba(209,36,9,.26); color:#ffe1cd; }
 #costBudgetWarning.is-visible { display:block; }
-.hvsCostFooter { background:linear-gradient(to bottom,rgba(191,40,8,.86),rgba(112,21,7,.96)); padding:8px; display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.hvsCostFooter { background:linear-gradient(to bottom,rgba(191,32,8,.86),rgba(112,21,7,.96)); padding:8px; display:grid; grid-template-columns:1fr 1fr; gap:7px; }
 .hvsActionButton { appearance:none; border:1px solid rgba(255,255,255,.09); border-radius:999px; background:rgba(24,22,22,.28); color:#fff; font:700 10px/1.2 "HomeView Myriad",Arial,sans-serif; letter-spacing:.075em; padding:12px 10px; min-height:35px; cursor:pointer; text-align:center; }
 .hvsActionButton:hover { background:rgba(255,255,255,.2); }
-.hvsActionButton.primary { background:linear-gradient(to bottom,#eb481b,#9f2209); }
+.hvsActionButton.primary { background:linear-gradient(to bottom,#c53716,#861e0c); border-color:rgba(226,93,67,.38); }
 .hvsActionButton:disabled { opacity:.38; cursor:default; }
 .hvsCostBelow { padding:10px 13px; background:rgba(0,0,0,.21); }
 .hvsBudgetEditor { display:none; gap:8px; align-items:center; }
@@ -2080,7 +2080,7 @@ body.login-mode #homeViewUI #uiWrapper,body.login-mode #homeViewUI #sliderContai
 .hvsPanelNote { font-size:10px; line-height:1.35; opacity:.68; margin:8px 1px 0; }
 #costScaleControl { position:absolute; left:14px; top:50%; transform:translate3d(-95px,-50%,0); z-index:44; width:65px; height:280px; border-radius:35px; background:rgba(25,27,29,.67); border:1px solid rgba(255,255,255,.1); backdrop-filter:blur(9.1px); opacity:0; visibility:hidden; pointer-events:none; transition:transform .95s cubic-bezier(.22,1,.36,1),opacity .65s ease,visibility 0s linear .95s; }
 body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,-50%,0); opacity:1; visibility:visible; pointer-events:auto; transition-delay:0s; }
-#costScaleControl input { position:absolute; width:210px; height:54px; transform:translate(-50%,-50%) rotate(-90deg); top:50%; left:50%; accent-color:#ed471a; cursor:pointer; }
+#costScaleControl input { position:absolute; width:210px; height:54px; transform:translate(-50%,-50%) rotate(-90deg); top:50%; left:50%; accent-color:#ed361a; cursor:pointer; }
 #costScaleControl .hvsScaleMark { position:absolute; top:10px; left:0; right:0; text-align:center; color:#fff; font-size:10px; opacity:.65; pointer-events:none; }
 #hvsPriceEditor { display:none; border-top:1px solid rgba(255,255,255,.10); padding:9px 12px; background:rgba(8,9,10,.4); }
 #hvsPriceEditor.is-visible { display:block; }
@@ -2090,10 +2090,10 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
 #loginMenuWrapper .hvsAccountBody { padding:18px 22px 22px; max-height:min(70vh,560px); overflow:auto; }
 .hvsTabs { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-bottom:17px; }
 .hvsTabs button { border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.7); background:rgba(255,255,255,.06); border-radius:999px; padding:10px; font:700 11px "HomeView Myriad",Arial,sans-serif; letter-spacing:.09em; cursor:pointer; }
-.hvsTabs button.active { color:white; border-color:rgba(251,92,50,.65); background:rgba(201,44,7,.4); }
+.hvsTabs button.active { color:white; border-color:rgba(251,77,50,.65); background:rgba(201,33,7,.4); }
 .hvsField { display:block; font-size:10px; font-weight:700; letter-spacing:.08em; margin:10px 0 5px; color:rgba(255,255,255,.77); }
 .hvsTextInput { width:100%; min-width:0; box-sizing:border-box; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.23); color:white; padding:11px 12px; font:400 16px "HomeView Myriad",Arial,sans-serif; outline:none; }
-.hvsTextInput:focus { border-color:rgba(255,120,76,.75); }
+.hvsTextInput:focus { border-color:rgba(255,100,76,.75); }
 .hvsFormActions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
 .hvsFormActions>* { flex:1; }
 #hvsAuthNotice { margin-top:12px; min-height:15px; color:#ffc5af; font-size:12px; line-height:1.4; }
@@ -2102,7 +2102,7 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
 #hvsMarieTools { margin-top:14px; padding-top:14px; border-top:1px solid rgba(255,255,255,.16); }
 .hvsSecondaryHeading { font-size:12px; font-weight:700; letter-spacing:.06em; margin:8px 0 10px; }
 .hvsSettingInfo { font-size:11px; opacity:.7; line-height:1.4; margin-top:10px; }
-#hvsBudgetToast { position:fixed; z-index:6000; left:50%; bottom:12%; transform:translate(-50%,25px) scale(.9); opacity:0; pointer-events:none; background:rgba(44,17,6,.94); border:1px solid rgba(255,105,58,.65); color:#fff; padding:13px 22px; border-radius:14px; font:700 13px "HomeView Myriad",Arial,sans-serif; letter-spacing:.06em; box-shadow:0 12px 35px rgba(0,0,0,.25); transition:opacity .35s,transform .55s cubic-bezier(.22,1,.36,1); }
+#hvsBudgetToast { position:fixed; z-index:6000; left:50%; bottom:12%; transform:translate(-50%,25px) scale(.9); opacity:0; pointer-events:none; background:rgba(44,17,6,.94); border:1px solid rgba(255,84,58,.65); color:#fff; padding:13px 22px; border-radius:14px; font:700 13px "HomeView Myriad",Arial,sans-serif; letter-spacing:.06em; box-shadow:0 12px 35px rgba(0,0,0,.25); transition:opacity .35s,transform .55s cubic-bezier(.22,1,.36,1); }
 #hvsBudgetToast.is-visible { opacity:1; transform:translate(-50%,0) scale(1); }
 @media (max-width:650px) { #calculatorMenuWrapper {left:75px;width:min(308px,calc(100vw - 90px));} #costScaleControl {width:51px;left:7px;height:236px;} #costScaleControl input{width:170px;} #loginMenuWrapper .hvsAccountBody{padding:12px 15px;} }
 
@@ -2178,8 +2178,8 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
         rgba(73,39,31,.3) 60%,rgba(20,21,22,.28));
 }
 #homeViewUI .editOptionButton.is-selected {
-    background:linear-gradient(to bottom,rgba(237,85,35,.51),rgba(145,37,12,.58));
-    border-color:rgba(255,154,110,.40);
+    background:linear-gradient(to bottom,rgba(237,62,35,.51),rgba(145,30,12,.58));
+    border-color:rgba(255,129,110,.40);
 }
 #homeViewUI .buildingCard {
     background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(17,22,25,.25));
@@ -2233,20 +2233,20 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
 /* Exact target centres stay unchanged: tint only, don't resize/translate. */
 .teleportJumpTarget {
     background:linear-gradient(155deg,
-        rgba(255,159,100,.45),rgba(236,66,21,.44) 43%,rgba(168,36,7,.56));
-    border:1.5px solid rgba(255,152,94,.72);
+        rgba(255,121,100,.45),rgba(236,50,21,.44) 43%,rgba(168,28,7,.56));
+    border:1.5px solid rgba(255,115,94,.72);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.22),
-               0 3px 15px rgba(228,56,13,.20);
+               0 3px 15px rgba(228,42,13,.20);
     backdrop-filter:blur(4.9px);
     -webkit-backdrop-filter:blur(4.9px);
 }
 .teleportJumpTarget:hover,
 .teleportJumpTarget:active {
     background:linear-gradient(150deg,
-        rgba(255,173,115,.62),rgba(236,72,23,.70),rgba(159,34,7,.74));
+        rgba(255,134,115,.62),rgba(236,51,23,.70),rgba(159,27,7,.74));
     border-color:rgba(255,191,146,.94);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.28),
-               0 4px 20px rgba(231,70,27,.30);
+               0 4px 20px rgba(231,54,27,.30);
 }
 /* Larger, legible Ground / First controls under the map. */
 #teleportFloorButtons {
@@ -2272,13 +2272,13 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
 }
 #teleportFloorButtons .teleportFloorButton.active {
     color:#fff;
-    border-color:rgba(255,138,90,.65);
-    background:linear-gradient(to bottom,rgba(239,82,32,.72),rgba(141,33,9,.68));
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.17),0 3px 14px rgba(202,54,12,.15);
+    border-color:rgba(255,112,90,.65);
+    background:linear-gradient(to bottom,rgba(239,60,32,.72),rgba(141,27,9,.68));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.17),0 3px 14px rgba(202,37,12,.15);
 }
 #teleportFloorButtons .teleportFloorButton:hover:not(:disabled) {
     color:#fff;
-    border-color:rgba(255,170,123,.70);
+    border-color:rgba(255,141,123,.70);
 }
 
 /* Calculator sizing bar — a left-side twin of the original right-side one. */
@@ -2368,9 +2368,9 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
     width:calc(100% - 16px); max-width:460px;
     min-height:33px; box-sizing:border-box;
     padding:7px 12px;
-    border:1px solid rgba(255,162,118,.62);
+    border:1px solid rgba(255,136,118,.62);
     border-radius:999px;
-    background:linear-gradient(145deg,rgba(245,91,38,.77),rgba(118,30,8,.72));
+    background:linear-gradient(145deg,rgba(245,66,38,.77),rgba(118,30,8,.72));
     box-shadow:0 4px 17px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.18);
     backdrop-filter:blur(8.4px) saturate(125%);
     -webkit-backdrop-filter:blur(8.4px) saturate(125%);
@@ -2383,7 +2383,7 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
     transition:opacity .35s ease,background .2s ease,visibility 0s linear .35s;
 }
 #upstairsLayoutOpen:hover {
-    background:linear-gradient(145deg,rgba(255,115,58,.91),rgba(160,40,12,.87));
+    background:linear-gradient(145deg,rgba(255,84,58,.91),rgba(160,32,12,.87));
 }
 #upstairsLayoutOverlay {
     position:absolute; inset:0; z-index:45;
@@ -2431,10 +2431,10 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
     cursor:pointer;transition:background .22s ease,border-color .22s ease;
 }
 .layoutChoiceButton.is-selected {
-    border-color:rgba(255,154,104,.77);
-    background:linear-gradient(160deg,rgba(245,87,34,.77),rgba(133,31,7,.82));
+    border-color:rgba(255,124,104,.77);
+    background:linear-gradient(160deg,rgba(245,62,34,.77),rgba(133,24,7,.82));
 }
-.layoutChoiceButton:hover {border-color:rgba(255,176,134,.82);background-color:rgba(241,82,31,.2);}
+.layoutChoiceButton:hover {border-color:rgba(255,150,134,.82);background-color:rgba(241,59,31,.2);}
 .layoutChoiceFoot {font:300 11px/1.35 "HomeView Myriad",Arial,sans-serif;opacity:.7;margin:12px 0 0;text-align:center;}
 @media(max-width:650px) {
   #upstairsLayoutOverlay {padding:10px;}
@@ -2511,7 +2511,7 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
     border-radius:50%;background:rgba(255,255,255,.78);
     transition:transform .24s cubic-bezier(.22,1,.36,1),background .2s;
 }
-.kitchenTopToggle[aria-pressed="true"] { background:rgba(209,65,29,.61);border-color:rgba(255,165,125,.70); }
+.kitchenTopToggle[aria-pressed="true"] { background:rgba(209,53,29,.61);border-color:rgba(255,142,125,.70); }
 .kitchenTopToggle[aria-pressed="true"]::before {transform:translateX(17px);background:white;}
 #kitchenCloseButton {justify-self:center;}
 #kitchenPictureFrame {
@@ -2547,7 +2547,7 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
     -webkit-tap-highlight-color:transparent;
 }
 /* Hidden by default. Keyboard focus is clearly shown for accessibility. */
-.kitchenHotspot:focus-visible {outline:2px solid rgba(235,78,30,.95);outline-offset:-3px;background:rgba(221,69,24,.09);}
+.kitchenHotspot:focus-visible {outline:2px solid rgba(235,57,30,.95);outline-offset:-3px;background:rgba(221,50,24,.09);}
 #kitchenBottomRow {
     position:relative;z-index:5;
     display:grid;grid-template-columns:minmax(90px,.85fr) repeat(2,minmax(0,1fr));
@@ -2567,9 +2567,9 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
     background:linear-gradient(165deg,rgba(255,255,255,.095),rgba(14,20,24,.45));
     cursor:pointer;padding:7px 8px;transition:background .22s,border-color .22s,transform .2s;
 }
-#kitchenBottomRow .kitchenBottomButton:hover {background:rgba(175,63,33,.38);border-color:rgba(255,183,143,.35);}
+#kitchenBottomRow .kitchenBottomButton:hover {background:rgba(175,52,33,.38);border-color:rgba(255,183,143,.35);}
 #kitchenBottomRow .kitchenBottomButton:active {transform:scale(.97);}
-#kitchenBottomRow .kitchenBottomButton.is-selected {background:linear-gradient(160deg,rgba(226,79,35,.65),rgba(139,38,13,.76));border-color:rgba(255,161,121,.48);color:#fff;}
+#kitchenBottomRow .kitchenBottomButton.is-selected {background:linear-gradient(160deg,rgba(226,60,35,.65),rgba(139,30,13,.76));border-color:rgba(255,139,121,.48);color:#fff;}
 body.kitchen-mode {
     --main-x:260px;
     --camera-x:260px;
@@ -2700,16 +2700,16 @@ body.kitchen-mode #homeViewUI.is-ready #kitchenMenuWrapper {
     touch-action:manipulation;
 }
 .kitchenFinishCard:hover,.kitchenFinishCard:focus-visible {
-    border-color:rgba(255,152,111,.66);
+    border-color:rgba(255,130,111,.66);
     background:linear-gradient(160deg,rgba(255,255,255,.19),
-        rgba(127,56,39,.24) 52%,rgba(19,21,24,.36));
+        rgba(127,51,39,.24) 52%,rgba(19,21,24,.36));
 }
 .kitchenFinishCard.is-selected {
-    border-color:rgba(255,131,82,.94);
-    background:linear-gradient(160deg,rgba(226,86,39,.32),
-        rgba(132,41,20,.35) 55%,rgba(11,19,21,.44));
+    border-color:rgba(255,105,82,.94);
+    background:linear-gradient(160deg,rgba(226,64,39,.32),
+        rgba(132,35,20,.35) 55%,rgba(11,19,21,.44));
     box-shadow:inset 0 1px 0 rgba(255,255,255,.17),
-               0 0 0 1px rgba(235,88,35,.18);
+               0 0 0 1px rgba(235,62,35,.18);
 }
 .kitchenFinishCard:active {transform:scale(.97);}
 .kitchenFinishCost {
@@ -2861,12 +2861,12 @@ body.kitchen-finish-mode #homeViewUI.is-ready #kitchenFinishMenuWrapper {
 .hvsTutorialMainReplica{width:130px;min-height:364px;padding:7px 5px;box-sizing:border-box;border-radius:21px;display:flex;align-items:center;flex-direction:column;gap:5px;background:linear-gradient(180deg,rgba(255,255,255,.13),rgba(35,40,46,.44));border:1px solid rgba(255,255,255,.12);box-shadow:0 5px 18px rgba(0,0,0,.15);position:relative;overflow:hidden}
 .hvsTutorialMainReplica.is-current-ui-clone{padding:0;background:transparent;border:0;box-shadow:none;overflow:visible;min-height:unset;display:block}
 .hvsTutorialMainReplica.is-current-ui-clone::before{display:none}
-.hvsTutorialMainReplica::before{content:'';pointer-events:none;position:absolute;inset:auto 5px 5px;border-radius:25px;height:45%;background:linear-gradient(0deg,rgba(213,53,16,.65),rgba(164,45,18,.16) 66%,transparent);filter:blur(7px)}
+.hvsTutorialMainReplica::before{content:'';pointer-events:none;position:absolute;inset:auto 5px 5px;border-radius:25px;height:45%;background:linear-gradient(0deg,rgba(213,42,16,.65),rgba(164,37,18,.16) 66%,transparent);filter:blur(7px)}
 .hvsTutorialEnd{width:100%;height:30px;display:flex;align-items:center;justify-content:center;border-radius:99px;font-size:9px;font-weight:700;letter-spacing:.05em;white-space:nowrap;background:rgba(8,10,13,.42);position:relative;z-index:1}
 .hvsTutorialIcons{display:grid;grid-template-columns:repeat(2,1fr);justify-items:center;align-items:center;width:111px;flex:1;row-gap:18px;column-gap:6px;padding:16px 0 9px;background:linear-gradient(180deg,rgba(15,21,26,.32),rgba(10,13,18,.26));border-radius:20px;position:relative;z-index:1}
 .hvsTutorialStaticIcon{width:46px;height:45px;display:flex;align-items:center;justify-content:center;pointer-events:none}
 .hvsTutorialStaticIcon img{width:36px;height:36px;object-fit:contain;pointer-events:none}
-.hvsTutorialPersonalize{position:relative;z-index:1;display:flex;justify-content:center;align-items:center;text-align:center;white-space:nowrap;width:105px;min-height:33px;border-radius:100px;background:linear-gradient(180deg,rgba(227,77,41,.95),rgba(129,38,22,.88));font-size:10px;font-weight:700;letter-spacing:.03em}
+.hvsTutorialPersonalize{position:relative;z-index:1;display:flex;justify-content:center;align-items:center;text-align:center;white-space:nowrap;width:105px;min-height:33px;border-radius:100px;background:linear-gradient(180deg,rgba(227,66,41,.95),rgba(129,38,22,.88));font-size:10px;font-weight:700;letter-spacing:.03em}
 .hvsTutorialLegendCol{width:100%;height:237px;display:grid;grid-template-rows:repeat(4,1fr);gap:0;margin-top:17px}
 .hvsTutorialLegend{display:flex;align-items:center;gap:5px;font-size:clamp(10px,1.12vw,13px);font-weight:600;line-height:1.1;letter-spacing:.01em;white-space:normal}
 .hvsTutorialLegend span{display:block;flex:1;max-width:22px;height:1px;background:rgba(255,255,255,.46)}
@@ -2878,11 +2878,11 @@ body.kitchen-finish-mode #homeViewUI.is-ready #kitchenFinishMenuWrapper {
 .hvsSystemLogo{width:65px;height:55px;object-fit:contain;display:block;margin:0 auto 14px}
 .hvsSystemCard h2{font-size:21px;letter-spacing:.1em;margin:8px 0 12px}
 .hvsSystemCard p{font-size:15px;line-height:1.5;color:rgba(255,255,255,.83);margin:0 0 24px}
-#hvsAfkCountdown{color:#ff9e78;font-weight:700;font-size:21px}
+#hvsAfkCountdown{color:#ff8a78;font-weight:700;font-size:21px}
 .hvsSystemActions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 .hvsSystemActions button{cursor:pointer;min-height:43px;border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:8px 18px;color:#fff;font-family:inherit;font-size:12px;letter-spacing:.05em;font-weight:700;background:rgba(0,0,0,.3)}
-.hvsSystemActions .hvsSystemPrimary{background:linear-gradient(180deg,rgba(239,94,49,.96),rgba(166,43,19,.93));border-color:rgba(255,152,109,.36)}
-#hvsHowToWindow button:focus-visible,#hvsAfkOverlay button:focus-visible,#hvsSessionScreen button:focus-visible{outline:2px solid #ff935e!important;outline-offset:3px}
+.hvsSystemActions .hvsSystemPrimary{background:linear-gradient(180deg,rgba(239,74,49,.96),rgba(166,43,19,.93));border-color:rgba(255,128,109,.36)}
+#hvsHowToWindow button:focus-visible,#hvsAfkOverlay button:focus-visible,#hvsSessionScreen button:focus-visible{outline:2px solid #ff735e!important;outline-offset:3px}
 body.hvs-tutorial-open #homeViewUI{pointer-events:none!important}
 body.hvs-session-ended #homeViewUI{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
 @media(max-width:760px){.hvsTutorialBody{grid-template-columns:1fr}.hvsTutorialGlass{padding:13px;max-height:94vh}.hvsTutorialControls{padding:14px 9px}.hvsTutorialInstructions{padding:3px 8px}.hvsTutorialTouchHeader{margin-top:12px}.hvsTutorialDiagram{grid-template-columns:minmax(0,1fr) 145px minmax(0,1fr)}.hvsTutorialLegend{font-size:11px}}
@@ -2907,7 +2907,7 @@ body.hvs-session-ended #homeViewUI{opacity:0!important;visibility:hidden!importa
 .hvsTutorialMainReplica [data-hvs-replica-id="innerBoxFade"]::after{
  content:"";position:absolute;left:50%;bottom:8px;transform:translateX(-50%);
  width:128%;height:122px;border-radius:50%;
- background:radial-gradient(ellipse at center,rgba(220,55,20,.44) 0%,rgba(194,37,9,.3) 28%,rgba(166,23,0,.17) 48%,rgba(144,19,0,.08) 62%,rgba(133,17,0,0) 78%);
+ background:radial-gradient(ellipse at center,rgba(220,47,20,.44) 0%,rgba(194,37,9,.3) 28%,rgba(166,23,0,.17) 48%,rgba(144,19,0,.08) 62%,rgba(133,17,0,0) 78%);
  filter:blur(22px);
 }
 /* Screenshot chooser — same flow as LUX, modern Home View glass styling. */
@@ -2920,7 +2920,7 @@ body.hvs-session-ended #homeViewUI{opacity:0!important;visibility:hidden!importa
 #screenshotOverlay .overlayContent{gap:5px;min-width:0;line-height:1.35;font-size:16px}
 #overlayActions{display:none;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:14px}
 #overlayActions .overlayActionButton{border:1px solid rgba(255,255,255,.21);font-size:11px;letter-spacing:.09em;
- background:linear-gradient(180deg,rgba(244,105,60,.86),rgba(153,43,16,.84))}
+ background:linear-gradient(180deg,rgba(244,85,60,.86),rgba(153,34,16,.84))}
 #overlayActions .overlayActionButton.secondary{background:rgba(0,0,0,.22)}
 /* SCREENSHOT_ACTION_BUTTONS — matching the Home View orange/glass pills.
    Only the screenshot dialog is affected; its save and close JS stays unchanged. */
@@ -2942,10 +2942,10 @@ body.hvs-session-ended #homeViewUI{opacity:0!important;visibility:hidden!importa
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(255,168,126,.58);
+    border: 1px solid rgba(255,143,126,.58);
     border-radius: 999px;
     color: rgba(255,255,255,.98);
-    background: linear-gradient(180deg,rgba(242,101,55,.92),rgba(169,47,18,.92));
+    background: linear-gradient(180deg,rgba(242,80,55,.92),rgba(169,38,18,.92));
     box-shadow: 0 6px 16px rgba(0,0,0,.15),inset 0 1px 0 rgba(255,255,255,.23);
     font-family: "HomeView Myriad",Arial,sans-serif;
     font-size: 12px;
@@ -2968,7 +2968,7 @@ body.hvs-session-ended #homeViewUI{opacity:0!important;visibility:hidden!importa
 }
 #screenshotOverlay #overlayActions .overlayActionButton:hover {
     border-color: rgba(255,186,151,.9);
-    background: linear-gradient(180deg,rgba(255,127,72,.96),rgba(187,56,23,.95));
+    background: linear-gradient(180deg,rgba(255,96,72,.96),rgba(187,45,23,.95));
     box-shadow: 0 8px 20px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.22);
 }
 #screenshotOverlay #overlayActions .overlayActionButton.secondary:hover {
@@ -2979,7 +2979,7 @@ body.hvs-session-ended #homeViewUI{opacity:0!important;visibility:hidden!importa
     transform: scale(.97);
 }
 #screenshotOverlay #overlayActions .overlayActionButton:focus-visible {
-    outline: 2px solid #ffa883 !important;
+    outline: 2px solid #ff9483 !important;
     outline-offset: 3px;
 }
 @media (max-width: 410px) {
@@ -3100,8 +3100,8 @@ body.hvs-layout-offer-visible #teleportStatusOverlay {visibility:hidden !importa
 }
 #hvsPropertyOptions button:hover,#hvsPropertyOptions button:focus-visible,
 #hvsPropertyOptions button.is-selected {
-    border-color:rgba(255,152,103,.68);
-    background:linear-gradient(160deg,rgba(228,86,41,.80),rgba(112,36,15,.80));
+    border-color:rgba(255,123,103,.68);
+    background:linear-gradient(160deg,rgba(228,66,41,.80),rgba(112,36,15,.80));
 }
 #hvsPropertyOptions button:active {transform:scale(.98);}
 #hvsPropertyDismiss {display:block;margin:17px auto 0;background:none;border:0;cursor:pointer;
@@ -3171,8 +3171,8 @@ body.hvs-movie-active #hvsPropertyPrompt {visibility:hidden !important;pointer-e
 }
 #hvsMovieControls .hvsMovieAction:hover,
 #hvsMovieControls .hvsMovieAction:focus-visible {
-    transform:translateY(-3px);background:rgba(194,70,31,.63);
-    border-color:rgba(255,147,112,.66);
+    transform:translateY(-3px);background:rgba(194,53,31,.63);
+    border-color:rgba(255,131,112,.66);
 }
 #hvsMovieControls .hvsMovieAction:active {transform:scale(.95);}
 #hvsMovieControls .hvsMovieAction img {
@@ -3181,8 +3181,8 @@ body.hvs-movie-active #hvsPropertyPrompt {visibility:hidden !important;pointer-e
 }
 #hvsMovieControls #hvsMovieExit img {width:26px;height:26px;}
 #hvsMovieControls .hvsMovieAction.is-selected {
-    border-color:rgba(251,118,68,.85);
-    background:linear-gradient(170deg,rgba(222,83,38,.86),rgba(115,36,14,.85));
+    border-color:rgba(251,92,68,.85);
+    background:linear-gradient(170deg,rgba(222,63,38,.86),rgba(115,36,14,.85));
 }
 /* These would otherwise appear above or alongside the movie. */
 body.hvs-movie-active #homeViewUI {
@@ -3232,7 +3232,7 @@ body.hvs-movie-active #screenshotOverlay {
 #hvsCostDragHandle.is-dragging{cursor:grabbing}
 #hvsCostDragHandle .hvsDragIndicator{font-size:21px;line-height:1;opacity:.55;pointer-events:none}
 #hvsCostDragHandle .hvsTitle{pointer-events:none}
-.hvsMarieDemoTools{border:1px solid rgba(245,122,75,.28);background:rgba(230,94,52,.07);padding:13px;border-radius:16px;margin-bottom:17px}
+.hvsMarieDemoTools{border:1px solid rgba(245,98,75,.28);background:rgba(230,76,52,.07);padding:13px;border-radius:16px;margin-bottom:17px}
 .hvsTimeoutFields{display:grid;grid-template-columns:1fr 118px;align-items:center;column-gap:12px;margin-top:10px}
 .hvsTimeoutFields .hvsField{margin:8px 0}
 .hvsTimeoutFields input{text-align:center;padding:8px}
@@ -3479,7 +3479,7 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
   }
   #teleportMenuWrapper #teleportFloorButtons .teleportFloorButton:focus-visible,
   #teleportMobileRail #upstairsLayoutOpen:focus-visible {
-    outline:2px solid rgba(255,161,116,.85);outline-offset:2px;
+    outline:2px solid rgba(255,135,116,.85);outline-offset:2px;
   }
   #teleportMenuWrapper #upstairsLayoutOverlay {z-index:55;}
   #teleportMenuWrapper #upstairsLayoutDialog {max-height:94%;overflow:auto;}
@@ -3585,8 +3585,8 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 .hvsSavedImageHelp{font-size:clamp(11px,2.3vmin,14px);line-height:1.35;color:rgba(255,255,255,.93);margin:0;font-weight:300;flex:0 0 auto}
 .hvsSavedImageHelp strong{font-weight:700}
 .hvsSavedImageActions{display:flex;gap:9px;flex-wrap:wrap;flex:0 0 auto}
-.hvsSavedImageButton{flex:1 1 130px;appearance:none;border:1px solid rgba(255,160,112,.48);border-radius:999px;padding:10px 12px;min-height:39px;
- background:linear-gradient(180deg,rgba(232,94,47,.94),rgba(155,37,11,.93));color:white;
+.hvsSavedImageButton{flex:1 1 130px;appearance:none;border:1px solid rgba(255,131,112,.48);border-radius:999px;padding:10px 12px;min-height:39px;
+ background:linear-gradient(180deg,rgba(232,72,47,.94),rgba(155,30,11,.93));color:white;
  font:700 11px/1.2 "HomeView Myriad",Arial,sans-serif;letter-spacing:.07em;cursor:pointer;touch-action:manipulation}
 .hvsSavedImageButton.secondary{background:linear-gradient(180deg,rgba(255,255,255,.15),rgba(19,27,32,.45));border-color:rgba(255,255,255,.24)}
 .hvsSavedImageCaution{font-size:10px;line-height:1.25;font-weight:300;opacity:.65;margin:0;flex:0 0 auto}
@@ -4007,12 +4007,12 @@ html.hvs-ios-viewport-stable #homeViewUI {
 }
 /* logo_movie contains a wordmark and a tagline, unlike the old icon-only logo. */
 #hvsSessionScreen .hvsSystemLogo {
-  width:min(180px,45vw);height:auto;max-height:min(120px,25dvh);
-  object-fit:contain;margin:0 auto 14px;
+  width:min(156px,42vw);height:auto;max-height:min(104px,23dvh);
+  object-fit:contain;margin:16px auto 24px;
 }
 @media (orientation:landscape) and (max-height:440px) {
   #hvsSessionScreen .hvsSystemCard {padding-top:15px;padding-bottom:15px;}
-  #hvsSessionScreen .hvsSystemLogo {width:min(170px,35vw);max-height:24dvh;margin-bottom:7px;}
+  #hvsSessionScreen .hvsSystemLogo {width:min(146px,34vw);max-height:22dvh;margin-top:9px;margin-bottom:14px;}
   #hvsSessionScreen .hvsSystemCard h2 {margin-top:5px;margin-bottom:9px;}
   #hvsSessionScreen .hvsSystemCard p {margin-bottom:12px;}
 }
@@ -4639,8 +4639,8 @@ body.cost-open #homeViewUI.is-ready #calculatorMenuWrapper .hvsGlass,
 <style>
 /* OUTSIDE LANDSCAPING TOGGLE — keeps the translucent Personalize appearance. */
 #homeViewUI .landscapingToggleButton.landscaping-is-on {
-    border-color: rgba(233, 93, 43, .55);
-    box-shadow: inset 0 0 0 1px rgba(231, 90, 40, .24), 0 3px 18px rgba(0,0,0,.12);
+    border-color: rgba(233,68,43, .55);
+    box-shadow: inset 0 0 0 1px rgba(231,65,40, .24), 0 3px 18px rgba(0,0,0,.12);
 }
 </style>
 <!-- ROOM-SENSITIVE PERSONALIZE MENU -->
@@ -7275,6 +7275,10 @@ function hvsCloseLoginAfterSuccess(title,description){
         hvsCloseLogin();
         hvsRenderLogin();
         showHomeViewAnimatedStatus(title,description);
+        // Safari may still be restoring its full viewport after dismissing
+        // the keyboard or iOS password autofill sheet. Correct only this
+        // accepted-login case, using the existing live Pixel Streaming session.
+        window.homeViewFitAfterAcceptedLogin?.();
     },850);
 }
 function hvsOpenLogin(){
@@ -8368,6 +8372,30 @@ function startViewportResolutionSync() {
   window.homeViewResyncStreamAspect=(reason='external aspect change')=>{
     update(reason,true);
     recheckOrientation();
+  };
+  // iOS native keyboard/password sheets can leave the decoder/player at the
+  // temporary viewport after successful authentication. Re-run the SAME
+  // working resize/SetRes handshake as rotation, with bounded delayed checks.
+  // No reinitialisation, no new WebRTC session, no global resize loop.
+  let hvsPostLoginFitToken=0;
+  window.homeViewFitAfterAcceptedLogin=()=>{
+    if(!/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+    const token=++hvsPostLoginFitToken;
+    [420,1280,2450].forEach((delay,index)=>setTimeout(()=>{
+      if(token!==hvsPostLoginFitToken || document.hidden || !levelReady ||
+         screenshotRequestInFlight || screenshotBlob || window.homeViewSessionIntentional) return;
+      const status=window.homeViewStableViewportStatus?.();
+      const input=document.activeElement;
+      if(status?.editing || input?.matches?.('input:not([type=range]),textarea,select')) return;
+      // Do not send keyboard-sized r.SetRes while the native sheet is still up.
+      if(status?.height && window.visualViewport?.height &&
+         window.visualViewport.height < status.height*.68) return;
+      if(index < 2 || hvsStreamAspectMismatched()) {
+        window.dispatchEvent(new Event('resize'));
+        try {window.visualViewport?.dispatchEvent(new Event('resize'));} catch(_) {}
+        sendViewportResolutionToUnreal('accepted login: Safari viewport restored',true);
+      }
+    },delay));
   };
   window.addEventListener('resize',()=>{
     // Ignore the virtual keyboard, which changes only visualViewport and may
