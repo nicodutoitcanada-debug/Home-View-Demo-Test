@@ -4007,12 +4007,12 @@ html.hvs-ios-viewport-stable #homeViewUI {
 }
 /* logo_movie contains a wordmark and a tagline, unlike the old icon-only logo. */
 #hvsSessionScreen .hvsSystemLogo {
-  width:min(156px,42vw);height:auto;max-height:min(104px,23dvh);
+  width:min(149px,40vw);height:auto;max-height:min(100px,23dvh);
   object-fit:contain;margin:16px auto 24px;
 }
 @media (orientation:landscape) and (max-height:440px) {
   #hvsSessionScreen .hvsSystemCard {padding-top:15px;padding-bottom:15px;}
-  #hvsSessionScreen .hvsSystemLogo {width:min(146px,34vw);max-height:22dvh;margin-top:9px;margin-bottom:14px;}
+  #hvsSessionScreen .hvsSystemLogo {width:min(140px,33vw);max-height:22dvh;margin-top:9px;margin-bottom:14px;}
   #hvsSessionScreen .hvsSystemCard h2 {margin-top:5px;margin-bottom:9px;}
   #hvsSessionScreen .hvsSystemCard p {margin-bottom:12px;}
 }
@@ -4401,6 +4401,235 @@ body.teleport-mode #homeViewUI.is-ready #teleportMobileRail {
     body.teleport-mode #homeViewUI.is-ready #teleportMobileRail { animation-duration: 120ms; }
 }
 </style>
+
+<style id="hvs-continuous-location-and-session-polish-2026-10-23">
+/* At 10 samples/second, the marker eases across positions at display FPS.
+   Finish/room detection uses raw unsmoothed XY; no extra network messages. */
+#homeViewUI #teleportYouAreHereWrap {
+  transition:left 135ms linear, top 135ms linear, opacity 220ms ease,
+             visibility 0s linear 220ms;
+}
+#homeViewUI #teleportYouAreHereLayer.is-tracking #teleportYouAreHereWrap.is-located {
+  transition-delay:0ms;
+}
+#homeViewUI #teleportYouAreHereLottie,
+#homeViewUI #teleportYouAreHereFallback {transition:transform 130ms linear;}
+/* Logo scales with actual viewport HEIGHT: landscape phones get a much
+   smaller logo, desktops keep their previous presentation size. */
+#homeViewUI #teleportMobileRail #teleportRailBrand img {
+  width:min(126px,82%) !important;
+  max-width:100%;
+  max-height:clamp(39px,12dvh,103px) !important;
+  height:auto;
+  object-fit:contain;
+}
+#homeViewUI #teleportMobileRail #teleportRailBrand {
+  max-height:clamp(40px,12.5dvh,110px);
+}
+/* Session ended screen: tighten title/description and keep message subtle. */
+#hvsSessionScreen .hvsSystemCard h2 {
+  margin-bottom:4px;
+  font-size:clamp(23px,2vw,25px);
+  line-height:1.12;
+}
+#hvsSessionScreen #hvsSessionMessage {
+  font-family:"HomeView Myriad",Arial,sans-serif;
+  font-size:clamp(11px,1.15vw,13px);
+  font-weight:300;
+  letter-spacing:.035em;
+  line-height:1.25;
+  margin-top:0;
+  margin-bottom:27px;
+}
+@media (orientation:landscape) and (max-height:440px) {
+  #hvsSessionScreen .hvsSystemCard h2 {margin-bottom:3px;}
+  #hvsSessionScreen #hvsSessionMessage {margin-bottom:18px;}
+}
+</style>
+<style id="hvs-2026-10-23-tutorial-session-input-polish">
+/* Session Ended: preserve existing dark video, wording, buttons and timing.
+   Frosted glass belongs to the CARD only, never the full-screen overlay. */
+#hvsSessionScreen {
+  -webkit-backdrop-filter:none !important;
+  backdrop-filter:none !important;
+}
+#hvsSessionScreen > .hvsSystemCard {
+  -webkit-backdrop-filter:blur(13px) saturate(120%);
+  backdrop-filter:blur(13px) saturate(120%);
+}
+#hvsSessionScreen #hvsSessionMessage {
+  text-transform:none;
+  letter-spacing:0.012em;
+}
+#hvsSessionScreen #hvsSessionRelaunch {
+  min-width:160px; /* roughly 1.5x; keep original text size */
+}
+
+/* Number inputs: browser spinner chrome cannot reliably become transparent
+   across Windows/Chromium/Safari. Replace ONLY the native spinner chrome with
+   two transparent arrow glyphs, keeping the numeric input and step semantics. */
+#homeViewUI input[type="number"]::-webkit-inner-spin-button,
+#homeViewUI input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance:none;
+  appearance:none;
+  margin:0;
+}
+#homeViewUI input[type="number"] { -moz-appearance:textfield; }
+#homeViewUI .hvsArrowOnlyWrap {
+  display:block;
+  position:relative;
+  width:100%;
+  min-width:0;
+  flex:1 1 auto;
+}
+#homeViewUI .hvsArrowOnlyWrap > input[type="number"] {
+  width:100%;
+  min-width:0;
+  padding-right:29px;
+}
+#homeViewUI .hvsArrowOnlyStepper {
+  position:absolute;
+  right:3px;
+  top:3px;
+  bottom:3px;
+  width:22px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  background:none !important;
+  border:0 !important;
+  box-shadow:none !important;
+  padding:0;
+  margin:0;
+}
+#homeViewUI .hvsArrowOnlyStepper .hvsArrowStep {
+  -webkit-appearance:none;
+  appearance:none;
+  box-sizing:border-box;
+  width:22px;
+  min-height:0;
+  height:50%;
+  margin:0;
+  padding:0;
+  border:0 !important;
+  border-radius:0 !important;
+  background:none !important;
+  box-shadow:none !important;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  color:rgba(255,255,255,.78);
+  opacity:.88;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+#homeViewUI .hvsArrowOnlyStepper .hvsArrowStep:hover,
+#homeViewUI .hvsArrowOnlyStepper .hvsArrowStep:focus-visible {
+  opacity:1;
+  background:none !important;
+  box-shadow:none !important;
+}
+#homeViewUI .hvsArrowOnlyStepper .hvsArrowStep:active {
+  color:#fff;
+  background:none !important;
+}
+#homeViewUI .hvsArrowOnlyStepper .hvsArrowStep::before {
+  content:"";
+  display:block;
+  width:0;
+  height:0;
+  border-left:4px solid transparent;
+  border-right:4px solid transparent;
+}
+#homeViewUI .hvsArrowOnlyStepper .hvsArrowStep--up::before {
+  border-bottom:5px solid currentColor;
+}
+#homeViewUI .hvsArrowOnlyStepper .hvsArrowStep--down::before {
+  border-top:5px solid currentColor;
+}
+#homeViewUI .hvsArrowOnlyWrap:has(input:disabled) .hvsArrowOnlyStepper {display:none;}
+
+/* Inactivity warning: the wordmark/logo_3 is taller than the old icon, with
+   balanced space above and below it. Other system-card logos are untouched. */
+#hvsAfkOverlay .hvsSystemLogo {
+  display:block;
+  width:clamp(90px,14vw,133px);
+  height:auto;
+  max-height:clamp(60px,17dvh,100px);
+  object-fit:contain;
+  margin:4px auto 17px;
+}
+
+/* How To only: left-aligned heading / centered logo_3 / right dock icon.
+   Equal flexible side tracks keep branding truly centered. */
+#hvsHowToWindow .hvsTutorialHeader {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(145px,32%) minmax(0,1fr);
+  min-height:clamp(113px,16dvh,146px);
+  height:auto;
+  align-items:center;
+  column-gap:10px;
+  padding:10px 15px;
+  margin-bottom:14px;
+  box-sizing:border-box;
+}
+#hvsHowToWindow .hvsTutorialHeader h2 {
+  grid-column:1;
+  grid-row:1;
+  justify-self:start;
+  text-align:left;
+  min-width:0;
+  font-size:clamp(12px,1.75vw,19px);
+  line-height:1.12;
+  letter-spacing:.06em;
+}
+#hvsHowToWindow .hvsTutorialLogo {
+  grid-column:2;
+  grid-row:1;
+  justify-self:center;
+  display:block;
+  width:clamp(142px,19.5vw,255px);
+  max-width:100%;
+  height:auto;
+  max-height:clamp(85px,13.5dvh,131px);
+  object-fit:contain;
+}
+#hvsHowToWindow #hvsHowToClose {
+  grid-column:3;
+  grid-row:1;
+  justify-self:end;
+}
+/* How To ONLY: the header and BOTH interior cards now share the darker,
+   translucent Teleport-right glass. Keep the existing layout and contents. */
+#hvsHowToWindow .hvsTutorialHeader,
+#hvsHowToWindow .hvsTutorialInstructions,
+#hvsHowToWindow .hvsTutorialControls {
+  min-width:0;
+  box-sizing:border-box;
+  border-radius:19px;
+  border:1px solid rgba(255,255,255,.10);
+  background:
+    linear-gradient(165deg,
+      rgba(255,255,255,.025) 0%,
+      rgba(3,7,12,.10) 32%,
+      rgba(0,3,8,.19) 100%),
+    rgba(4,8,13,.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.09),
+    inset 0 -7px 18px rgba(0,0,0,.07),
+    0 7px 19px rgba(0,0,0,.055);
+  -webkit-backdrop-filter:blur(10.5px) saturate(112%);
+  backdrop-filter:blur(10.5px) saturate(112%);
+}
+#hvsHowToWindow .hvsTutorialInstructions {padding:20px 18px 18px;}
+#hvsHowToWindow .hvsTutorialBody {align-items:stretch;}
+@media (max-width:760px) {
+  #hvsHowToWindow .hvsTutorialInstructions {padding:16px 14px 13px;}
+  #hvsHowToWindow .hvsTutorialHeader {column-gap:6px;}
+}
+</style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <div id="introOverlay">
@@ -4445,8 +4674,8 @@ body.teleport-mode #homeViewUI.is-ready #teleportMobileRail {
 <div id="hvsHowToWindow" hidden role="dialog" aria-modal="true" aria-label="How to use Home View Demo">
   <section class="hvsTutorialGlass">
     <header class="hvsTutorialHeader">
-      <img src="LOGO.png" alt="Home View" class="hvsTutorialLogo">
       <h2>HOW TO USE HOME VIEW</h2>
+      <img src="logo_3.png" alt="Home View" class="hvsTutorialLogo">
       <button id="hvsHowToClose" type="button" aria-label="Close How To"><img src="01 DOCK MENU.png" alt=""></button>
     </header>
     <div class="hvsTutorialBody">
@@ -4491,7 +4720,7 @@ body.teleport-mode #homeViewUI.is-ready #teleportMobileRail {
 <!-- INACTIVITY WARNING — same 5 minute + 15 second behavior as older LUX. -->
 <div id="hvsAfkOverlay" hidden role="dialog" aria-modal="true" aria-label="Inactivity warning">
   <section class="hvsSystemCard">
-    <img src="LOGO.png" alt="Home View" class="hvsSystemLogo">
+    <img src="logo_3.png" alt="Home View" class="hvsSystemLogo">
     <h2>ARE YOU STILL THERE?</h2>
     <p>Your session will end in <strong id="hvsAfkCountdown">15</strong> seconds due to inactivity. Would you like to continue?</p>
     <div class="hvsSystemActions"><button type="button" id="hvsAfkContinue" class="hvsSystemPrimary">YES, CONTINUE</button><button type="button" id="hvsAfkEnd">NO, END SESSION</button></div>
@@ -5222,7 +5451,8 @@ let currentEditMenuRoom = null;
 let selectedEditMenuOption = null;
 const editOptionButtons = document.getElementById('editOptionButtons');
 const editMenuEmptyMessage = document.getElementById('editMenuEmptyMessage');
-// Personalize independently requests the existing location stream on click.
+// Unreal now streams the existing position, yaw and floor packets every 0.1s.
+// Room triggers still arrive independently; they are context, not the live map.
 let personalizeCheckPending = false;
 let personalizeCheckProblem = false;
 let personalizeLastTrigger = null;
@@ -5235,6 +5465,15 @@ let personalizeCheckTimer = null;
 let personalizeConfirmedRoom = null;
 let personalizeConfirmedPoint = null;
 let personalizeVerifiedAt = 0;
+let hvsLatestZoneReceivedAt = 0;
+// All three Blueprint messages arrive separately; each has its own receive time.
+// The map visual is interpolated by CSS; room selection uses unsmoothed samples.
+const HVS_LOCATION_FRESH_MS = 1600; // > 10 frames at 0.1 s, tolerates network jitter.
+const HVS_LOCATION_FLOOR_FRESH_MS = 1800;
+const HVS_LOCATION_RECHECK_MS = 5500;
+let liveMapPointReceivedAt = 0;
+let liveMapFloorReceivedAt = 0;
+let liveMapYawReceivedAt = 0;
 
 function renderEditMenu() {
     const options = personalizeCheckPending ? [] : hvsPersonalizeOptionsForRoom(currentEditMenuRoom);
@@ -5242,7 +5481,7 @@ function renderEditMenu() {
     editMenuEmptyMessage.classList.toggle('is-visible', options.length === 0);
     if (options.length === 0) {
         editMenuEmptyMessage.textContent = personalizeCheckPending
-            ? 'CHECKING YOUR LOCATION...'
+            ? (personalizeCheckProblem ? 'WAITING FOR LIVE LOCATION — WILL RETRY AUTOMATICALLY' : 'CHECKING YOUR LOCATION...')
             : (personalizeCheckProblem
                 ? 'LOCATION NOT RECEIVED — CLOSE AND RETRY'
                 : (currentEditMenuRoom === null ? 'WAITING FOR ROOM...' : 'NO EDIT OPTIONS AVAILABLE HERE'));
@@ -5343,15 +5582,19 @@ function setEditMenuRoom(room) {
     // A room trigger can be stale by the time the user clicks Personalize.
     // During an explicit location check, remember it for diagnostics only;
     // only the freshly confirmed X/Y + floor may choose the options.
+    if (typeof room === 'string' && room.trim()) {
+        personalizeLastTrigger = room.trim();
+        hvsLatestZoneReceivedAt = Date.now();
+    }
     if (personalizeCheckPending) {
-        personalizeLastTrigger = typeof room === 'string' ? room.trim() : null;
-        console.info('[PERSONALIZE] Trigger received during location check:', personalizeLastTrigger);
+        // Preserve zone updates for diagnostics while a fresh XY+floor sample
+        // determines the actual finish controls. No menu reset mid-check.
         return;
     }
     // A trailing trigger-box event can arrive just after the fresh location
     // check succeeded. Do not immediately close the newly verified menu.
     if (document.body.classList.contains('profile-mode') &&
-        Date.now()-personalizeVerifiedAt < 1000) {
+        Date.now()-personalizeVerifiedAt < 1500) {
         console.info('[PERSONALIZE] Ignored late trigger after verified position:',room);
         return;
     }
@@ -5745,8 +5988,8 @@ const LIVE_MAP_CALIBRATION = Object.freeze({
 const teleportHereLayer = document.getElementById('teleportYouAreHereLayer');
 const teleportHereWrap = document.getElementById('teleportYouAreHereWrap');
 const teleportHereLottie = document.getElementById('teleportYouAreHereLottie');
-let mapTrackingRequested = false;
-// Map and Personalize share a single location request subscription.
+let mapTrackingRequested = false; // Controls rendering only; Unreal streams continuously.
+// No location send/stop request is needed anymore.
 let mapHereAnimation = null;
 let mapHereAnimationAttempted = false;
 let liveMapPoint = null;
@@ -5773,6 +6016,7 @@ function updateLiveMapPlayerFloor(heightValue) {
     const height = mapLocationNumber(heightValue);
     if (height === null) return false;
     liveMapCameraHeight = height;
+    liveMapFloorReceivedAt = Date.now();
     if (height < LIVE_MAP_FLOOR_THRESHOLD.groundBelow) liveMapPlayerFloor = 'ground';
     else if (height > LIVE_MAP_FLOOR_THRESHOLD.firstAbove) liveMapPlayerFloor = 'first';
     // In the gap, hold the previous floor. If unknown, render at 50%.
@@ -5847,12 +6091,18 @@ function hvsRoomFromMapPosition(x,y,floor) {
     if(hvsPointInPolygon(px,py,p.green))return 'FloorsOnlyMainBed';
     return 'FloorsOnly';
 }
+function hvsLocationSnapshotIsFresh(now=Date.now()) {
+    return Boolean(liveMapPoint && liveMapPlayerFloor &&
+        liveMapPointReceivedAt && liveMapFloorReceivedAt &&
+        now-liveMapPointReceivedAt <= HVS_LOCATION_FRESH_MS &&
+        now-liveMapFloorReceivedAt <= HVS_LOCATION_FLOOR_FRESH_MS);
+}
 function hvsStopPersonalizeCheck() {
-    const previouslyNeeded=mapTrackingRequested || personalizeCheckPending;
     personalizeCheckPending=false;
     clearTimeout(personalizeCheckTimer);
     personalizeCheckTimer=null;
-    hvsSendLocationDemand(previouslyNeeded);
+    personalizeCandidateRoom=null;
+    personalizeCandidateSamples=0;
 }
 function hvsCompletePersonalizeCheck(room) {
     if(!personalizeCheckPending)return;
@@ -5860,53 +6110,54 @@ function hvsCompletePersonalizeCheck(room) {
     personalizeConfirmedRoom=room;
     personalizeConfirmedPoint=point?{x:point.x,y:point.y,px:mapWorldToImage(point.x,point.y).px,py:mapWorldToImage(point.x,point.y).py,floor:liveMapPlayerFloor}:null;
     personalizeVerifiedAt=Date.now();
-    hvsStopPersonalizeCheck();  // Send {location:'stop'} unless teleport is using it.
+    hvsStopPersonalizeCheck(); // NEVER stop Unreal's continuous location stream.
     personalizeCheckProblem=false;
     currentEditMenuRoom=room;
     selectedEditMenuOption=null;
     renderEditMenu();
-    console.info('[PERSONALIZE] Verified live room:',room,'Blueprint trigger:',personalizeLastTrigger,'position:',personalizeConfirmedPoint);
+    console.info('[PERSONALIZE] Confirmed:', room, 'zone:',personalizeLastTrigger,'point:',personalizeConfirmedPoint);
 }
-function hvsTryConfirmPersonalize() {
+function hvsTryConfirmPersonalize(newPositionSample=false) {
     if(!personalizeCheckPending || !document.body.classList.contains('profile-mode'))return;
-    // Never use location cached by the Teleport Map or an old trigger event.
-    if(personalizeLocationFloorTime<personalizeCheckStarted ||
-       personalizeLocationPointTime<personalizeCheckStarted ||
-       !liveMapPoint || !liveMapPlayerFloor)return;
-    // Height must belong to the current sample window; avoid stale floor if
-    // updates become one-sided or the player teleports while checking.
-    if(Date.now()-personalizeLocationFloorTime>1800)return;
+    if(!hvsLocationSnapshotIsFresh())return;
     const room=hvsRoomFromMapPosition(liveMapPoint.x,liveMapPoint.y,liveMapPlayerFloor);
     if(!room)return;
-    if(personalizeCandidateRoom===room)personalizeCandidateSamples++;
-    else{personalizeCandidateRoom=room;personalizeCandidateSamples=1;}
+    // Two new agreeing XY samples avoid a brief teleport/doorway mismatch.
+    // The first may be the cached position, if it arrived very recently.
+    if(personalizeCandidateRoom!==room) {
+        personalizeCandidateRoom=room;
+        personalizeCandidateSamples=1;
+    } else if(newPositionSample) {
+        personalizeCandidateSamples++;
+    }
     if(personalizeCandidateSamples>=2)hvsCompletePersonalizeCheck(room);
 }
 function hvsBeginPersonalizeCheck() {
-    hvsStopPersonalizeCheck(); // Cancel any previous request and pending timeout.
+    hvsStopPersonalizeCheck();
     personalizeCheckProblem=false;
     personalizeLastTrigger=currentEditMenuRoom;
+    personalizeCheckStarted=Date.now();
+    personalizeLocationFloorTime=liveMapFloorReceivedAt;
+    personalizeLocationPointTime=liveMapPointReceivedAt;
+    personalizeCheckPending=true;
     personalizeCandidateRoom=null;
     personalizeCandidateSamples=0;
-    liveMapPoint=null;
-    liveMapPlayerFloor=null;
-    liveMapCameraHeight=null;
-    personalizeLocationFloorTime=0;
-    personalizeLocationPointTime=0;
-    personalizeCheckStarted=Date.now();
-    const previouslyNeeded=mapTrackingRequested || personalizeCheckPending;
-    personalizeCheckPending=true;
     renderEditMenu();
-    hvsSendLocationDemand(previouslyNeeded);
-    // No fallback to potentially stale zone messages. Never show wrong finishes.
+    // Use the running location cache, not an on-demand send/stop handshake.
+    // If this sample is fresh, the next 100ms update will confirm it.
+    hvsTryConfirmPersonalize(false);
+    // Never freeze in a permanent 'close and retry' state. If connection
+    // pauses, remain pending and automatically finish when updates resume.
     personalizeCheckTimer=setTimeout(()=>{
         if(!personalizeCheckPending)return;
-        console.warn('[PERSONALIZE] Location check timed out; not displaying unverified finishes.');
-        hvsStopPersonalizeCheck();
+        if(hvsLocationSnapshotIsFresh()) {
+            hvsTryConfirmPersonalize(false);
+            if(!personalizeCheckPending)return;
+        }
         personalizeCheckProblem=true;
-        currentEditMenuRoom=null;
         renderEditMenu();
-    },5500);
+        console.warn('[PERSONALIZE] Waiting for live coordinates; will auto-recover on reconnect.');
+    },HVS_LOCATION_RECHECK_MS);
 }
 window.homeViewPersonalizeRegionAt=(x,y,floor)=>hvsRoomFromMapPosition(Number(x),Number(y),floor);
 window.homeViewPersonalizeLocationDebug=()=>({checking:personalizeCheckPending,problem:personalizeCheckProblem,
@@ -5922,7 +6173,7 @@ window.homeViewTestPersonalizeAt=(px,py,floor)=>{
 };
 function drawLiveMapMarker() {
     mapDrawQueued=false;
-    if (!mapIsVisible() || !liveMapPoint) {
+    if (!mapIsVisible() || !liveMapPoint || !hvsLocationSnapshotIsFresh()) {
         teleportHereLayer.classList.remove('is-tracking');
         return;
     }
@@ -5954,30 +6205,16 @@ function queueLiveMapDraw() {
     mapDrawQueued=true;
     requestAnimationFrame(drawLiveMapMarker);
 }
-function hvsSendLocationDemand(previouslyNeeded) {
-    const needed = mapTrackingRequested || personalizeCheckPending;
-    if (needed === previouslyNeeded) return;
-    const message = {location:needed?'send':'stop'};
-    const sent = window.homeViewSend?.(message);
-    if(sent===false || !window.homeViewSend)
-        console.warn('[LOCATION] Unable to request:', message);
-    else console.info('[LOCATION] Location stream:', message.location);
-}
+// Unreal's 0.1s looping timer runs independently of the menu state.
+// Keeping these helpers preserves callers and debug hooks, but they no longer
+// send {location:'send'/'stop'} or reset cached coordinates upon opening.
+function hvsSendLocationDemand(_previouslyNeeded) { /* deliberately no-op */ }
 function requestMapLocationTracking(enable) {
     const want=Boolean(enable);
-    if (mapTrackingRequested===want) return;
-    const previouslyNeeded=mapTrackingRequested || personalizeCheckPending;
+    if(mapTrackingRequested===want)return;
     mapTrackingRequested=want;
-    if (want) {
-        liveMapPoint=null; // Don't show stale location from a previous session.
-        liveMapCameraHeight=null;
-        liveMapPlayerFloor=null; // Dim until Unreal reports this player's current floor.
-        teleportHereWrap.classList.remove('is-located');
-        startMapMarkerAnimation();
-    } else {
-        teleportHereLayer.classList.remove('is-tracking');
-    }
-    hvsSendLocationDemand(previouslyNeeded);
+    if(want) startMapMarkerAnimation();
+    else teleportHereLayer.classList.remove('is-tracking');
     queueLiveMapDraw();
 }
 // Unreal's Blueprint ToText(Float) may insert grouping separators at +/-1000:
@@ -6056,44 +6293,39 @@ function mapParseYaw(raw) {
 }
 function handleLiveMapResponse(data) {
     if (!data || typeof data!=='object') return false;
-    // Unreal camera Z arrives as {"groundOrFirst":"182.613"} or
-    // {"groundOrFirst":"485.463"}. These update the floor classification,
-    // but not the map's X/Y coordinates. Do not spam the console each Tick.
+    // The Blueprint sends height, yaw and XY as THREE ordered responses every
+    // 0.1 second. Cache every valid packet, whether a menu is open or not.
+    // Do not synthesize or guess missing data from an old zone event.
     if (Object.prototype.hasOwnProperty.call(data,'groundOrFirst')) {
-        if (mapTrackingRequested || personalizeCheckPending) {
-            updateLiveMapPlayerFloor(data.groundOrFirst);
-            if(personalizeCheckPending){
-                // Floor and XY are independent Tick messages; only a new
-                // XY position counts as another confirming sample.
-                personalizeLocationFloorTime=Date.now();
-            }
-        }
+        updateLiveMapPlayerFloor(data.groundOrFirst);
+        personalizeLocationFloorTime=liveMapFloorReceivedAt;
+        if(personalizeCheckPending)hvsTryConfirmPersonalize(false);
         if (Object.keys(data).length===1) return true;
     }
     if (Object.prototype.hasOwnProperty.call(data,'rotation') && Object.keys(data).length===1) {
-        if (mapTrackingRequested) {
-            const yaw=mapParseYaw(data.rotation);
-            if (yaw!==null && Number.isFinite(yaw)) { liveMapYaw=yaw; queueLiveMapDraw(); }
-            else console.warn('[LIVE MAP] Could not read Yaw. Send yaw as a number if possible:',data.rotation);
+        const yaw=mapParseYaw(data.rotation);
+        if(yaw!==null && Number.isFinite(yaw)) {
+            liveMapYaw=yaw;
+            liveMapYawReceivedAt=Date.now();
+            if(mapIsVisible())queueLiveMapDraw();
         }
-        return true; // Do not log 60 messages/s in the generic handler.
+        return true;
     }
     const point=mapDecodeWorldPoint(data);
     if (point) {
-        if (mapTrackingRequested || personalizeCheckPending) {
-            liveMapPoint=point;
-            if(personalizeCheckPending){
-                personalizeLocationPointTime=Date.now();
-                hvsTryConfirmPersonalize();
-            }
-            queueLiveMapDraw();
-        }
+        liveMapPoint=point;
+        liveMapPointReceivedAt=Date.now();
+        personalizeLocationPointTime=liveMapPointReceivedAt;
+        if(personalizeCheckPending)hvsTryConfirmPersonalize(true);
+        if(mapIsVisible())queueLiveMapDraw();
         return true;
     }
     return false;
 }
 window.homeViewHandleMapResponse=handleLiveMapResponse;
 window.homeViewMapLocationTracking=requestMapLocationTracking;
+// If streaming stops with the map still open, remove stale marker promptly.
+setInterval(()=>{if(mapIsVisible() && !hvsLocationSnapshotIsFresh())queueLiveMapDraw();},500);
 window.homeViewRedrawMapLocation=queueLiveMapDraw;
 // Optional console check for Unreal-formatted position text:
 // homeViewMapParseNumber('-1,562.78159') => -1562.78159
@@ -6102,6 +6334,11 @@ window.homeViewMapDebug=()=>({
     tracking:mapTrackingRequested,
     floor:currentTeleportFloor,
     point:liveMapPoint,
+    pointAgeMs:liveMapPointReceivedAt?Date.now()-liveMapPointReceivedAt:null,
+    floorAgeMs:liveMapFloorReceivedAt?Date.now()-liveMapFloorReceivedAt:null,
+    zone:personalizeLastTrigger,
+    zoneAgeMs:hvsLatestZoneReceivedAt?Date.now()-hvsLatestZoneReceivedAt:null,
+    isFresh:hvsLocationSnapshotIsFresh(),
     yaw:liveMapYaw,
     playerFloor:liveMapPlayerFloor,
     cameraHeight:liveMapCameraHeight,
@@ -6115,6 +6352,7 @@ window.homeViewMapDebug=()=>({
 window.homeViewTestMapLocation=(x,y,yaw=0,cameraHeight=null)=>{
     if (!mapTrackingRequested) console.warn('[LIVE MAP] Open the Teleport Map first.');
     liveMapPoint={x:Number(x),y:Number(y)};liveMapYaw=Number(yaw);
+    liveMapPointReceivedAt=Date.now();liveMapYawReceivedAt=Date.now();
     if (cameraHeight!==null) updateLiveMapPlayerFloor(cameraHeight);
     queueLiveMapDraw();
 };
@@ -6406,7 +6644,7 @@ function closeConfirmMenu() {
 function openProfileMenu() {
     clearModes();
     body.classList.add('profile-mode');
-    hvsBeginPersonalizeCheck(); // Fresh X/Y + height before offering any buttons.
+    hvsBeginPersonalizeCheck(); // Verify fresh streaming XY+height before offering buttons.
 }
 
 function closeProfileMenu() {
@@ -6418,7 +6656,7 @@ function openTeleportMenu() {
     closeUpstairsLayoutDialog();
     clearModes();
     body.classList.add('teleport-mode');
-    requestMapLocationTracking(true); // {"location":"send"}, once per opening.
+    requestMapLocationTracking(true); // use continuously cached Unreal location.
 
     teleportFloorButtons.forEach((button) => {
         button.disabled = true;
@@ -6464,7 +6702,7 @@ function openTeleportMenu() {
 }
 
 function closeTeleportMenu() {
-    requestMapLocationTracking(false); // {"location":"stop"}, immediately on Exit.
+    requestMapLocationTracking(false); // hide marker; Unreal continues sending.
     closeUpstairsLayoutDialog();
     document.getElementById('teleportOuterBox').classList.remove('hvs-layout-intro');
     teleportFloorTransitionId += 1;
@@ -7955,8 +8193,14 @@ window.homeViewDisplaySessionState=(intentional,message)=>{
   hvsCloseHowTo();
   const title=document.getElementById('hvsSessionTitle');
   const body=document.getElementById('hvsSessionMessage');
+  const endDetail=String(message||'');
+  const timedOut=intentional && /inactiv|timed?\s*out/i.test(endDetail);
   if(title) title.textContent=intentional?'SESSION ENDED':'CONNECTION INTERRUPTED';
-  if(body) body.textContent=message||(intentional?'Your session has ended.':'The streaming connection was interrupted. You can relaunch the demo.');
+  if(body) body.textContent=intentional
+    ? (timedOut?'Session timed out due to inactivity':'User terminated session')
+    : (/session not found|runner resources|allocation failed|maximum concurrency/i.test(endDetail)
+        ? 'Streaming session unavailable'
+        : 'Connection to session was lost');
   document.body.classList.add('hvs-session-ended');
   hvsSessionScreen.hidden=false;
   // Muted inline playback is allowed on iOS; load it only when needed.
@@ -9527,6 +9771,62 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
   window.homeViewStableViewportStatus = () => ({width:stableWidth,height:stableHeight,orientation,editing,
     currentWidth:window.innerWidth,currentHeight:window.innerHeight});
   apply();
+})();
+</script>
+<script id="hvs-arrow-only-number-inputs-20261023">
+/* Browser-native number arrows include OS-painted button backgrounds even
+   when their pseudo-element is set to transparent. These arrow-only controls
+   are transparent on every platform and retain native stepUp/stepDown behavior,
+   including min/max/step, input/change events, keyboard and touch editing. */
+(() => {
+  const root=document.getElementById('homeViewUI');
+  if(!root)return;
+  function decorate(input){
+    if(input.closest('.hvsArrowOnlyWrap') || !input.parentElement)return;
+    const parent=input.parentElement;
+    const wrap=document.createElement('span');
+    wrap.className='hvsArrowOnlyWrap';
+    parent.insertBefore(wrap,input);
+    wrap.appendChild(input);
+    const controls=document.createElement('span');
+    controls.className='hvsArrowOnlyStepper';
+    for(const [direction, label] of [[1,'Increase value'],[-1,'Decrease value']]){
+      const button=document.createElement('button');
+      button.type='button';
+      button.className='hvsArrowStep hvsArrowStep--'+(direction===1?'up':'down');
+      button.setAttribute('aria-label',label);
+      button.tabIndex=-1;
+      // Buttons should not interrupt text entry or trigger Unreal navigation.
+      button.addEventListener('pointerdown', event => event.preventDefault());
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if(input.disabled || input.readOnly)return;
+        try { if(direction===1)input.stepUp(); else input.stepDown(); }
+        catch(error) { console.warn('[NUMBER FIELD] Unable to step value',error);return; }
+        input.dispatchEvent(new Event('input',{bubbles:true}));
+        input.dispatchEvent(new Event('change',{bubbles:true}));
+      });
+      controls.appendChild(button);
+    }
+    wrap.appendChild(controls);
+  }
+  function decorateAll(node){
+    if(node.nodeType!==1)return;
+    if(node.matches?.('input[type="number"]'))decorate(node);
+    node.querySelectorAll?.('input[type="number"]').forEach(decorate);
+  }
+  decorateAll(root);
+  // Price fields are generated only when the editor opens. Process newly
+  // inserted controls without reworking the layout or event handlers.
+  const list=document.getElementById('priceEditorList');
+  if(list){
+    new MutationObserver(mutations=>{
+      for(const mutation of mutations){
+        for(const node of mutation.addedNodes)decorateAll(node);
+      }
+    }).observe(list,{childList:true,subtree:true});
+  }
 })();
 </script>
 </body></html>
