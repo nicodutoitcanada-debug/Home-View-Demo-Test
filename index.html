@@ -4630,6 +4630,87 @@ body.teleport-mode #homeViewUI.is-ready #teleportMobileRail {
   #hvsHowToWindow .hvsTutorialHeader {column-gap:6px;}
 }
 </style>
+
+<style id="hvs-oct24-floating-personalize-login">
+/* The floating Personalize shortcut has NO influence on viewport or stream sizing. */
+#homeViewUI #hvsFloatingPersonalize {
+  position:fixed;left:50%;bottom:max(12px,env(safe-area-inset-bottom));
+  width:54px;height:54px;min-height:0;padding:5px;
+  z-index:520;display:flex;align-items:center;justify-content:center;
+  border-radius:50%;border:0;background:transparent;
+  color:#fff;box-shadow:none;
+  -webkit-backdrop-filter:none;backdrop-filter:none;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transform:translate(-50%,15px) scale(.87);
+  transition:opacity 650ms cubic-bezier(.22,1,.36,1),
+    transform 980ms cubic-bezier(.16,1,.3,1),visibility 0s linear 980ms;
+}
+#homeViewUI #hvsFloatingPersonalize img {
+  width:42px;height:42px;object-fit:contain;flex:none;pointer-events:none;
+  filter:drop-shadow(0 4px 10px rgba(0,0,0,.22));transition:opacity 180ms ease,transform 180ms ease;
+}
+/* The initial Unreal-logo reveal likewise eases up from a slightly smaller size. */
+body:is(.walk-mode,.camera-mode,.building-mode,.environment-mode,.confirm-mode,.teleport-mode):not(.profile-mode):not(.kitchen-mode):not(.kitchen-finish-mode):not(.login-mode):not(.hvs-movie-active):not(.hvs-property-offer-visible):not(.hvs-layout-offer-visible) #homeViewUI.is-ready #hvsFloatingPersonalize {
+  opacity:1;visibility:visible;pointer-events:auto;
+  transform:translate(-50%,0) scale(1);transition-delay:100ms,100ms,0s;
+}
+#homeViewUI #hvsFloatingPersonalize:hover img {opacity:1;transform:scale(1.06);}
+#homeViewUI #hvsFloatingPersonalize:active {transform:translate(-50%,0) scale(.96);}
+@media(max-height:450px) and (orientation:landscape) {
+ #homeViewUI #hvsFloatingPersonalize {width:44px;height:44px;padding:4px;bottom:max(6px,env(safe-area-inset-bottom));}
+ #homeViewUI #hvsFloatingPersonalize img {width:34px;height:34px;}
+}
+@media(prefers-reduced-motion:reduce) {
+ #homeViewUI #hvsFloatingPersonalize {transition-duration:.01ms;transition-delay:0ms;}
+}
+/* Password visibility: clickable eye image with no square or background overlay. */
+#loginMenuWrapper .hvsPasswordWrap {position:relative;display:block;width:100%;}
+#loginMenuWrapper .hvsPasswordWrap>.hvsTextInput {padding-right:50px;}
+#loginMenuWrapper .hvsPasswordEye {
+  position:absolute;top:50%;right:9px;transform:translateY(-50%);
+  width:38px;height:38px;display:flex;align-items:center;justify-content:center;
+  margin:0;padding:0;border:0;border-radius:0;background:transparent;color:white;
+  appearance:none;-webkit-appearance:none;box-shadow:none!important;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+#loginMenuWrapper .hvsPasswordEye img {display:block;width:23px;height:23px;object-fit:contain;opacity:.68;pointer-events:none;}
+#loginMenuWrapper .hvsPasswordEye[aria-pressed="true"] img,
+#loginMenuWrapper .hvsPasswordEye:hover img {opacity:1;}
+/* A true, centered popup: never inside the scrollable login panel. */
+#hvsAdminSwitchPrompt[hidden] {display:none!important;}
+#hvsAdminSwitchPrompt {
+ position:fixed;inset:0;z-index:14500;box-sizing:border-box;
+ display:flex;align-items:center;justify-content:center;
+ padding:max(12px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right))
+         max(12px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+ background:rgba(0,0,0,.58);pointer-events:auto;
+ font-family:"HomeView Myriad",Arial,sans-serif;
+}
+#hvsAdminSwitchPrompt .hvsAdminSwitchCard {
+ width:min(420px,100%);max-height:calc(100dvh - 24px);overflow:auto;box-sizing:border-box;
+ padding:clamp(16px,3vw,26px);border-radius:23px;text-align:center;
+ border:1px solid rgba(255,255,255,.20);
+ background:linear-gradient(165deg,rgba(94,101,104,.96),rgba(37,46,49,.98) 53%,rgba(19,25,29,.99));
+ box-shadow:0 22px 68px rgba(0,0,0,.56),inset 0 1px rgba(255,255,255,.17);
+ color:#fff;animation:hvsAdminPopupAppear .34s cubic-bezier(.22,1,.36,1) both;
+}
+#hvsAdminSwitchTitle {font-size:clamp(15px,2vw,19px);font-weight:700;letter-spacing:.055em;line-height:1.2;}
+#hvsAdminSwitchMessage {font-size:clamp(13px,1.5vw,15px);line-height:1.42;font-weight:300;
+ margin:12px 0 18px;color:rgba(255,255,255,.91);}
+#hvsAdminSwitchPrompt .hvsAdminSwitchActions {display:flex;gap:9px;justify-content:center;flex-wrap:wrap;}
+#hvsAdminSwitchPrompt .hvsAdminSwitchActions .hvsActionButton {flex:1 1 165px;min-height:42px;font-size:10px;}
+#hvsAdminSwitchPrompt button:focus-visible {outline:2px solid #ff794b!important;outline-offset:3px;}
+@keyframes hvsAdminPopupAppear {from {opacity:0;transform:translateY(15px) scale(.94)}to {opacity:1;transform:translateY(0) scale(1)}}
+@media(max-height:420px) and (orientation:landscape) {
+ #hvsAdminSwitchPrompt .hvsAdminSwitchCard {padding:13px 18px;}
+ #hvsAdminSwitchTitle {font-size:15px;}
+ #hvsAdminSwitchMessage {margin:8px 0 12px;font-size:12px;}
+ #hvsAdminSwitchPrompt .hvsAdminSwitchActions .hvsActionButton {min-height:36px;}
+}
+@media(prefers-reduced-motion:reduce){#hvsAdminSwitchPrompt .hvsAdminSwitchCard{animation:none;}}
+</style>
+
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <div id="introOverlay">
@@ -5115,6 +5196,11 @@ body.teleport-mode #homeViewUI.is-ready #teleportMobileRail {
     <img src="01 DOCK MENU.png" alt="Show interface">
 </button>
 
+<!-- A standalone Personalize shortcut when the docked main menu is unavailable. -->
+<button id="hvsFloatingPersonalize" type="button" aria-label="Personalize this home" title="Personalize this home" tabindex="-1" aria-hidden="true">
+  <img src="EDIT ICON.png" alt="" draggable="false">
+</button>
+
 
 </div>
 
@@ -5128,6 +5214,18 @@ body.teleport-mode #homeViewUI.is-ready #teleportMobileRail {
   </div>
 </div>
 
+<!-- Dedicated, accessible login-type correction popup. Outside of the
+     scrollable login panel so it stays centered on short mobile screens. -->
+<div id="hvsAdminSwitchPrompt" hidden role="dialog" aria-modal="true" aria-labelledby="hvsAdminSwitchTitle" aria-describedby="hvsAdminSwitchMessage">
+  <section class="hvsAdminSwitchCard">
+    <div id="hvsAdminSwitchTitle">ADMIN ACCOUNT DETECTED</div>
+    <p id="hvsAdminSwitchMessage"></p>
+    <div class="hvsAdminSwitchActions">
+      <button type="button" class="hvsActionButton primary" id="hvsAdminSwitchContinue">CONTINUE AS ADMIN</button>
+      <button type="button" class="hvsActionButton" id="hvsAdminSwitchDismiss">CANCEL</button>
+    </div>
+  </section>
+</div>
 
 <!-- Upstairs lounge announcement. Kept outside #homeViewUI so existing
      windows can be temporarily hidden, then restored, without closing. -->
@@ -5438,12 +5536,12 @@ const EDIT_MENU_BUTTONS_BY_ROOM = Object.freeze({
     MainBedWashroom:   ['CUPBOARD', 'COUNTER', 'BACK SPLASH', 'FLOORING'],
     FloorsOnly:        ['CARPETS'],
     FloorsOnlyMainBed: ['FLOORING'],
-    Outside:           ['CLADDING', 'LANDSCAPING']
+    Outside:           ['CLADDING', 'LANDSCAPING', 'CHOOSE PROPERTY']
 });
 const HVS_WASHROOM_ROOM_NAMES = new Set(['GroundWashroom','UpperWashroom','MainBedWashroom']);
 function hvsPersonalizeOptionsForRoom(room) {
     const buttons=[...(EDIT_MENU_BUTTONS_BY_ROOM[room] || [])];
-    // Property selection: indoor non-washrooms only. Outside has two actions.
+    // Property selection in every applicable area, including outdoors.
     if(room && room!=='Outside' && !HVS_WASHROOM_ROOM_NAMES.has(room))buttons.push('CHOOSE PROPERTY');
     return buttons;
 }
@@ -6646,6 +6744,25 @@ function openProfileMenu() {
     body.classList.add('profile-mode');
     hvsBeginPersonalizeCheck(); // Verify fresh streaming XY+height before offering buttons.
 }
+document.getElementById('hvsFloatingPersonalize').addEventListener('click',()=>{
+    // Do not let an already open configuration or overlay be disturbed.
+    if(!document.getElementById('homeViewUI').classList.contains('is-ready') ||
+       !body.classList.contains('walk-mode') && !['camera-mode','building-mode','environment-mode','confirm-mode','teleport-mode'].some(c=>body.classList.contains(c)) ||
+       ['profile-mode','kitchen-mode','kitchen-finish-mode','login-mode','hvs-movie-active','hvs-property-offer-visible','hvs-layout-offer-visible'].some(c=>body.classList.contains(c)))return;
+    openProfileMenu();
+});
+// A hidden control must not remain keyboard-focusable when main menu or finish picker appears.
+const hvsFloatPersonalize=document.getElementById('hvsFloatingPersonalize');
+const hvsUpdateFloatingPersonalizeA11y=()=>{
+    const visible=!!document.getElementById('homeViewUI').classList.contains('is-ready') &&
+      ['walk-mode','camera-mode','building-mode','environment-mode','confirm-mode','teleport-mode'].some(c=>body.classList.contains(c)) &&
+      !['profile-mode','kitchen-mode','kitchen-finish-mode','login-mode','hvs-movie-active','hvs-property-offer-visible','hvs-layout-offer-visible'].some(c=>body.classList.contains(c));
+    hvsFloatPersonalize.tabIndex=visible?0:-1;
+    hvsFloatPersonalize.setAttribute('aria-hidden',String(!visible));
+};
+new MutationObserver(hvsUpdateFloatingPersonalizeA11y).observe(body,{attributes:true,attributeFilter:['class']});
+new MutationObserver(hvsUpdateFloatingPersonalizeA11y).observe(document.getElementById('homeViewUI'),{attributes:true,attributeFilter:['class']});
+hvsUpdateFloatingPersonalizeA11y();
 
 function closeProfileMenu() {
     hvsStopPersonalizeCheck();
@@ -7553,6 +7670,7 @@ function hvsOpenCost(){
 }
 function hvsCloseCost(){document.body.classList.remove('cost-open');hvsPriceEditorOpen=false;hvsBudgetEditorOpen=false;hvsById('hvsPriceEditor').classList.remove('is-visible');hvsById('costBudgetEditor').classList.remove('is-visible');}
 function hvsCloseLogin(){
+    hvsDismissAdminSwitch();
     document.body.classList.remove('login-mode','hvs-login-exiting');
     const focus=document.activeElement;
     if(focus instanceof HTMLElement&&focus.closest('#loginMenuWrapper'))focus.blur();
@@ -7576,9 +7694,45 @@ function hvsCloseLoginAfterSuccess(title,description){
 }
 function hvsOpenLogin(){
     hvsCloseCost();clearModes();document.body.classList.add('login-mode');
-    hvsCreatingAccount=false;hvsLoginError('');hvsRenderLogin();
+    hvsCreatingAccount=false;hvsDismissAdminSwitch();hvsLoginError('');hvsRenderLogin();
     if(!hvsCurrentAccount)setTimeout(()=>hvsById('hvsLoginUsername').focus(),130);
 }
+function hvsDismissAdminSwitch(){
+    const popup=hvsById('hvsAdminSwitchPrompt');
+    if(!popup || popup.hidden)return;
+    const focusWasInside=popup.contains(document.activeElement);
+    popup.hidden=true;
+    if(focusWasInside && document.body.classList.contains('login-mode'))
+        hvsById('hvsLoginPassword').focus({preventScroll:true});
+}
+function hvsOfferAdminSwitch(displayName){
+    const popup=hvsById('hvsAdminSwitchPrompt');
+    hvsById('hvsAdminSwitchMessage').textContent=
+        `Hi ${displayName}, these credentials belong to your administrator account, not a regular user account. Would you like to sign in as an administrator?`;
+    popup.hidden=false;
+    hvsById('hvsAdminSwitchContinue').focus({preventScroll:true});
+}
+function hvsInitializePasswordEyes(){
+    // Keep each password input and its saved-autofill semantics unchanged.
+    for(const input of document.querySelectorAll('#loginMenuWrapper input[type="password"]')){
+        if(input.closest('.hvsPasswordWrap'))continue;
+        const wrap=document.createElement('span');wrap.className='hvsPasswordWrap';
+        const button=document.createElement('button');button.type='button';
+        button.className='hvsPasswordEye';button.setAttribute('aria-pressed','false');
+        button.setAttribute('aria-label','Show password');button.title='Show password';
+        const image=document.createElement('img');image.src='eye.png';image.alt='';
+        image.draggable=false;button.appendChild(image);
+        input.parentNode.insertBefore(wrap,input);wrap.append(input,button);
+        button.addEventListener('click',()=>{
+            const showing=input.type==='password';
+            input.type=showing?'text':'password';
+            button.setAttribute('aria-pressed',String(showing));
+            button.setAttribute('aria-label',showing?'Hide password':'Show password');
+            button.title=showing?'Hide password':'Show password';
+        });
+    }
+}
+hvsInitializePasswordEyes();
 function hvsLoginError(message){
     const el=hvsById('hvsLoginInlineError');
     el.textContent=message;
@@ -7632,7 +7786,14 @@ async function hvsHandleLogin(event){
     const name=hvsById('hvsLoginUsername').value.trim(),pass=hvsById('hvsLoginPassword').value;
     const account=hvsStore.accounts[hvsNormalizeName(name)];
     try{
-        if(!account || (hvsLoginTab==='admin'&&account.role==='user') || (hvsLoginTab==='user'&&account.role!=='user') || !await hvsVerify(account,pass)){
+        const passwordCorrect=account&&await hvsVerify(account,pass);
+        if(hvsLoginTab==='user' && passwordCorrect && account.role!=='user'){
+            hvsLoginError('');hvsAuthNotice('');
+            hvsOfferAdminSwitch(account.name);
+            return;
+        }
+        hvsDismissAdminSwitch();
+        if(!passwordCorrect || (hvsLoginTab==='admin'&&account.role==='user') || (hvsLoginTab==='user'&&account.role!=='user')){
             const message='Login not accepted. Check your username, password and login type.';
             hvsLoginError(message);hvsAuthNotice('');
             hvsById('hvsLoginPassword').select();
@@ -7819,8 +7980,27 @@ hvsById('costShowPricesButton').addEventListener('click',()=>{
 });
 hvsById('costSavePrices').addEventListener('click',hvsSavePrices);
 hvsById('costAddItem').addEventListener('click',hvsAddPriceItem);
-for(const button of document.querySelectorAll('[data-auth-tab]'))button.addEventListener('click',()=>{hvsLoginTab=button.dataset.authTab;hvsCreatingAccount=false;hvsLoginError('');hvsAuthNotice('');hvsRenderLogin();});
-for(const id of ['hvsLoginUsername','hvsLoginPassword'])hvsById(id).addEventListener('input',()=>hvsLoginError(''));
+for(const button of document.querySelectorAll('[data-auth-tab]'))button.addEventListener('click',()=>{hvsDismissAdminSwitch();hvsLoginTab=button.dataset.authTab;hvsCreatingAccount=false;hvsLoginError('');hvsAuthNotice('');hvsRenderLogin();});
+for(const id of ['hvsLoginUsername','hvsLoginPassword'])hvsById(id).addEventListener('input',()=>{hvsDismissAdminSwitch();hvsLoginError('');});
+hvsById('hvsAdminSwitchDismiss').addEventListener('click',hvsDismissAdminSwitch);
+hvsById('hvsAdminSwitchPrompt').addEventListener('keydown',event=>{
+    if(event.key==='Escape'){
+        event.preventDefault();event.stopPropagation();hvsDismissAdminSwitch();return;
+    }
+    if(event.key!=='Tab')return;
+    const buttons=[hvsById('hvsAdminSwitchContinue'),hvsById('hvsAdminSwitchDismiss')];
+    if(event.shiftKey && document.activeElement===buttons[0]){
+        event.preventDefault();buttons[1].focus({preventScroll:true});
+    }else if(!event.shiftKey && document.activeElement===buttons[1]){
+        event.preventDefault();buttons[0].focus({preventScroll:true});
+    }
+});
+hvsById('hvsAdminSwitchContinue').addEventListener('click',()=>{
+  if(hvsById('hvsAdminSwitchPrompt').hidden)return;
+  hvsDismissAdminSwitch();hvsLoginTab='admin';hvsCreatingAccount=false;hvsRenderLogin();
+  // Re-check the password on continuation, then use the existing login flow.
+  hvsHandleLogin({preventDefault(){}});
+});
 hvsById('hvsLoginForm').addEventListener('submit',hvsHandleLogin);
 hvsById('hvsCreateForm').addEventListener('submit',hvsCreateUser);
 hvsById('hvsCreateToggle').addEventListener('click',()=>{hvsCreatingAccount=true;hvsAuthNotice('');hvsRenderLogin();});
