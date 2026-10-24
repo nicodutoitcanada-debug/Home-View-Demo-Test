@@ -3070,13 +3070,14 @@ body.hvs-layout-offer-visible #teleportStatusOverlay {visibility:hidden !importa
 /* HVS_PROPERTY_SELECTOR — keeps current menu state while choosing a property. */
 #hvsPropertyPrompt {
     position:fixed;inset:0;z-index:16000;display:flex;justify-content:center;align-items:center;
-    padding:20px;box-sizing:border-box;background:rgba(4,7,9,.39);
-    -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
+    padding:20px;box-sizing:border-box;background:transparent;
+    -webkit-backdrop-filter:none;backdrop-filter:none;
     opacity:0;visibility:hidden;pointer-events:none;
     transition:opacity .34s ease,visibility 0s linear .34s;
 }
-#hvsPropertyPrompt.is-open {opacity:1;visibility:visible;pointer-events:auto;transition-delay:0s;}
+#hvsPropertyPrompt.is-open {opacity:1;visibility:visible;pointer-events:none;transition-delay:0s;}
 #hvsPropertyDialog {
+    pointer-events:auto;
     width:min(445px,100%);max-height:min(90dvh,640px);overflow:auto;
     box-sizing:border-box;border-radius:24px;padding:24px 23px 20px;
     color:white;font-family:"HomeView Myriad",Arial,sans-serif;
@@ -3226,8 +3227,50 @@ body.hvs-movie-active #screenshotOverlay {
   #calculatorMenuWrapper{left:calc(5px + var(--hvs-scale-bar-width) + 8px + var(--hvs-cost-drag-x))!important}
   #costScaleControl{left:calc(5px + var(--hvs-cost-drag-x))!important}
 }
-#calculatorMenuWrapper .hvsGlass:has(#hvsPriceEditor.is-visible){max-height:calc(100dvh - 24px);overflow-x:hidden;overflow-y:auto;scrollbar-color:rgba(255,255,255,.26) transparent}
-#hvsPriceEditor{max-height:min(38vh,360px);overflow-y:auto;overscroll-behavior:contain;scrollbar-color:rgba(255,255,255,.26) transparent}
+/* Larger dedicated admin editor now scrolls independently of the calculator. */
+#hvsPriceWindow { position:fixed; inset:0; z-index:410; display:flex; align-items:center;
+    justify-content:center; box-sizing:border-box; padding:max(14px,env(safe-area-inset-top,0px))
+    max(14px,env(safe-area-inset-right,0px)) max(14px,env(safe-area-inset-bottom,0px))
+    max(14px,env(safe-area-inset-left,0px)); background:transparent; opacity:0; visibility:hidden;
+    pointer-events:none; transition:opacity .35s ease,visibility 0s linear .35s; }
+#hvsPriceWindow.is-open { opacity:1; visibility:visible; pointer-events:auto; transition-delay:0s; }
+#homeViewUI #hvsPriceWindow .hvsPriceWindowCard { width:min(730px,100%); max-height:calc(100dvh - 28px);
+    min-height:0; display:flex; flex-direction:column; box-sizing:border-box; overflow:hidden;
+    border-radius:23px; color:rgba(255,255,255,.95); font-family:"HomeView Myriad",Arial,sans-serif;
+    background:linear-gradient(160deg,rgba(209,218,219,.13),rgba(35,44,48,.84) 28%,rgba(14,21,26,.95));
+    border:1px solid rgba(255,255,255,.18); box-shadow:0 18px 60px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.17);
+    backdrop-filter:blur(13px) saturate(115%); -webkit-backdrop-filter:blur(13px) saturate(115%);
+    transform:translateY(14px) scale(.97); transition:transform .48s cubic-bezier(.22,1,.36,1); }
+#hvsPriceWindow.is-open .hvsPriceWindowCard {transform:translateY(0) scale(1);}
+#hvsPriceWindow .hvsPriceWindowHeader { flex-shrink:0; justify-content:space-between; padding:13px 19px; }
+#hvsPriceWindowTitle { margin:0; font:700 17px/1.2 "HomeView Myriad",Arial,sans-serif;
+    letter-spacing:.075em; color:white; }
+#hvsPriceWindow .hvsPriceWindowClose {width:34px;height:34px;border:0;padding:5px;
+    background:transparent;border-radius:9px;cursor:pointer;flex-shrink:0; }
+#hvsPriceWindow .hvsPriceWindowClose img {width:100%;height:100%;object-fit:contain;display:block;}
+#hvsPriceWindow .hvsPriceWindowClose:hover img {opacity:.72;}
+#hvsPriceWindow .hvsPriceWindowScroll {flex:1 1 auto;min-height:0;overflow-y:auto;
+    overscroll-behavior:contain;padding:8px 22px 24px;scrollbar-color:rgba(255,255,255,.24) transparent;}
+#hvsPriceWindow .hvsPriceWindowNote {margin:8px 0 14px;font-size:12px;
+    line-height:1.45;color:rgba(255,255,255,.70);}
+#hvsPriceWindow #hvsPriceEditor {max-height:none;overflow:visible;border-top:0;
+    padding:0;background:transparent;}
+#hvsPriceWindow #priceEditorList {max-height:none;overflow:visible;}
+#hvsPriceWindow .hvsPriceRow {grid-template-columns:minmax(0,1fr) minmax(112px,160px);
+    gap:18px;margin:0;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.065);font-size:13px;}
+#hvsPriceWindow .hvsPriceRow label {line-height:1.27;overflow-wrap:anywhere;}
+#hvsPriceWindow .hvsTextInput {width:100%;box-sizing:border-box;}
+#hvsPriceWindow .hvsFinishPriceDetails {margin:22px 0 13px;padding:14px 16px;
+    background:rgba(4,9,12,.3);border:1px solid rgba(255,255,255,.13);}
+#hvsPriceWindow .hvsFormActions {margin-top:16px;}
+@media(max-width:600px){
+  #hvsPriceWindow .hvsPriceWindowHeader {padding:10px 14px;}
+  #hvsPriceWindowTitle {font-size:14px;}
+  #hvsPriceWindow .hvsPriceWindowScroll {padding:8px 14px 18px;}
+  #hvsPriceWindow .hvsPriceRow {grid-template-columns:minmax(0,1fr) minmax(92px,110px);gap:8px;font-size:11px;}
+  #hvsPriceWindow .hvsFinishPriceDetails {padding:10px 8px;}
+}
+@media(prefers-reduced-motion:reduce){#hvsPriceWindow,#hvsPriceWindow .hvsPriceWindowCard {transition-duration:.01ms!important;}}
 #hvsCostDragHandle{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 #hvsCostDragHandle.is-dragging{cursor:grabbing}
 #hvsCostDragHandle .hvsDragIndicator{font-size:21px;line-height:1;opacity:.55;pointer-events:none}
@@ -4711,8 +4754,49 @@ body:is(.walk-mode,.camera-mode,.building-mode,.environment-mode,.confirm-mode,.
 @media(prefers-reduced-motion:reduce){#hvsAdminSwitchPrompt .hvsAdminSwitchCard{animation:none;}}
 </style>
 
+
+<style id="hvs-game-sound-gesture-2026-10-24">
+/* Image-only top-center sound control. The underlying game remains clickable. */
+#hvsGameSoundButton {
+  position:fixed;top:max(12px,env(safe-area-inset-top));left:50%;
+  z-index:6500;display:flex;align-items:center;justify-content:center;
+  width:58px;height:58px;padding:0;margin:0;
+  border:0;border-radius:0;background:transparent;box-shadow:none;
+  -webkit-appearance:none;appearance:none;
+  -webkit-backdrop-filter:none;backdrop-filter:none;
+  cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transform:translate(-50%,-10px) scale(.9);
+  transition:opacity .5s ease,transform .65s cubic-bezier(.16,1,.3,1),visibility 0s linear .65s;
+}
+#hvsGameSoundButton img {
+  display:block;width:46px;height:46px;object-fit:contain;
+  opacity:.8;pointer-events:none;user-select:none;-webkit-user-drag:none;
+  filter:drop-shadow(0 3px 8px rgba(0,0,0,.25));
+  transition:opacity .2s ease,transform .2s ease;
+}
+body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active) #hvsGameSoundButton {
+  opacity:1;visibility:visible;pointer-events:auto;
+  transform:translate(-50%,0) scale(1);transition-delay:0s;
+}
+#hvsGameSoundButton:hover img,#hvsGameSoundButton[aria-pressed="true"] img {opacity:1;}
+#hvsGameSoundButton:hover img {transform:scale(1.06);}
+#hvsGameSoundButton:active img {transform:scale(.94);}
+#hvsGameSoundButton:focus-visible {outline:1px solid rgba(255,255,255,.75);outline-offset:2px;}
+@media(max-height:450px) and (orientation:landscape) {
+  #hvsGameSoundButton {top:max(5px,env(safe-area-inset-top));width:44px;height:44px;}
+  #hvsGameSoundButton img {width:36px;height:36px;}
+}
+@media(prefers-reduced-motion:reduce){#hvsGameSoundButton{transition:none;}}
+</style>
+
 </head><body>
 <div id="video-container" tabindex="0"></div>
+<!-- Stream audio starts muted on devices requiring a user gesture.
+     The only visible control is the supplied sound.png image. -->
+<button id="hvsGameSoundButton" type="button" aria-label="Turn on game sound" aria-pressed="false" title="Turn on game sound">
+  <img src="sound.png" alt="" draggable="false">
+</button>
 <div id="introOverlay">
   <video id="introVideo" src="logo 01.mp4" muted playsinline preload="auto"></video>
   <div id="loadingIntroWrap">
@@ -5150,10 +5234,25 @@ body:is(.walk-mode,.camera-mode,.building-mode,.environment-mode,.confirm-mode,.
     <div class="hvsCostFooter"><button class="hvsActionButton" id="costSetBudgetButton" type="button">SET BUDGET</button><button class="hvsActionButton" id="costShowPricesButton" type="button" hidden>EDIT PRICES</button><span id="costFooterLabel" style="font-size:12px;font-weight:700;letter-spacing:.06em;align-self:center;justify-self:center">COST ESTIMATE</span></div>
     <div class="hvsCostBelow">
       <div id="costBudgetEditor" class="hvsBudgetEditor"><input class="hvsTextInput" id="costBudgetInput" type="number" inputmode="numeric" min="0" step="100" placeholder="Maximum budget ($ CAD)"><button id="costSaveBudget" type="button" class="hvsActionButton primary">SAVE</button><button id="costClearBudget" type="button" class="hvsActionButton">CLEAR</button></div>
-      <div id="hvsPriceEditor"><div class="hvsSecondaryHeading">DEFAULT PRICES — ADMIN ONLY</div><div id="priceEditorList"></div><label class="hvsField" for="hvsBedroomUpgradePrice">BONUS BEDROOM UPGRADE (CAD) — ADDITIONAL, ONLY WHEN SELECTED</label><input class="hvsTextInput" id="hvsBedroomUpgradePrice" type="number" min="0" step="0.01" value="4500"><div class="hvsFormActions"><button type="button" class="hvsActionButton primary" id="costSavePrices">SAVE PRICES</button></div><label for="costNewItemName" class="hvsField">ADD ANOTHER COST VARIABLE</label><input class="hvsTextInput" id="costNewItemName" placeholder="Variable name"><label for="costNewItemAmount" class="hvsField">DEFAULT PRICE (CAD)</label><input class="hvsTextInput" type="number" min="0" step="0.01" id="costNewItemAmount" value="0"><div class="hvsFormActions"><button type="button" class="hvsActionButton" id="costAddItem">ADD VARIABLE</button></div></div>
+
       <p id="costProfileInfo" class="hvsPanelNote">Log in to save your project and budget on this device.</p>
     </div>
   </div>
+</div>
+
+<!-- ADMIN PRICE EDITOR: independent, generously sized glass window.
+     All original catalog inputs and save/add handlers are retained. -->
+<div id="hvsPriceWindow" role="dialog" aria-modal="true" aria-labelledby="hvsPriceWindowTitle" aria-hidden="true">
+  <section class="hvsPriceWindowCard hvsGlass" aria-label="Default price settings">
+    <div class="hvsPanelTop hvsPriceWindowHeader">
+      <h2 id="hvsPriceWindowTitle">EDIT DEFAULT PRICES</h2>
+      <button class="hvsPriceWindowClose" type="button" id="hvsPriceWindowClose" aria-label="Close default prices" title="Close price editor"><img src="01 DOCK MENU.png" alt="" draggable="false"></button>
+    </div>
+    <div class="hvsPriceWindowScroll">
+      <p class="hvsPriceWindowNote">Adjust the default costs and finish upgrade prices below. Your calculator updates when you save.</p>
+      <div id="hvsPriceEditor"><div class="hvsSecondaryHeading">DEFAULT PRICES — ADMIN ONLY</div><div id="priceEditorList"></div><label class="hvsField" for="hvsBedroomUpgradePrice">BONUS BEDROOM UPGRADE (CAD) — ADDITIONAL, ONLY WHEN SELECTED</label><input class="hvsTextInput" id="hvsBedroomUpgradePrice" type="number" min="0" step="0.01" value="4500"><div class="hvsFormActions"><button type="button" class="hvsActionButton primary" id="costSavePrices">SAVE PRICES</button></div><label for="costNewItemName" class="hvsField">ADD ANOTHER COST VARIABLE</label><input class="hvsTextInput" id="costNewItemName" placeholder="Variable name"><label for="costNewItemAmount" class="hvsField">DEFAULT PRICE (CAD)</label><input class="hvsTextInput" type="number" min="0" step="0.01" id="costNewItemAmount" value="0"><div class="hvsFormActions"><button type="button" class="hvsActionButton" id="costAddItem">ADD VARIABLE</button></div></div>
+    </div>
+  </section>
 </div>
 
 <!-- FRONTEND LOGIN / CREATE ACCOUNT / MARIE ADMIN TOOLS -->
@@ -5269,7 +5368,7 @@ body:is(.walk-mode,.camera-mode,.building-mode,.environment-mode,.confirm-mode,.
 
 <!-- PROPERTY SELECTOR — automatic first-time offer / manual Personalize action. -->
 <div id="hvsPropertyPrompt" role="presentation" aria-hidden="true">
-  <section id="hvsPropertyDialog" role="dialog" aria-modal="true" aria-label="Choose your property">
+  <section id="hvsPropertyDialog" role="dialog" aria-modal="false" aria-label="Choose your property">
     <h2>CHOOSE YOUR PROPERTY</h2>
     <p>See this home from the actual property you plan to build on. For this demo, explore either of two prepared locations. You can change the property anytime in <strong>PERSONALIZE</strong>.</p>
     <div id="hvsPropertyOptions" role="group" aria-label="Available properties">
@@ -6593,7 +6692,7 @@ function hvsShowPropertyPrompt(){
     document.body.classList.add('hvs-property-offer-visible');
     hvsPropertyPrompt.classList.add('is-open');
     hvsPropertyPrompt.setAttribute('aria-hidden','false');
-    (window.homeViewGetPropertyChoice?.()==='two'?hvsPropertyTwo:hvsPropertyOne).focus({preventScroll:true});
+    // Non-modal on purpose: do not steal focus from Unreal's keyboard controls.
     return true;
 }
 window.homeViewShowPropertyOfferOnce=function(){
@@ -7541,7 +7640,7 @@ function hvsRenderCost(){
     hvsById('costProfileInfo').textContent=hvsCurrentAccount?`Project progress saved to ${hvsCurrentAccount.name}'s local profile on this device.`:'Log in to save project and budget on this device.';
     hvsById('costShowPricesButton').hidden=!hvsIsAdmin();
     hvsById('costFooterLabel').hidden=hvsIsAdmin();
-    if(!hvsIsAdmin()){hvsPriceEditorOpen=false;hvsById('hvsPriceEditor').classList.remove('is-visible');}
+    if(!hvsIsAdmin())hvsClosePriceEditor();
 }
 function hvsSetChangedCost(id,amount){
     const value=hvsToFiniteAmount(amount);
@@ -7668,7 +7767,25 @@ function hvsOpenCost(){
     document.body.classList.add('cost-open'); hvsPreviousTotal=null;hvsLastChangedKey=null;
     hvsRenderCost();
 }
-function hvsCloseCost(){document.body.classList.remove('cost-open');hvsPriceEditorOpen=false;hvsBudgetEditorOpen=false;hvsById('hvsPriceEditor').classList.remove('is-visible');hvsById('costBudgetEditor').classList.remove('is-visible');}
+function hvsCloseCost(){document.body.classList.remove('cost-open');hvsBudgetEditorOpen=false;hvsById('costBudgetEditor').classList.remove('is-visible');}
+function hvsClosePriceEditor(){
+    hvsPriceEditorOpen=false;
+    hvsById('hvsPriceEditor').classList.remove('is-visible');
+    const windowEl=hvsById('hvsPriceWindow');windowEl.classList.remove('is-open');
+    windowEl.setAttribute('aria-hidden','true');
+    const active=document.activeElement;
+    if(active instanceof HTMLElement&&windowEl.contains(active))active.blur();
+}
+function hvsOpenPriceEditor(){
+    if(!hvsIsAdmin())return;
+    hvsPriceEditorOpen=true;
+    hvsFillPriceEditor();
+    hvsById('hvsPriceEditor').classList.add('is-visible');
+    const windowEl=hvsById('hvsPriceWindow');
+    windowEl.classList.add('is-open');windowEl.setAttribute('aria-hidden','false');
+    windowEl.querySelector('.hvsPriceWindowScroll').scrollTop=0;
+    hvsById('hvsPriceWindowClose').focus({preventScroll:true});
+}
 function hvsCloseLogin(){
     hvsDismissAdminSwitch();
     document.body.classList.remove('login-mode','hvs-login-exiting');
@@ -7973,10 +8090,13 @@ hvsById('costClearBudget').addEventListener('click',()=>{
     hvsCurrentProfile().budget=null;hvsOverBudget=false;hvsPersistProfile();hvsRenderCost();
     hvsBudgetEditorOpen=false;hvsById('costBudgetEditor').classList.remove('is-visible');
 });
-hvsById('costShowPricesButton').addEventListener('click',()=>{
-    if(!hvsIsAdmin())return;hvsPriceEditorOpen=!hvsPriceEditorOpen;
-    hvsById('hvsPriceEditor').classList.toggle('is-visible',hvsPriceEditorOpen);
-    if(hvsPriceEditorOpen)hvsFillPriceEditor();
+hvsById('costShowPricesButton').addEventListener('click',hvsOpenPriceEditor);
+hvsById('hvsPriceWindowClose').addEventListener('click',hvsClosePriceEditor);
+hvsById('hvsPriceWindow').addEventListener('pointerdown',event=>{
+    if(event.target===event.currentTarget)hvsClosePriceEditor();
+});
+hvsById('hvsPriceWindow').addEventListener('keydown',event=>{
+    if(event.key==='Escape'){event.stopPropagation();event.preventDefault();hvsClosePriceEditor();}
 });
 hvsById('costSavePrices').addEventListener('click',hvsSavePrices);
 hvsById('costAddItem').addEventListener('click',hvsAddPriceItem);
@@ -8022,7 +8142,10 @@ hvsById('hvsManageAdminSave').addEventListener('click',hvsManageAdminSave);
 // The calculator is persistent across room/trigger-box updates. Only the user
 // closing it (or deliberately opening the login panel) should dismiss it.
 document.addEventListener('homeview:menus-reset',event=>{
-    if (event.detail?.reason !== 'EditMenuOptions') hvsCloseCost();
+    if (event.detail?.reason !== 'EditMenuOptions'){
+        hvsCloseCost();
+        hvsClosePriceEditor();
+    }
     hvsCloseLogin();
 });
 window.homeViewOpenCost=hvsOpenCost;window.homeViewOpenLogin=hvsOpenLogin;
@@ -8473,11 +8596,8 @@ hvsById('hvsMarieEditDefaults')?.addEventListener('click',()=>{
             layoutOptions:{...hvsStore.layoutOptions}
         };
     }
-    hvsCloseLogin();hvsOpenCost();
-    hvsPriceEditorOpen=true;
-    hvsById('hvsPriceEditor').classList.add('is-visible');
-    hvsFillPriceEditor();
-    hvsById('hvsPriceEditor').scrollIntoView({behavior:'smooth',block:'nearest'});
+    hvsCloseLogin();
+    hvsOpenPriceEditor();
 });
 
 // The calculator and its independent scale bar move as one unit.
@@ -9223,6 +9343,7 @@ function hvsCompleteGameReveal() {
   // visible, and the docked main menu/rail glide in during the SAME fade.
   // Never change the proven WebRTC stream fit or resolution routine here.
   ui.classList.add('is-ready');
+  document.body.classList.add('hvs-audio-ready');
   requestAnimationFrame(() => {
     curtain?.classList.add('is-dismissing');
     // Brief offset gives the entering UI its first rendered offscreen frame,
@@ -10007,6 +10128,82 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
       }
     }).observe(list,{childList:true,subtree:true});
   }
+})();
+</script>
+
+<script id="hvs-stream-audio-unlock-2026-10-24">
+(() => {
+  const button=document.getElementById('hvsGameSoundButton');
+  const stage=document.getElementById('video-container');
+  if (!button || !stage) return;
+  let soundEnabled=false;
+
+  // Arcware and Epic SDKs both render the WebRTC media into this stage.
+  // Restrict unmuting to this subtree so LOADING_BG.mp4 stays muted.
+  function streamMedia() {
+    const nodes=[...stage.querySelectorAll('video,audio')];
+    // Some WebRTC players create a separate audio element outside their root.
+    // Include only media with a live remote audio track, never the intro clips.
+    for(const media of document.querySelectorAll('video,audio')) {
+      if(media.closest('#video-container'))continue;
+      if(media.srcObject?.getAudioTracks?.().some(track=>track.readyState==='live'))
+        nodes.push(media);
+    }
+    return [...new Set(nodes)].filter(el=>el instanceof HTMLMediaElement);
+  }
+  function paint() {
+    button.setAttribute('aria-pressed',String(soundEnabled));
+    const label=soundEnabled?'Mute game sound':'Turn on game sound';
+    button.setAttribute('aria-label',label);
+    button.title=label;
+  }
+  function applyAudio(fromGesture) {
+    let count=0;
+    for (const media of streamMedia()) {
+      try {
+        media.muted=!soundEnabled;
+        media.defaultMuted=!soundEnabled;
+        if(soundEnabled) media.volume=1;
+        count++;
+        // On iOS, play() must be called while handling the user's actual tap.
+        // Never pause the video to mute it: only control its audio flag.
+        if(soundEnabled && fromGesture) {
+          const pending=media.play();
+          pending?.catch?.(err=>console.info('[STREAM AUDIO] Playback permission:',err?.name||err));
+        }
+      } catch(err){console.warn('[STREAM AUDIO] Unable to adjust stream media:',err);}
+    }
+    return count;
+  }
+  button.addEventListener('click',()=>{
+    const next=!soundEnabled;
+    // Do not report success if the streaming player has not mounted yet.
+    if(next && !streamMedia().length) {
+      console.warn('[STREAM AUDIO] The streamed media is not ready; tap sound again after video appears.');
+      return;
+    }
+    soundEnabled=next;
+    applyAudio(true); // direct user gesture — required by Safari/iOS
+    paint();
+  });
+  // If a recovering SDK recreates the media node, preserve the selected mute
+  // state. A new iOS player may require another user tap to start playback.
+  const observed=new WeakSet();
+  function prepare() {
+    for(const media of streamMedia()) {
+      if(observed.has(media))continue;
+      observed.add(media);
+      media.muted=!soundEnabled;
+      media.defaultMuted=!soundEnabled;
+      if(soundEnabled)media.volume=1;
+      media.addEventListener('loadedmetadata',()=>{
+        // Some players rewrite the video element's mute state at startup.
+        if(soundEnabled){media.muted=false;media.defaultMuted=false;}
+      });
+    }
+  }
+  new MutationObserver(prepare).observe(stage,{childList:true,subtree:true});
+  prepare();paint();
 })();
 </script>
 </body></html>
