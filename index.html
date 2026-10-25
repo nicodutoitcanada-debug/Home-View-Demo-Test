@@ -4902,7 +4902,7 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active) #hvsGameSoun
 <!-- Separate exit/connection state: intentional end never looks like a crash. -->
 <div id="hvsSessionScreen" hidden role="dialog" aria-modal="true" aria-label="Session status">
   <video id="hvsSessionBgVideo" src="LOADING_BG.mp4" muted playsinline webkit-playsinline loop preload="none" aria-hidden="true"></video>
-  <section class="hvsSystemCard"><img src="logo_movie.png" alt="Home View" class="hvsSystemLogo"><h2 id="hvsSessionTitle">SESSION ENDED</h2><p id="hvsSessionMessage">Your session has ended.</p><div class="hvsSystemActions"><button type="button" id="hvsSessionRecover" class="hvsSystemPrimary" hidden>TRY TO RECONNECT</button><button type="button" id="hvsSessionRelaunch">RELAUNCH</button></div></section>
+  <section class="hvsSystemCard"><img src="logo_movie.png" alt="Home View" class="hvsSystemLogo"><h2 id="hvsSessionTitle">SESSION ENDED</h2><p id="hvsSessionMessage">Your session has ended.</p><div class="hvsSystemActions"><button type="button" id="hvsSessionRecover" class="hvsSystemPrimary" hidden>TRY TO RECONNECT</button><button type="button" id="hvsSessionStop">END SESSION</button><button type="button" id="hvsSessionRelaunch">RELAUNCH</button></div></section>
 </div>
 
 
@@ -8601,6 +8601,8 @@ window.homeViewDisplaySessionState=(intentional,message)=>{
   }
   const recover=document.getElementById('hvsSessionRecover');
   if(recover)recover.hidden=Boolean(intentional);
+  const stop=document.getElementById('hvsSessionStop');
+  if(stop)stop.hidden=Boolean(intentional);
   requestAnimationFrame(()=>hvsSessionScreen.classList.add('is-visible'));
 };
 window.homeViewClearConnectionNotice=()=>{
@@ -8613,7 +8615,11 @@ window.homeViewClearConnectionNotice=()=>{
   hvsResetAfkTimer();
 };
 document.getElementById('hvsSessionRecover')?.addEventListener('click',()=>window.homeViewTryReconnect?.(true));
-document.getElementById('hvsSessionRelaunch')?.addEventListener('click',()=>window.location.reload());
+document.getElementById('hvsSessionStop')?.addEventListener('click',()=>window.homeViewEndSession?.('User terminated session.'));
+document.getElementById('hvsSessionRelaunch')?.addEventListener('click',()=>{
+  // Relaunch is an explicit NEW session, never triggered by automatic recovery.
+  window.location.reload();
+});
 
 // Marie gets an unmistakable confirmation popup after changing session
 // timeouts. It is scoped to the admin controls and does NOT send to Unreal.
@@ -9190,7 +9196,8 @@ function hvsRecoverySucceeded(reason){
   if(hvsRecoveryInProgress||hvsRecoveryAttempted){
     console.info('[STREAM RECOVERY] Video restored:',reason);
     hvsRecoveryInProgress=false;
-    hvsRecoveryAttempted=false;
+    // Keep the session-wide automatic attempt consumed. A second incident
+    // requires explicit user action; never loop paid Arcware reconnects.
     hvsRecoveryProbeToken++;
     window.homeViewClearConnectionNotice?.();
     queueViewportResolutionSync('recovered video',400,true);
@@ -9200,6 +9207,7 @@ async function hvsRecoverWithSdk(reason,manual=false){
   if(!hvsRecoveryAllowed()||hvsRecoveryInProgress)return false;
   if(hvsHasLiveFrames()){hvsRecoverySucceeded('already receiving frames');return true;}
   if(hvsRecoveryAttempted&&!manual)return false;
+  if(!manual && hvsRecoveryAttempted)return false;
   hvsRecoveryAttempted=true;
   hvsRecoveryInProgress=true;
   hvsRecoveryReason=reason;
@@ -9704,6 +9712,94 @@ let localStream = null;
 let localApp = null;
 let localStyles = null;
 
+// HOME VIEW CONNECTION QUALITY: one stream, rate ceiling only.
+// Arcware documents WebRTCMaxBitrate (kilobits/sec) as an advanced hint;
+// cloud-controlled encoder settings can override it. No resolution changes.
+const HVS_QUALITY_MOBILE = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ||
+  (window.matchMedia('(pointer:coarse)').matches && Math.min(innerWidth,innerHeight)<900);
+const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [2500,3500,5000,7000] : [5000,7000,10000,14000];
+let hvsQualityIndex=0;
+let hvsQualityConfig=null;
+let hvsQualityTimer=null;
+let hvsQualityPrevious=null;
+let hvsQualityGood=0;
+let hvsQualityBad=0;
+let hvsQualityMeasured=null;
+function hvsQualityAllowed(){return !dev_mode && !window.homeViewSessionIntentional &&
+  !homeViewTeardownStarted && !document.hidden && Boolean(application) && levelReady;}
+function hvsApplyBitrateHint(){
+  if(!hvsQualityAllowed())return false;
+  const limit=HVS_QUALITY_LEVELS[hvsQualityIndex];
+  try {
+    // ArcwareInit returns Config, forwarded to Epic Pixel Streaming.
+    if(typeof hvsQualityConfig?.setNumericSetting === 'function'){
+      hvsQualityConfig.setNumericSetting('WebRTCMaxBitrate',limit);
+      console.info('[HOME VIEW QUALITY] Requested WebRTC max bitrate (kbps):',limit);
+      return true;
+    }
+  }catch(err){console.warn('[HOME VIEW QUALITY] SDK refused bitrate change:',err);}
+  return false;
+}
+async function hvsMonitorQuality(){
+  if(!hvsQualityAllowed() || window.homeViewConnectionProblem || hvsRecoveryInProgress)return;
+  const pc=hvsRtcPeer();
+  if(!pc?.getStats)return;
+  try {
+    const report=await pc.getStats();
+    if(!hvsQualityAllowed())return;
+    let inbound=null, pair=null;
+    report.forEach(row=>{
+      if(row.type==='inbound-rtp' && (row.kind==='video'||row.mediaType==='video') && !row.isRemote)inbound=row;
+      if(row.type==='candidate-pair' && (row.nominated||row.selected) && row.state==='succeeded')pair=row;
+    });
+    if(!inbound)return;
+    const current={bytes:inbound.bytesReceived||0, frames:inbound.framesDecoded||0,
+      lost:inbound.packetsLost||0, received:inbound.packetsReceived||0,
+      time:inbound.timestamp||Date.now()};
+    if(hvsQualityPrevious){
+      const prev=hvsQualityPrevious;
+      const secs=(current.time-prev.time)/1000;
+      if(secs>1&&secs<30){
+        const kbps=Math.max(0,(current.bytes-prev.bytes)*8/secs/1000);
+        const fps=Math.max(0,(current.frames-prev.frames)/secs);
+        const packets=Math.max(0,current.received-prev.received);
+        const losses=Math.max(0,current.lost-prev.lost);
+        const lossRatio=losses/Math.max(1,losses+packets);
+        const rtt=typeof pair?.currentRoundTripTime==='number'?pair.currentRoundTripTime:null;
+        hvsQualityMeasured={kbps:Math.round(kbps),fps:Math.round(fps*10)/10,loss:lossRatio,rtt,
+          ceilingKbps:HVS_QUALITY_LEVELS[hvsQualityIndex]};
+        const bad=(fps<17 && kbps>180) || lossRatio>.075 || (rtt!==null&&rtt>.48);
+        const good=fps>=24 && lossRatio<.018 && (rtt===null||rtt<.22);
+        if(bad){hvsQualityBad++;hvsQualityGood=0;}
+        else if(good){hvsQualityGood++;hvsQualityBad=0;}
+        else{hvsQualityBad=0;hvsQualityGood=0;}
+        // Hysteresis prevents bitrate oscillation. Loss/RTT are hints, not guarantees.
+        if(hvsQualityBad>=2 && hvsQualityIndex>0){
+          hvsQualityIndex--;hvsQualityBad=0;hvsQualityGood=0;hvsApplyBitrateHint();
+        } else if(hvsQualityGood>=4 && hvsQualityIndex<HVS_QUALITY_LEVELS.length-1){
+          hvsQualityIndex++;hvsQualityGood=0;hvsQualityBad=0;hvsApplyBitrateHint();
+        }
+      }
+    }
+    hvsQualityPrevious=current;
+  }catch(err){console.debug('[HOME VIEW QUALITY] RTC statistics unavailable:',err?.message||err);}
+}
+window.homeViewStopAdaptiveQuality=()=>{
+  clearInterval(hvsQualityTimer);hvsQualityTimer=null;hvsQualityConfig=null;
+};
+window.homeViewQualityStatus=()=>({mobile:HVS_QUALITY_MOBILE,
+  requestedMaxKbps:HVS_QUALITY_LEVELS[hvsQualityIndex],
+  telemetry:hvsQualityMeasured,active:!!hvsQualityTimer,
+  caveat:'Arcware/cloud may override WebRTC bitrate settings'});
+function hvsStartAdaptiveQuality(config){
+  if(window.homeViewSessionIntentional)return;
+  hvsQualityConfig=config;
+  clearInterval(hvsQualityTimer);
+  // Wait for actual video; requesting the cap before connecting is done
+  // via initialSettings below, and does not create another Arcware session.
+  hvsQualityTimer=setInterval(hvsMonitorQuality,5000);
+}
+
 // INTENTIONAL VS UNEXPECTED DISCONNECT — SEARCH FOR: HVS_STREAM_END
 // Adapted from the proven LUX frontend: explicitly mark an intentional end,
 // block SDK reconnect, send end:session once, then release the streaming session.
@@ -9741,6 +9837,9 @@ window.homeViewEndSession=async(message='Your session has ended.')=>{
   if(homeViewTeardownStarted)return;
   homeViewTeardownStarted=true;
   window.homeViewSessionIntentional=true;
+  hvsRecoveryProbeToken++;
+  hvsRecoveryInProgress=false;
+  window.homeViewStopAdaptiveQuality?.();
   // The intentional bit is set BEFORE the end command so SDK disconnects do not
   // surface as an error and trigger another Arcware reconnection.
   homeViewDisableReconnect();
@@ -9906,6 +10005,8 @@ if (dev_mode) {
     const setup = new ArcwareInit(
       { shareId:SHARE_ID },
       { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
+          WebRTCMaxBitrate:HVS_QUALITY_LEVELS[0],
+          WebRTCMinBitrate:0,
           // LUX uses StartVideoMuted:true. Make mobile equally autoplay-safe
           // after the OS Save/Share interface; preserve desktop game audio.
           StartVideoMuted:/Android|iPhone|iPod|iPad/i.test(navigator.userAgent)
@@ -9914,6 +10015,7 @@ if (dev_mode) {
                    settingsButton:false, connectionStrengthIcon:false } }
     );
     application = setup.Application;
+    hvsStartAdaptiveQuality(setup.Config);
     // Let the custom sound icon reach Arcware's separate (sometimes detached)
     // WebRTC audio element and its own toggleAudio(video, muted) method.
     window.homeViewArcwareAudioStream = setup.PixelStreaming;
