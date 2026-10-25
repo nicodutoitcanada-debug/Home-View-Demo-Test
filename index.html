@@ -3104,7 +3104,14 @@ body.hvs-layout-offer-visible #teleportStatusOverlay {visibility:hidden !importa
     border-color:rgba(255,78,18,.68);
     background:linear-gradient(160deg,rgba(244,73,17,.80),rgba(148,37,11,.80));
 }
-#hvsPropertyOptions button:active {transform:scale(.98);}
+#hvsPropertyOptions button:active:not(:disabled) {transform:scale(.98);}
+#hvsPropertyOptions button:disabled {
+    cursor:default;opacity:.74;
+}
+#hvsPropertyOptions button.is-selected:disabled:hover {
+    transform:none;
+}
+
 #hvsPropertyDismiss {display:block;margin:17px auto 0;background:none;border:0;cursor:pointer;
     color:rgba(255,255,255,.76);font:600 12px "HomeView Myriad",Arial,sans-serif;padding:8px 13px;}
 #hvsPropertyDismiss:hover {color:white;}
@@ -4694,7 +4701,7 @@ body.teleport-mode #homeViewUI.is-ready #teleportMobileRail {
   filter:drop-shadow(0 4px 10px rgba(0,0,0,.22));transition:opacity 180ms ease,transform 180ms ease;
 }
 /* The initial Unreal-logo reveal likewise eases up from a slightly smaller size. */
-body:is(.walk-mode,.camera-mode,.building-mode,.environment-mode,.confirm-mode,.teleport-mode):not(.profile-mode):not(.kitchen-mode):not(.kitchen-finish-mode):not(.login-mode):not(.hvs-movie-active):not(.hvs-property-offer-visible):not(.hvs-layout-offer-visible) #homeViewUI.is-ready #hvsFloatingPersonalize {
+body:is(.walk-mode,.camera-mode,.building-mode,.environment-mode,.teleport-mode):not(.confirm-mode):not(.profile-mode):not(.kitchen-mode):not(.kitchen-finish-mode):not(.login-mode):not(.hvs-movie-active):not(.hvs-property-offer-visible):not(.hvs-layout-offer-visible) #homeViewUI.is-ready #hvsFloatingPersonalize {
   opacity:1;visibility:visible;pointer-events:auto;
   transform:translate(-50%,0) scale(1);transition-delay:100ms,100ms,0s;
 }
@@ -5640,8 +5647,13 @@ const EDIT_MENU_BUTTONS_BY_ROOM = Object.freeze({
 const HVS_WASHROOM_ROOM_NAMES = new Set(['GroundWashroom','UpperWashroom','MainBedWashroom']);
 function hvsPersonalizeOptionsForRoom(room) {
     const buttons=[...(EDIT_MENU_BUTTONS_BY_ROOM[room] || [])];
-    // Property selection in every applicable area, including outdoors.
-    if(room && room!=='Outside' && !HVS_WASHROOM_ROOM_NAMES.has(room))buttons.push('CHOOSE PROPERTY');
+    // All indoor rooms except washrooms can change the common wall colour.
+    // Outside keeps only cladding, landscaping and property selection.
+    if(room && room!=='Outside' && !HVS_WASHROOM_ROOM_NAMES.has(room)) {
+        buttons.push('WALL COLOR');
+        if(hvsFeatureWallZoneForRoom(room))buttons.push('FEATURE WALL COLOR');
+        buttons.push('CHOOSE PROPERTY');
+    }
     return buttons;
 }
 let currentEditMenuRoom = null;
@@ -5723,6 +5735,15 @@ function renderEditMenu() {
                     window.homeViewSend?.({landscaping:next});
                     renderEditMenu();
                 }
+                return;
+            }
+            if(option==='WALL COLOR') {
+                openKitchenFinishMenu('wallColor','personalize');
+                return;
+            }
+            if(option==='FEATURE WALL COLOR') {
+                const featureZone=hvsFeatureWallZoneForRoom(currentEditMenuRoom);
+                if(featureZone)openKitchenFinishMenu(featureZone,'personalize');
                 return;
             }
             if (option === 'KITCHEN') {
@@ -5981,7 +6002,11 @@ const HVS_KITCHEN_ZONE_KEYS=Object.freeze({
     wmBack:'Washroom_MainBed_Backsplash',
     washTile:'Tiles',
     railing:'Railing', // Staircase railing is a single finish across the model.
-    cladding:'Cladding' // Outdoor cladding reuses the seven wood previews.
+    cladding:'Cladding', // Outdoor cladding reuses the seven wood previews.
+    wallColor:'wall_color',
+    wallFeatLiving:'wall_feat_living',
+    wallFeatOffice:'wall_feat_office',
+    wallFeatMainBed:'wall_feat_main_bed'
 });
 const HVS_KITCHEN_CUPBOARD_ZONES=Object.freeze(['01','02','04','06','07','09']);
 const HVS_KITCHEN_FINISH_TITLES=Object.freeze({
@@ -5995,7 +6020,11 @@ const HVS_KITCHEN_FINISH_TITLES=Object.freeze({
     wmCup:'MAIN BED WASHROOM CUPBOARDS',wmCounter:'MAIN BED WASHROOM COUNTER',wmBack:'MAIN BED WASHROOM BACKSPLASH',
     washTile:'WASHROOM FLOOR TILES',
     railing:'STAIRCASE RAILING FINISH',
-    cladding:'EXTERIOR CLADDING FINISH'
+    cladding:'EXTERIOR CLADDING FINISH',
+    wallColor:'WALL COLOR',
+    wallFeatLiving:'LIVING ROOM FEATURE WALL',
+    wallFeatOffice:'OFFICE FEATURE WALL',
+    wallFeatMainBed:'MAIN BEDROOM FEATURE WALL'
 });
 const HVS_WOOD_CUPBOARD_ZONES=new Set(['01','02','04','06','07','09','all']);
 let kitchenFinishActiveZone=null;
@@ -6003,7 +6032,15 @@ let kitchenFinishReturnTo='kitchen';
 const kitchenFinishOptions=document.getElementById('kitchenFinishOptions');
 function kitchenFinishChoices(zone){
     const options=[];
-    if(zone==='carpet'){
+    if(zone==='wallColor' || zone==='wallFeatLiving' || zone==='wallFeatOffice' || zone==='wallFeatMainBed'){
+        const isWall=zone==='wallColor';
+        const folder=isWall?'Wall Color':'Wall Feat Color';
+        const quantity=isWall?6:12;
+        for(let i=1;i<=quantity;i++){
+            const id=String(i).padStart(2,'0');
+            options.push({id,file:`${folder}/${id}.jpg`,label:`COLOR ${id}`});
+        }
+    }else if(zone==='carpet'){
         for(let i=1;i<=5;i++)options.push({id:String(i).padStart(2,'0'),file:`Carpet/carpet_${String(i).padStart(2,'0')}.jpg`,label:`CARPET ${String(i).padStart(2,'0')}`});
     }else if(zone==='railing' || zone==='cladding'){
         // Exterior Cladding and Railing use lowercase wood_XX (not Wood_XX).
@@ -6047,6 +6084,10 @@ function openKitchenFinishMenu(zone,returnTo='kitchen'){
     const choices=kitchenFinishChoices(zone);
     document.getElementById('kitchenFinishTitle').textContent=HVS_KITCHEN_FINISH_TITLES[zone];
     document.getElementById('kitchenFinishSubtitle').textContent=
+        zone==='wallColor'?'Choose a wall color for all rooms except the washrooms.':
+        zone==='wallFeatLiving'?'Choose the feature wall finish for the living area.':
+        zone==='wallFeatOffice'?'Choose the feature wall finish for the office.':
+        zone==='wallFeatMainBed'?'Choose the feature wall behind the main bedroom bed.':
         zone==='carpet'?'Choose a carpet finish for this area.':
         zone==='railing'?'Choose a wood finish for the staircase railing.':
         zone==='cladding'?'Choose the wood finish for exterior cladding.':
@@ -6262,6 +6303,36 @@ function mapWorldToImage(x,y) {
    a potentially incorrect room. Blueprint needs no changes.
    ================================================================ */
 const HVS_PERSONALIZE_MARKED_POLYGONS = Object.freeze({"ground":{"red":[[463,911],[464,1054],[559,1061],[512,1056],[574,1055],[575,1040],[589,1040],[592,1023],[607,1023],[610,913]],"blue":[[607,635],[514,640],[513,650],[502,653],[506,657],[472,656],[462,664],[465,672],[433,673],[431,688],[402,689],[399,704],[384,704],[382,689],[263,689],[259,674],[187,673],[177,665],[178,1295],[495,1295],[498,1087],[495,1073],[436,1072],[430,1062],[430,896],[606,894]],"green":[[514,1082],[514,1151],[558,1151],[559,1157],[562,1150],[577,1152],[575,1295],[818,1294],[818,1040],[609,1041],[607,1057],[603,1052],[592,1058],[592,1073],[577,1072],[575,1089]]},"first":{"red":[[609,494],[609,846],[815,849],[815,494]],"blue":[[624,864],[624,1344],[817,1343],[817,865]],"green":[[193,1354],[192,1467],[305,1472],[304,1805],[815,1805],[817,1361],[592,1361],[590,1328],[464,1327],[471,1326],[464,1326],[463,1361],[447,1355]]}});
+// WALL FEATURE FOOTPRINTS — traced directly from the new supplied floor plans:
+// ground BLUE = living feature; ground RED = office feature;
+// first GREEN = main-bedroom feature. No overlays/images used at runtime.
+// Keep these coordinates in the same 960x2048 calibrated map reference.
+const HVS_WALL_FEATURE_REGIONS=Object.freeze({
+    ground:Object.freeze({
+        wallFeatLiving:[[83,118],[83,535],[320,536],[321,840],[817,839],[817,482],[911,480],[911,118]],
+        wallFeatOffice:[[621,1022],[575,1072],[575,1304],[827,1305],[827,1022]]
+    }),
+    first:Object.freeze({
+        wallFeatMainBed:[[186,1315],[186,1477],[299,1478],[300,1820],[821,1819],[827,1351],[604,1351],[602,1314]]
+    })
+});
+function hvsFeatureWallZoneForRoom(room) {
+    if(!room||room==='Outside'||HVS_WASHROOM_ROOM_NAMES.has(room))return null;
+    // A fresh verified player position was captured before showing Personalize.
+    const spot=personalizeConfirmedPoint;
+    if(!spot||!Number.isFinite(spot.px)||!Number.isFinite(spot.py))return null;
+    const {px,py,floor}=spot;
+    if(floor==='ground') {
+        const regions=HVS_WALL_FEATURE_REGIONS.ground;
+        if(hvsPointInPolygon(px,py,regions.wallFeatLiving))return 'wallFeatLiving';
+        if(hvsPointInPolygon(px,py,regions.wallFeatOffice))return 'wallFeatOffice';
+    }else if(floor==='first'){
+        if(hvsPointInPolygon(px,py,HVS_WALL_FEATURE_REGIONS.first.wallFeatMainBed))return 'wallFeatMainBed';
+    }
+    return null;
+}
+window.homeViewWallFeatureDebug=()=>({room:currentEditMenuRoom,position:personalizeConfirmedPoint,
+    featureZone:hvsFeatureWallZoneForRoom(currentEditMenuRoom)});
 function hvsPointInPolygon(px,py,points) {
     let inside=false;
     for(let i=0,j=points.length-1;i<points.length;j=i++) {
@@ -6675,8 +6746,11 @@ const hvsPropertyDismiss=document.getElementById('hvsPropertyDismiss');
 function hvsRefreshPropertyChoices(){
     const selected=window.homeViewGetPropertyChoice?.()||null;
     for(const [button,property] of [[hvsPropertyOne,'one'],[hvsPropertyTwo,'two']]){
-        button.classList.toggle('is-selected',selected===property);
-        button.setAttribute('aria-pressed',String(selected===property));
+        const active=selected===property;
+        button.classList.toggle('is-selected',active);
+        button.setAttribute('aria-pressed',String(active));
+        button.disabled=active;
+        button.setAttribute('aria-label',`Property ${property}${active?' (current property)':''}`);
     }
 }
 function hvsClosePropertyPrompt(){
@@ -6711,7 +6785,7 @@ window.homeViewOpenPropertySelector=function(){
 };
 window.homeViewTestPropertyOffer=()=>hvsShowPropertyPrompt();
 function hvsChooseProperty(property){
-    if(!['one','two'].includes(property))return;
+    if(!['one','two'].includes(property) || window.homeViewGetPropertyChoice?.()===property)return;
     window.homeViewSavePropertyChoice?.(property);
     hvsRefreshPropertyChoices();
     const command={property};
@@ -6846,16 +6920,16 @@ function openProfileMenu() {
 document.getElementById('hvsFloatingPersonalize').addEventListener('click',()=>{
     // Do not let an already open configuration or overlay be disturbed.
     if(!document.getElementById('homeViewUI').classList.contains('is-ready') ||
-       !body.classList.contains('walk-mode') && !['camera-mode','building-mode','environment-mode','confirm-mode','teleport-mode'].some(c=>body.classList.contains(c)) ||
-       ['profile-mode','kitchen-mode','kitchen-finish-mode','login-mode','hvs-movie-active','hvs-property-offer-visible','hvs-layout-offer-visible'].some(c=>body.classList.contains(c)))return;
+       !body.classList.contains('walk-mode') && !['camera-mode','building-mode','environment-mode','teleport-mode'].some(c=>body.classList.contains(c)) ||
+       ['confirm-mode','profile-mode','kitchen-mode','kitchen-finish-mode','login-mode','hvs-movie-active','hvs-property-offer-visible','hvs-layout-offer-visible'].some(c=>body.classList.contains(c)))return;
     openProfileMenu();
 });
 // A hidden control must not remain keyboard-focusable when main menu or finish picker appears.
 const hvsFloatPersonalize=document.getElementById('hvsFloatingPersonalize');
 const hvsUpdateFloatingPersonalizeA11y=()=>{
     const visible=!!document.getElementById('homeViewUI').classList.contains('is-ready') &&
-      ['walk-mode','camera-mode','building-mode','environment-mode','confirm-mode','teleport-mode'].some(c=>body.classList.contains(c)) &&
-      !['profile-mode','kitchen-mode','kitchen-finish-mode','login-mode','hvs-movie-active','hvs-property-offer-visible','hvs-layout-offer-visible'].some(c=>body.classList.contains(c));
+      ['walk-mode','camera-mode','building-mode','environment-mode','teleport-mode'].some(c=>body.classList.contains(c)) &&
+      !['confirm-mode','profile-mode','kitchen-mode','kitchen-finish-mode','login-mode','hvs-movie-active','hvs-property-offer-visible','hvs-layout-offer-visible'].some(c=>body.classList.contains(c));
     hvsFloatPersonalize.tabIndex=visible?0:-1;
     hvsFloatPersonalize.setAttribute('aria-hidden',String(!visible));
 };
@@ -7352,7 +7426,8 @@ const HVS_DEFAULT_FINISH_SETTINGS=Object.freeze({
     Tiles:'marble_01',
     Railing:'wood_04', // Demo assumed starting railing finish; changeable in UI.
     Cladding:'wood_04', // Demo-only included finish; changeable via admin pricing.
-    landscaping:'on' // Includes the default Landscaping Cost in the estimate.
+    landscaping:'on', // Includes the default Landscaping Cost in the estimate.
+    wall_color:'01',wall_feat_living:'01',wall_feat_office:'01',wall_feat_main_bed:'01'
 });
 const HVS_FINISH_ZONE_COST_ID=Object.freeze({
     '01':'Kitchen Finish 01 Cost','02':'Kitchen Finish 02 Cost',
@@ -7372,7 +7447,11 @@ const HVS_FINISH_ZONE_COST_ID=Object.freeze({
     wmBack:'Washroom Backsplash Main Bed Finish Cost',
     washTile:'Flooring Tiles',
     railing:'Staircase Railing Finish Cost',
-    cladding:'Exterior Cladding Finish Cost'
+    cladding:'Exterior Cladding Finish Cost',
+    wallColor:'Wall Color Finish Cost',
+    wallFeatLiving:'Living Feature Wall Finish Cost',
+    wallFeatOffice:'Office Feature Wall Finish Cost',
+    wallFeatMainBed:'Main Bedroom Feature Wall Finish Cost'
 });
 const HVS_FINISH_ADJUSTMENT_IDS=Object.freeze({
     glass:'Kitchen Glass Fronts Adjustment',door:'Kitchen Door Style Adjustment'
@@ -7413,6 +7492,11 @@ const HVS_DEFAULT_FINISH_PRICE_CATALOG=(()=>{
     add('railing',{wood_01:0,wood_02:160,wood_03:280,wood_04:0,wood_05:440,wood_06:720,wood_07:1050});
     // CLADDING — illustrative CAD upgrades over the included wood_04 finish.
     add('cladding',{wood_01:0,wood_02:650,wood_03:1100,wood_04:0,wood_05:1600,wood_06:2400,wood_07:3100});
+    // 01 is included in every new wall category. No invented wall-upgrade prices.
+    for(const zone of ['wallColor','wallFeatLiving','wallFeatOffice','wallFeatMainBed']){
+        const count=zone==='wallColor'?6:12;
+        add(zone,Object.fromEntries(Array.from({length:count},(_,index)=>[String(index+1).padStart(2,'0'),0])));
+    }
     // Discounts for removing included glass/inset features.
     add('hardware',{noGlassDiscount:300,solidDoorDiscount:250});
     return Object.freeze(catalog);
@@ -7473,6 +7557,8 @@ function hvsEnsureFinishDefaults(profile){
     if(!hvsOwn(settings,'Carpet_finish')&&/^carpet_0[1-5]$/.test(settings.CarpetFinishSelection||''))
         settings.Carpet_finish=settings.CarpetFinishSelection.slice(-2);
     for(const [key,value] of Object.entries(HVS_DEFAULT_FINISH_SETTINGS))if(!hvsOwn(settings,key))settings[key]=value;
+    // Existing saved property selections win; fresh profiles begin on Property Two.
+    if(!['one','two'].includes(settings.PropertyChoice))settings.PropertyChoice='two';
     return profile;
 }
 const hvsCurrentProfile=()=>hvsEnsureFinishDefaults(hvsCurrentAccount ? (hvsStore.profiles[hvsNormalizeName(hvsCurrentAccount.name)] ??= hvsEmptyProfile()) : hvsGuestProfile);
@@ -7680,10 +7766,11 @@ function hvsSetConfig(key,value){
 // repeated trigger messages for the lifetime of this browser page.
 window.homeViewLayoutOfferWasSeen=()=>hvsCurrentProfile().settings.UpstairsLayoutOfferSeen===true;
 window.homeViewMarkLayoutOfferSeen=()=>hvsSetConfig('UpstairsLayoutOfferSeen',true);
-// PROPERTY_SELECTOR profile keys: no assumed property until the user selects.
+// PROPERTY_SELECTOR: property TWO is now the model's starting/default property.
+// Explicit previous user selections remain unchanged.
 window.homeViewPropertyOfferWasSeen=()=>hvsCurrentProfile().settings.PropertyOfferSeen===true;
 window.homeViewMarkPropertyOfferSeen=()=>hvsSetConfig('PropertyOfferSeen',true);
-window.homeViewGetPropertyChoice=()=>hvsCurrentProfile().settings.PropertyChoice||null;
+window.homeViewGetPropertyChoice=()=>hvsCurrentProfile().settings.PropertyChoice||'two';
 window.homeViewSavePropertyChoice=(choice)=>['one','two'].includes(choice)&&hvsSetConfig('PropertyChoice',choice);
 window.homeViewResetPropertyOffer=()=>hvsSetConfig('PropertyOfferSeen',false);
 // Developer helper: re-enable the offer for the current local profile.
@@ -7752,7 +7839,8 @@ function hvsRestoreToUnreal(){
     finishCommands.push({landscaping:settings.landscaping});
     if(settings.Kitchen_finish_all)finishCommands.push({Kitchen_finish_all:settings.Kitchen_finish_all});
     for(const zone of ['01','02','04','06','07','09','03','05','islandOnly','10','carpet',
-        'wgCup','wgCounter','wgBack','wuCup','wuCounter','wuBack','wmCup','wmCounter','wmBack','washTile','railing','cladding']){
+        'wgCup','wgCounter','wgBack','wuCup','wuCounter','wuBack','wmCup','wmCounter','wmBack','washTile','railing','cladding',
+        'wallColor','wallFeatLiving','wallFeatOffice','wallFeatMainBed']){
         const key=HVS_KITCHEN_ZONE_KEYS[zone];
         finishCommands.push({[key]:settings[key]});
     }
