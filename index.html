@@ -2998,7 +2998,7 @@ HOME VIEW FRONTEND ACCOUNTS — DEMO ONLY
 - Password verifier uses PBKDF2; it is NOT a secure authentication service.
 - Marie admin is initialized on first local use with the provided default credentials.
 - Production requires server-side authentication, privileged admin operations,
-  protected price storage, and user profile database.
+protected price storage, and user profile database.
 - Unreal must send CostUpdate / ConfigUpdate messages to record changes;
   Unreal must implement restoreUserState to apply saved changes on login.
 -->
@@ -4760,7 +4760,7 @@ body:is(.walk-mode,.camera-mode,.building-mode,.environment-mode,.confirm-mode,.
 #hvsGameSoundButton {
   position:fixed;top:max(12px,env(safe-area-inset-top));left:50%;
   z-index:6500;display:flex;align-items:center;justify-content:center;
-  width:58px;height:58px;padding:0;margin:0;
+  width:52px;height:52px;padding:0;margin:0;
   border:0;border-radius:0;background:transparent;box-shadow:none;
   -webkit-appearance:none;appearance:none;
   -webkit-backdrop-filter:none;backdrop-filter:none;
@@ -4770,7 +4770,7 @@ body:is(.walk-mode,.camera-mode,.building-mode,.environment-mode,.confirm-mode,.
   transition:opacity .5s ease,transform .65s cubic-bezier(.16,1,.3,1),visibility 0s linear .65s;
 }
 #hvsGameSoundButton img {
-  display:block;width:46px;height:46px;object-fit:contain;
+  display:block;width:33px;height:33px;object-fit:contain;
   opacity:.8;pointer-events:none;user-select:none;-webkit-user-drag:none;
   filter:drop-shadow(0 3px 8px rgba(0,0,0,.25));
   transition:opacity .2s ease,transform .2s ease;
@@ -4785,7 +4785,7 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active) #hvsGameSoun
 #hvsGameSoundButton:focus-visible {outline:1px solid rgba(255,255,255,.75);outline-offset:2px;}
 @media(max-height:450px) and (orientation:landscape) {
   #hvsGameSoundButton {top:max(5px,env(safe-area-inset-top));width:44px;height:44px;}
-  #hvsGameSoundButton img {width:36px;height:36px;}
+  #hvsGameSoundButton img {width:27px;height:27px;}
 }
 @media(prefers-reduced-motion:reduce){#hvsGameSoundButton{transition:none;}}
 </style>
@@ -4793,9 +4793,9 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active) #hvsGameSoun
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <!-- Stream audio starts muted on devices requiring a user gesture.
-     The only visible control is the supplied sound.png image. -->
+     The only visible control is the supplied sound off.png / sound.png image. -->
 <button id="hvsGameSoundButton" type="button" aria-label="Turn on game sound" aria-pressed="false" title="Turn on game sound">
-  <img src="sound.png" alt="" draggable="false">
+  <img src="sound off.png" alt="" draggable="false">
 </button>
 <div id="introOverlay">
   <video id="introVideo" src="logo 01.mp4" muted playsinline preload="auto"></video>
@@ -4998,7 +4998,7 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active) #hvsGameSoun
                     </div>
                 </div>
             </div>
-        </div>
+</div>
 
         <div id="generateImageButton">GENERATE IMAGE</div>
     </div>
@@ -6998,7 +6998,7 @@ function animateTeleportTitle(text, options = {}) {
             span.textContent = char === ' ' ? '\u00A0' : char;
             span.style.animationDelay = `${baseDelay + (index * staggerStep)}ms`;
             teleportMapTitle.appendChild(span);
-        });
+});
     }
 }
 
@@ -7998,7 +7998,7 @@ function hvsFillPriceEditor(){
         // upgrade amount is edited in the separate field immediately below.
         if(id==='Layout Cost') {label.textContent='Layout Cost (automatic)';input.value='0';input.disabled=true;input.title='Edit the bonus bedroom upgrade price below instead.';}
         row.append(label,input);list.append(row);
-    }
+}
     // Admin-editable per-finish upgrade / discount prices.
     const details=document.createElement('details');details.className='hvsFinishPriceDetails';
     const summary=document.createElement('summary');summary.textContent='FINISH UPGRADE PRICES (ALL MATERIALS + TOGGLES)';details.appendChild(summary);
@@ -8998,7 +8998,7 @@ function startViewportResolutionSync() {
   };
   window.addEventListener('resize',()=>{
     // Ignore the virtual keyboard, which changes only visualViewport and may
-    // cause misleading height-only changes while a login input is focused.
+// cause misleading height-only changes while a login input is focused.
     if(document.activeElement?.matches?.('input:not([type=range]), textarea, select')) return;
     update('window resize');
   },{passive:true});
@@ -9822,7 +9822,7 @@ if (dev_mode) {
           // after the OS Save/Share interface; preserve desktop game audio.
           StartVideoMuted:/Android|iPhone|iPod|iPad/i.test(navigator.userAgent)
             || (window.matchMedia('(pointer:coarse)').matches && window.innerWidth<=1280) },
-        settings:{ infoButton:false, micButton:false, audioButton:false, fullscreenButton:false,
+        settings:{ infoButton:false, micButton:false, audioButton:true, fullscreenButton:false,
                    settingsButton:false, connectionStrengthIcon:false } }
     );
     application = setup.Application;
@@ -9998,7 +9998,7 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
     document.documentElement.style.setProperty('--ui-scale',slider.value);
     // Only refresh the two-column map when SWITCHING to it, not while dragging.
     if(id==='teleportMenuWrapper')window.homeViewResizeTeleportMap?.();
-  }
+}
   // The existing slider listener updates --ui-scale. This listener only SAVES
   // the value. It never counters the user's fingers with a second update.
   slider.addEventListener('input',()=>preferred.set(menuId(),Number(slider.value)||1));
@@ -10132,78 +10132,150 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
 </script>
 
 <script id="hvs-stream-audio-unlock-2026-10-24">
+/* Home View sound control — native Arcware audio support + iOS tap.
+   Only the PNG is visible: sound off.png when muted, sound.png when enabled.
+   Arcware's own audioButton is enabled in its SDK settings above, and this
+   button delegates the ACTUAL click synchronously. A WebRTC media fallback
+   also runs in that same user activation, without touching intro videos. */
 (() => {
   const button=document.getElementById('hvsGameSoundButton');
   const stage=document.getElementById('video-container');
-  if (!button || !stage) return;
-  let soundEnabled=false;
+  const icon=button?.querySelector('img');
+  if(!button || !stage || !icon)return;
+  let enabled=false;
+  let nativeControl=null;
+  let checkTimer=null;
+  const nativeClass='hvsAudioNativeProxy';
+  const css=document.createElement('style');
+  css.textContent=`.${nativeClass}{position:absolute!important;left:-9999px!important;top:-9999px!important;opacity:0!important;width:1px!important;height:1px!important;min-width:0!important;min-height:0!important;overflow:hidden!important;pointer-events:none!important;}`;
+  document.head.appendChild(css);
 
-  // Arcware and Epic SDKs both render the WebRTC media into this stage.
-  // Restrict unmuting to this subtree so LOADING_BG.mp4 stays muted.
-  function streamMedia() {
-    const nodes=[...stage.querySelectorAll('video,audio')];
-    // Some WebRTC players create a separate audio element outside their root.
-    // Include only media with a live remote audio track, never the intro clips.
-    for(const media of document.querySelectorAll('video,audio')) {
-      if(media.closest('#video-container'))continue;
-      if(media.srcObject?.getAudioTracks?.().some(track=>track.readyState==='live'))
-        nodes.push(media);
-    }
-    return [...new Set(nodes)].filter(el=>el instanceof HTMLMediaElement);
+  function paint(){
+    const next=enabled?'sound.png':'sound off.png';
+    if(icon.getAttribute('src')!==next)icon.setAttribute('src',next);
+    const message=enabled?'Mute game sound':'Turn on game sound';
+    button.setAttribute('aria-label',message);
+    button.setAttribute('title',message);
+    button.setAttribute('aria-pressed',String(enabled));
   }
-  function paint() {
-    button.setAttribute('aria-pressed',String(soundEnabled));
-    const label=soundEnabled?'Mute game sound':'Turn on game sound';
-    button.setAttribute('aria-label',label);
-    button.title=label;
+
+  // Arcware may put the SDK controls or video inside nested shadow roots.
+  function inside(root,query){
+    const found=[];
+    const visit=node=>{
+      if(!node?.querySelectorAll)return;
+      found.push(...node.querySelectorAll(query));
+      for(const el of node.querySelectorAll('*'))if(el.shadowRoot)visit(el.shadowRoot);
+    };
+    visit(root);
+    return found;
   }
-  function applyAudio(fromGesture) {
-    let count=0;
-    for (const media of streamMedia()) {
-      try {
-        media.muted=!soundEnabled;
-        media.defaultMuted=!soundEnabled;
-        if(soundEnabled) media.volume=1;
-        count++;
-        // On iOS, play() must be called while handling the user's actual tap.
-        // Never pause the video to mute it: only control its audio flag.
-        if(soundEnabled && fromGesture) {
-          const pending=media.play();
-          pending?.catch?.(err=>console.info('[STREAM AUDIO] Playback permission:',err?.name||err));
-        }
-      } catch(err){console.warn('[STREAM AUDIO] Unable to adjust stream media:',err);}
+  function findNative(){
+    if(nativeControl?.isConnected)return nativeControl;
+    nativeControl=null;
+    let top=null,topScore=0;
+    for(const element of inside(stage,'button,[role="button"],input[type="button"],input[type="image"]')){
+      if(element===button || element.closest?.('#hvsGameSoundButton'))continue;
+      const id=(element.id||'').toLowerCase();
+      const cls=String(element.className?.baseVal||element.className||'').toLowerCase();
+      const descriptions=['aria-label','title','data-testid','data-tooltip','name'].map(key=>element.getAttribute?.(key)||'').join(' ').toLowerCase();
+      const desc=id+' '+cls+' '+descriptions;
+      const iconText=(element.querySelector?.('svg,[class*="audio"],[class*="mute"],[class*="volume"],[class*="speaker"]')?.outerHTML||'').slice(0,250).toLowerCase();
+      const score=(/audio|speaker|volume|mute|unmute|sound/.test(descriptions)?8:0)
+        + (/audio|mute|unmute|speaker|volume|sound/.test(id+' '+cls)?5:0)
+        + (/audio|speaker|volume|mute/.test(iconText)?2:0);
+      if(score>topScore){top=element;topScore=score;}
     }
-    return count;
+    // Never forward a tap to an unrelated menu/settings control.
+    if(top && topScore>=5){
+      nativeControl=top;
+      nativeControl.classList.add(nativeClass);
+      // Inline hiding works when Arcware renders its UI inside a shadow root.
+      for(const [property,value] of [['position','absolute'],['left','-9999px'],['top','-9999px'],['opacity','0'],['width','1px'],['height','1px'],['pointer-events','none']]){
+        nativeControl.style.setProperty(property,value,'important');
+      }
+      console.info('[HOME VIEW AUDIO] Arcware native audio control connected.');
+    }
+    return nativeControl;
   }
-  button.addEventListener('click',()=>{
-    const next=!soundEnabled;
-    // Do not report success if the streaming player has not mounted yet.
-    if(next && !streamMedia().length) {
-      console.warn('[STREAM AUDIO] The streamed media is not ready; tap sound again after video appears.');
-      return;
+  function streamingMedia(){
+    const choices=inside(stage,'video,audio');
+    // Some SDKs mount a separate remote audio track away from the video stage.
+    for(const item of document.querySelectorAll('video,audio')){
+      if(item.srcObject?.getAudioTracks?.().some(t=>t.readyState==='live'))choices.push(item);
     }
-    soundEnabled=next;
-    applyAudio(true); // direct user gesture — required by Safari/iOS
-    paint();
-  });
-  // If a recovering SDK recreates the media node, preserve the selected mute
-  // state. A new iOS player may require another user tap to start playback.
+    return [...new Set(choices)].filter(el=>el instanceof HTMLMediaElement);
+  }
   const observed=new WeakSet();
-  function prepare() {
-    for(const media of streamMedia()) {
+  function prepare(){
+    findNative();
+    for(const media of streamingMedia()){
       if(observed.has(media))continue;
       observed.add(media);
-      media.muted=!soundEnabled;
-      media.defaultMuted=!soundEnabled;
-      if(soundEnabled)media.volume=1;
+      // Start mobile audio muted, without muting the separate intro movies.
+      media.muted=!enabled;
+      media.defaultMuted=!enabled;
+      if(enabled)media.volume=1;
       media.addEventListener('loadedmetadata',()=>{
-        // Some players rewrite the video element's mute state at startup.
-        if(soundEnabled){media.muted=false;media.defaultMuted=false;}
+        media.muted=!enabled;
+        media.defaultMuted=!enabled;
       });
     }
   }
-  new MutationObserver(prepare).observe(stage,{childList:true,subtree:true});
-  prepare();paint();
+  function setMediaMuted(mute,withGesture=false){
+    const medias=streamingMedia();
+    let successes=0;
+    for(const media of medias){
+      try{
+        media.muted=mute;
+        media.defaultMuted=mute;
+        if(!mute){
+          media.volume=1;
+          if(withGesture){
+            const pending=media.play();
+            pending?.catch?.(error=>{
+              console.warn('[HOME VIEW AUDIO] Stream playback was blocked:',error?.name||error);
+              // An inability to play on iOS should not look like a working speaker.
+              if(enabled && media.paused){enabled=false;paint();}
+            });
+          }
+        }
+        successes++;
+      }catch(error){console.warn('[HOME VIEW AUDIO] Media control unavailable:',error);}
+    }
+    return successes;
+  }
+  button.addEventListener('click',()=>{
+    const next=!enabled;
+    const sdk=findNative();
+    // If SDK rendered its audio control, invoke it within this user tap — not
+    // from a delayed timer, which would lose iOS/Safari user activation.
+    let nativeClicked=false;
+    if(sdk){
+      try{sdk.click();nativeClicked=true;}
+      catch(error){console.warn('[HOME VIEW AUDIO] Arcware audio control failed:',error);}
+    }
+    const medias=streamingMedia();
+    if(next && !nativeClicked && !medias.length){
+      console.warn('[HOME VIEW AUDIO] Stream audio is not ready. Tap again when the game appears.');
+      return;
+    }
+    enabled=next;
+    // Fallback runs synchronously, even if SDK also toggled the remote stream.
+    // This covers SDK builds that manage the UI button but leave video muted.
+    setMediaMuted(!enabled,enabled);
+    paint();
+    if(!nativeClicked)console.info('[HOME VIEW AUDIO] Used media fallback; verify on iPhone.');
+  });
+  new MutationObserver(prepare).observe(stage,{subtree:true,childList:true});
+  // Shadow-DOM controls may appear after the outer player was mounted.
+  // Stop probing after the native control is located or the first minute.
+  let checks=0;
+  checkTimer=setInterval(()=>{
+    if(++checks>=60 || findNative())clearInterval(checkTimer);
+    prepare();
+  },1000);
+  paint();prepare();
 })();
 </script>
 </body></html>
