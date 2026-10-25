@@ -9826,6 +9826,9 @@ if (dev_mode) {
                    settingsButton:false, connectionStrengthIcon:false } }
     );
     application = setup.Application;
+    // Let the custom sound icon reach Arcware's separate (sometimes detached)
+    // WebRTC audio element and its own toggleAudio(video, muted) method.
+    window.homeViewArcwareAudioStream = setup.PixelStreaming;
     application.getApplicationResponse(receiveUnrealResponse);
     homeViewRegisterArcwareConnectionErrors();
     document.getElementById('video-container').appendChild(application.rootElement);
@@ -10132,148 +10135,160 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
 </script>
 
 <script id="hvs-stream-audio-unlock-2026-10-24">
-/* Home View sound control — native Arcware audio support + iOS tap.
-   Only the PNG is visible: sound off.png when muted, sound.png when enabled.
-   Arcware's own audioButton is enabled in its SDK settings above, and this
-   button delegates the ACTUAL click synchronously. A WebRTC media fallback
-   also runs in that same user activation, without touching intro videos. */
+/* One tap, one audio state. Arcware's WebRTC stream may create an Audio()
+   element that is NOT attached to the DOM. Its built-in toggleAudio(video,
+   muted) updates that audio element, and a direct play() during the SAME
+   user tap is needed to unlock playback in mobile Safari. */
 (() => {
   const button=document.getElementById('hvsGameSoundButton');
   const stage=document.getElementById('video-container');
   const icon=button?.querySelector('img');
   if(!button || !stage || !icon)return;
   let enabled=false;
+  let userSelected=false;
   let nativeControl=null;
-  let checkTimer=null;
-  const nativeClass='hvsAudioNativeProxy';
-  const css=document.createElement('style');
-  css.textContent=`.${nativeClass}{position:absolute!important;left:-9999px!important;top:-9999px!important;opacity:0!important;width:1px!important;height:1px!important;min-width:0!important;min-height:0!important;overflow:hidden!important;pointer-events:none!important;}`;
-  document.head.appendChild(css);
+  const observed=new WeakSet();
 
   function paint(){
-    const next=enabled?'sound.png':'sound off.png';
-    if(icon.getAttribute('src')!==next)icon.setAttribute('src',next);
-    const message=enabled?'Mute game sound':'Turn on game sound';
-    button.setAttribute('aria-label',message);
-    button.setAttribute('title',message);
+    const image=enabled?'sound.png':'sound off.png';
+    if(icon.getAttribute('src')!==image)icon.setAttribute('src',image);
+    const title=enabled?'Mute game sound':'Turn on game sound';
+    button.setAttribute('aria-label',title);
+    button.title=title;
     button.setAttribute('aria-pressed',String(enabled));
   }
-
-  // Arcware may put the SDK controls or video inside nested shadow roots.
-  function inside(root,query){
+  function inside(root,selector){
     const found=[];
     const visit=node=>{
       if(!node?.querySelectorAll)return;
-      found.push(...node.querySelectorAll(query));
-      for(const el of node.querySelectorAll('*'))if(el.shadowRoot)visit(el.shadowRoot);
+      found.push(...node.querySelectorAll(selector));
+      for(const element of node.querySelectorAll('*')){
+        if(element.shadowRoot)visit(element.shadowRoot);
+      }
     };
     visit(root);
     return found;
   }
+  function sdkStream(){return window.homeViewArcwareAudioStream||null;}
+  function sdkVideo(){
+    return sdkStream()?.webRtcController?.videoPlayer?.videoElement ||
+      inside(stage,'video').find(el=>el.id==='streamingVideo') ||
+      inside(stage,'video')[0] || null;
+  }
+  function remoteMedia(){
+    const stream=sdkStream();
+    const controller=stream?.webRtcController;
+    // The WebSDK can keep its separate audio player entirely off the DOM.
+    const media=[
+      controller?.videoPlayer?.videoElement,
+      controller?.streamController?.audioElement,
+      controller?.videoPlayer?.audioElement,
+      ...inside(stage,'video,audio')
+    ];
+    for(const element of document.querySelectorAll('video,audio')){
+      if(element.srcObject?.getAudioTracks?.().some(t=>t.readyState==='live'))
+        media.push(element);
+    }
+    return [...new Set(media)].filter(el=>el instanceof HTMLMediaElement);
+  }
   function findNative(){
     if(nativeControl?.isConnected)return nativeControl;
-    nativeControl=null;
-    let top=null,topScore=0;
-    for(const element of inside(stage,'button,[role="button"],input[type="button"],input[type="image"]')){
-      if(element===button || element.closest?.('#hvsGameSoundButton'))continue;
-      const id=(element.id||'').toLowerCase();
-      const cls=String(element.className?.baseVal||element.className||'').toLowerCase();
-      const descriptions=['aria-label','title','data-testid','data-tooltip','name'].map(key=>element.getAttribute?.(key)||'').join(' ').toLowerCase();
-      const desc=id+' '+cls+' '+descriptions;
-      const iconText=(element.querySelector?.('svg,[class*="audio"],[class*="mute"],[class*="volume"],[class*="speaker"]')?.outerHTML||'').slice(0,250).toLowerCase();
-      const score=(/audio|speaker|volume|mute|unmute|sound/.test(descriptions)?8:0)
-        + (/audio|mute|unmute|speaker|volume|sound/.test(id+' '+cls)?5:0)
-        + (/audio|speaker|volume|mute/.test(iconText)?2:0);
-      if(score>topScore){top=element;topScore=score;}
-    }
-    // Never forward a tap to an unrelated menu/settings control.
-    if(top && topScore>=5){
-      nativeControl=top;
-      nativeControl.classList.add(nativeClass);
-      // Inline hiding works when Arcware renders its UI inside a shadow root.
-      for(const [property,value] of [['position','absolute'],['left','-9999px'],['top','-9999px'],['opacity','0'],['width','1px'],['height','1px'],['pointer-events','none']]){
-        nativeControl.style.setProperty(property,value,'important');
-      }
-      console.info('[HOME VIEW AUDIO] Arcware native audio control connected.');
+    // The Arcware SDK names its built-in sound control #audioBtn.
+    nativeControl=inside(stage,'#audioBtn').find(el=>el!==button)||null;
+    if(nativeControl){
+      for(const [property,value] of [
+        ['position','absolute'],['left','-9999px'],['top','-9999px'],
+        ['opacity','0'],['width','1px'],['height','1px'],
+        ['pointer-events','none']
+      ]) nativeControl.style.setProperty(property,value,'important');
     }
     return nativeControl;
   }
-  function streamingMedia(){
-    const choices=inside(stage,'video,audio');
-    // Some SDKs mount a separate remote audio track away from the video stage.
-    for(const item of document.querySelectorAll('video,audio')){
-      if(item.srcObject?.getAudioTracks?.().some(t=>t.readyState==='live'))choices.push(item);
-    }
-    return [...new Set(choices)].filter(el=>el instanceof HTMLMediaElement);
-  }
-  const observed=new WeakSet();
   function prepare(){
+    const video=sdkVideo();
+    if(video && !userSelected){
+      // Follow the actual SDK state, not an assumed starting mute value.
+      enabled=!video.muted;
+      paint();
+    }
     findNative();
-    for(const media of streamingMedia()){
+    for(const media of remoteMedia()){
       if(observed.has(media))continue;
       observed.add(media);
-      // Start mobile audio muted, without muting the separate intro movies.
-      media.muted=!enabled;
-      media.defaultMuted=!enabled;
-      if(enabled)media.volume=1;
       media.addEventListener('loadedmetadata',()=>{
-        media.muted=!enabled;
-        media.defaultMuted=!enabled;
+        if(userSelected)media.muted=!enabled;
       });
+      if(media===video){
+        media.addEventListener('volumechange',()=>{
+          // SDK may change the mute state during initialization/reconnect.
+          if(!userSelected){enabled=!media.muted;paint();}
+        });
+      }
     }
   }
-  function setMediaMuted(mute,withGesture=false){
-    const medias=streamingMedia();
-    let successes=0;
-    for(const media of medias){
-      try{
-        media.muted=mute;
-        media.defaultMuted=mute;
-        if(!mute){
-          media.volume=1;
-          if(withGesture){
-            const pending=media.play();
-            pending?.catch?.(error=>{
-              console.warn('[HOME VIEW AUDIO] Stream playback was blocked:',error?.name||error);
-              // An inability to play on iOS should not look like a working speaker.
-              if(enabled && media.paused){enabled=false;paint();}
-            });
-          }
+  function playIfNeeded(media){
+    if(!media.paused)return;
+    try{
+      const result=media.play();
+      result?.catch?.(error=>{
+        console.warn('[HOME VIEW AUDIO] Could not start WebRTC audio:',error?.name||error);
+        // Only report sound as on if the browser accepted playback.
+        if(error?.name==='NotAllowedError' && enabled){
+          enabled=false;userSelected=true;paint();
         }
-        successes++;
-      }catch(error){console.warn('[HOME VIEW AUDIO] Media control unavailable:',error);}
-    }
-    return successes;
+      });
+    }catch(error){console.warn('[HOME VIEW AUDIO] Playback failed:',error);}
   }
-  button.addEventListener('click',()=>{
-    const next=!enabled;
-    const sdk=findNative();
-    // If SDK rendered its audio control, invoke it within this user tap — not
-    // from a delayed timer, which would lose iOS/Safari user activation.
-    let nativeClicked=false;
-    if(sdk){
-      try{sdk.click();nativeClicked=true;}
-      catch(error){console.warn('[HOME VIEW AUDIO] Arcware audio control failed:',error);}
-    }
-    const medias=streamingMedia();
-    if(next && !nativeClicked && !medias.length){
-      console.warn('[HOME VIEW AUDIO] Stream audio is not ready. Tap again when the game appears.');
+  function setSound(next){
+    const video=sdkVideo();
+    const stream=sdkStream();
+    const media=remoteMedia();
+    if(!video && !media.length){
+      console.warn('[HOME VIEW AUDIO] Streaming player not ready yet.');
       return;
     }
+    const mute=!next;
+    // Prefer Arcware's actual audio API. This controls BOTH the video and
+    // its distinct audio element (unlike only changing HTML video.muted).
+    let sdkHandled=false;
+    if(video && typeof stream?.toggleAudio==='function'){
+      try{stream.toggleAudio(video,mute);sdkHandled=true;}
+      catch(error){console.warn('[HOME VIEW AUDIO] Arcware toggle failed:',error);}
+    }
+    if(!sdkHandled){
+      const native=findNative();
+      // Only click Arcware's internal button if its state differs from ours.
+      if(native && video?.muted!==mute){
+        try{native.click();sdkHandled=true;}
+        catch(error){console.warn('[HOME VIEW AUDIO] Native button failed:',error);}
+      }
+    }
+    // One authoritative end state: no competing second toggle.
+    for(const element of media){
+      try{
+        element.muted=mute;
+        if(next){
+          element.volume=1;
+          // Crucially unlock the SDK's *detached* audio element NOW, within
+          // this real user tap, not later in a timer or a Promise callback.
+          playIfNeeded(element);
+        }
+      }catch(error){console.warn('[HOME VIEW AUDIO] Media update failed:',error);}
+    }
     enabled=next;
-    // Fallback runs synchronously, even if SDK also toggled the remote stream.
-    // This covers SDK builds that manage the UI button but leave video muted.
-    setMediaMuted(!enabled,enabled);
+    userSelected=true;
     paint();
-    if(!nativeClicked)console.info('[HOME VIEW AUDIO] Used media fallback; verify on iPhone.');
+  }
+  button.addEventListener('click',event=>{
+    event.stopPropagation();
+    setSound(!enabled);
   });
-  new MutationObserver(prepare).observe(stage,{subtree:true,childList:true});
-  // Shadow-DOM controls may appear after the outer player was mounted.
-  // Stop probing after the native control is located or the first minute.
-  let checks=0;
-  checkTimer=setInterval(()=>{
-    if(++checks>=60 || findNative())clearInterval(checkTimer);
+  // DOM updates can replace stream elements when reconnecting.
+  new MutationObserver(prepare).observe(stage,{childList:true,subtree:true});
+  let tries=0;
+  const startup=setInterval(()=>{
     prepare();
+    if(++tries>=30 || (sdkVideo() && findNative()))clearInterval(startup);
   },1000);
   paint();prepare();
 })();
