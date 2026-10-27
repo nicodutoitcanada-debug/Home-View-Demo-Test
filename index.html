@@ -4833,6 +4833,39 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active) #hvsFullscre
 }
 </style>
 
+
+<style id="hvs-startup-video-readiness-2026-10-27">
+/* UI is not announced until the VIDEO, not only Unreal, is actually visible. */
+#hvsStartupVideoStatus[hidden] {display:none!important;}
+#hvsStartupVideoStatus {
+  position:fixed;z-index:6200;
+  left:50%;bottom:max(18px,env(safe-area-inset-bottom,0px));
+  transform:translateX(-50%);box-sizing:border-box;
+  width:min(480px,calc(100vw - 28px));
+  padding:13px 17px;border-radius:15px;
+  background:linear-gradient(155deg,rgba(40,49,54,.94),rgba(12,18,23,.96));
+  border:1px solid rgba(255,255,255,.20);box-shadow:0 9px 26px rgba(0,0,0,.34);
+  color:white;font:400 12px/1.4 "HomeView Myriad",Arial,sans-serif;
+  text-align:center;letter-spacing:.015em;pointer-events:auto;
+}
+#hvsStartupVideoStatus strong{display:block;font-size:13px;letter-spacing:.075em;margin-bottom:4px;}
+#hvsStartupVideoActions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px;}
+#hvsStartupVideoActions[hidden]{display:none!important;}
+#hvsStartupVideoActions button{
+  background:rgba(247,75,18,.62);border:1px solid rgba(255,95,36,.63);
+  padding:9px 13px;border-radius:99px;color:white;cursor:pointer;
+  font:700 11px/1.15 "HomeView Myriad",Arial,sans-serif;letter-spacing:.055em;
+  touch-action:manipulation;
+}
+#hvsStartupVideoActions button:last-child{background:rgba(32,39,43,.67);border-color:rgba(255,255,255,.24);}
+@media(max-height:450px) and (orientation:landscape){
+  #hvsStartupVideoStatus {bottom:6px;padding:6px 12px;font-size:10px;max-width:350px;}
+  #hvsStartupVideoStatus strong{font-size:11px;margin-bottom:1px;}
+  #hvsStartupVideoActions{margin-top:5px;}
+  #hvsStartupVideoActions button{padding:5px 9px;font-size:10px;}
+}
+</style>
+
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <!-- Stream audio starts muted on devices requiring a user gesture.
@@ -5389,6 +5422,16 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active) #hvsFullscre
 </div>
 
 
+
+<!-- Stream startup status: never starts an additional paid session automatically. -->
+<section id="hvsStartupVideoStatus" role="status" aria-live="polite" hidden>
+  <strong id="hvsStartupVideoHeadline">CONNECTING VIDEO</strong>
+  <span id="hvsStartupVideoText">Unreal has loaded. Waiting for the first picture from Arcware.</span>
+  <div id="hvsStartupVideoActions" hidden>
+    <button id="hvsStartupTryPlayback" type="button">TRY VIDEO PLAYBACK</button>
+    <button id="hvsStartupEndSession" type="button">END SESSION</button>
+  </div>
+</section>
 
 <!-- Non-interactive black curtain covers Unreal's first aspect-ratio adjustment. -->
 <div id="hvsStageRevealCurtain" aria-hidden="true"></div>
@@ -9064,8 +9107,11 @@ function hvsRefreshInitialPlayerFit(){
   const token=++hvsInitialPlayerFitToken;
   [240,1000,2100].forEach(delay=>setTimeout(()=>{
     if(token!==hvsInitialPlayerFitToken || !levelReady || document.hidden ||
-       screenshotRequestInFlight || screenshotBlob) return;
-    if(!hvsStreamAspectMismatched())return;
+       screenshotRequestInFlight || screenshotBlob || window.homeViewSessionIntentional) return;
+    const playback=document.querySelector('#video-container video');
+    // No decoded video dimensions yet: repeated r.SetRes and resize events
+    // cannot fix the stream and may burden Unreal while it is starting.
+    if(!playback?.videoWidth || !playback?.videoHeight || !hvsStreamAspectMismatched())return;
     window.dispatchEvent(new Event('resize'));
     // Epic and Arcware may listen to VisualViewport rather than window resize.
     try {window.visualViewport?.dispatchEvent(new Event('resize'));}catch(_){}
@@ -9195,7 +9241,9 @@ let hvsRecoveryReason='';
 const hvsRecoveryVideoMetadata=new WeakMap();
 
 function hvsRecoveryAllowed(){
-  return !dev_mode && levelReady && !window.homeViewSessionIntentional &&
+  // Startup waits for genuine video and NEVER automatically reconnects an
+  // allocated Arcware instance before its first visible frame.
+  return !dev_mode && window.homeViewLevelReady === true && !window.homeViewSessionIntentional &&
     !homeViewTeardownStarted && !document.hidden && !hvsScreenshotProtected() && Boolean(application);
 }
 function hvsRtcPeer(){
@@ -9464,8 +9512,8 @@ function receiveUnrealResponse(response) {
       // Do NOT send until Unreal explicitly declares Game:Loaded.
       unrealIsReadyForResolution = true;
       loadRequested = sendUnreal({ load:'homeViewDemo' });
-      // Unreal may still be changing levels. Synchronise once it can receive commands.
-      setTimeout(() => sendViewportResolutionToUnreal('Unreal initialised', true), 500);
+      // Unreal is changing levels. Wait until HomeViewLevelLoaded before
+      // requesting the initial rendering resolution to avoid an early resize.
     }
     if (data.Game === 'HomeViewLevelLoaded') {
       mobileDevStatus('HomeViewLevelLoaded received; opening UI');
@@ -9473,14 +9521,16 @@ function receiveUnrealResponse(response) {
       unrealIsReadyForResolution = true;
       revealHomeView();
       window.homeViewOnLevelReady?.();
-      [100, 600, 1600].forEach(ms =>
-        setTimeout(() => sendViewportResolutionToUnreal('Home View level ready', true), ms));
+      // One initial resolution request is sufficient. Additional correction
+      // is only considered once actual video dimensions are available.
+      setTimeout(() => sendViewportResolutionToUnreal('Home View level ready', true), 380);
       hvsRefreshInitialPlayerFit();
       // On initial mobile connection the Unreal video may still be 16:9 even
       // though the phone's stage is much wider. Rotation fixed this before;
       // perform the same aspect verification at startup with BOUNDED retries.
       [2700, 4600].forEach(ms=>setTimeout(()=>{
-        if(hvsStreamAspectMismatched())
+        const startupVideo=document.querySelector('#video-container video');
+        if(startupVideo?.videoWidth && startupVideo?.videoHeight && hvsStreamAspectMismatched())
           sendViewportResolutionToUnreal('initial phone aspect correction',true);
       },ms));
     }
@@ -9494,75 +9544,205 @@ function receiveUnrealResponse(response) {
 // r.SetRes/player refresh has made the decoded frame match the viewport.
 // We never change the video fit, stage dimensions, SDK, or input handling.
 let hvsGameRevealStarted = false;
+let hvsStartupVideoWaitStarted = 0;
+let hvsStartupVideoStatusKind = 'waiting';
+let hvsStartupVideoSample = 'not sampled';
+let hvsStartupVideoVisibleChecks = 0;
+let hvsStartupVideoLastSampleTime = 0;
+let hvsStartupVideoLastInspection = null;
+let hvsStartupVideoFallbackTime = 0;
+let hvsStartupVideoFallbackElement = null;
+let hvsStartupVideoPreviousFrames = 0;
+let hvsStartupMonitorToken = 0;
+const hvsStartupVideoCanvas = document.createElement('canvas');
+hvsStartupVideoCanvas.width = 32;
+hvsStartupVideoCanvas.height = 18;
+const hvsStartupVideoContext = hvsStartupVideoCanvas.getContext('2d', {willReadFrequently:true});
+
+function hvsStartupSetNotice(type, detail='') {
+  const panel=document.getElementById('hvsStartupVideoStatus');
+  if(!panel)return;
+  if(type==='hide') {panel.hidden=true;return;}
+  const heading=document.getElementById('hvsStartupVideoHeadline');
+  const description=document.getElementById('hvsStartupVideoText');
+  const actions=document.getElementById('hvsStartupVideoActions');
+  panel.hidden=false;
+  if(type==='slow'){
+    heading.textContent='WAITING FOR VIDEO';
+    description.textContent=detail || 'Unreal is ready, but the browser is still waiting for the picture.';
+    actions.hidden=true;
+  } else if(type==='stuck'){
+    heading.textContent='VIDEO IS TAKING LONGER';
+    description.textContent=detail || 'The game has loaded, but video is not visible yet. Retry playback or end the session to avoid unnecessary streaming charges.';
+    actions.hidden=false;
+  } else {
+    heading.textContent='CONNECTING VIDEO';
+    description.textContent='Unreal has loaded. Waiting for the first picture from Arcware.';
+    actions.hidden=true;
+  }
+}
+// A genuine user tap can resume autoplay without opening a second cloud stream.
+document.getElementById('hvsStartupTryPlayback')?.addEventListener('click',()=>{
+  if(window.homeViewSessionIntentional || homeViewTeardownStarted)return;
+  const video=document.querySelector('#video-container video');
+  if(!video){hvsStartupSetNotice('stuck','The video player is not attached yet. You can keep waiting or end the session.');return;}
+  try{
+    const result=video.play();
+    result?.catch?.(err=>{
+      console.warn('[STARTUP VIDEO] Playback was rejected:',err);
+      hvsStartupSetNotice('stuck','The browser could not play the video ('+(err?.name||'playback blocked')+'). Try again, or end the session.');
+    });
+    hvsStartupSetNotice('slow','Trying to resume the existing video playback…');
+  }catch(err){
+    hvsStartupSetNotice('stuck','Playback failed ('+(err?.name||'unknown error')+'). You can end the session safely.');
+  }
+});
+document.getElementById('hvsStartupEndSession')?.addEventListener('click',()=>{
+  hvsStartupMonitorToken++;
+  hvsStartupSetNotice('hide');
+  window.homeViewEndSession?.('Your session has ended.');
+});
+
+// Read just 32x18 pixels, only during startup. The WebRTC decoder can output
+// valid BLACK frames while Unreal is still rendering a blank initial view.
+// An actual non-black scene is required if the browser permits reading frames.
+function hvsStartupSamplePicture(video) {
+  if(!hvsStartupVideoContext || video.readyState < 2 || !video.videoWidth || !video.videoHeight)
+    return null;
+  try{
+    const ctx=hvsStartupVideoContext;
+    ctx.drawImage(video,0,0,32,18);
+    const data=ctx.getImageData(0,0,32,18).data;
+    let nonBlack=0,lumSum=0;
+    for(let i=0;i<data.length;i+=4){
+      const l=.2126*data[i]+.7152*data[i+1]+.0722*data[i+2];
+      lumSum+=l;
+      if(l>25)nonBlack++;
+    }
+    const mean=lumSum/(data.length/4);
+    return nonBlack>=5 || mean>9;
+  }catch(err){
+    // Some platforms do not allow canvas readback of remote video. Trust
+    // confirmed decoded-frame progression instead; never block forever.
+    hvsStartupVideoSample='unavailable';
+    return null;
+  }
+}
+function hvsStartupInspectVideo() {
+  const video=document.querySelector('#video-container video');
+  const info=video ? hvsRecoveryVideoMetadata.get(video) : null;
+  const track=video?.srcObject?.getVideoTracks?.()[0];
+  const live=!track || (track.readyState==='live' && !track.muted);
+  let frameCount=0;
+  try{frameCount=video?.getVideoPlaybackQuality?.().totalVideoFrames||video?.webkitDecodedFrameCount||0;}catch(_){}
+  let hasFrames=Boolean(live && video?.readyState>=2 && video.videoWidth>0 && video.videoHeight>0 &&
+    (info?.lastFrameAt && Date.now()-info.lastFrameAt<5000 || frameCount>=2));
+  // No frame callback/counters on some browsers. Require media time to
+  // PROGRESS, not simply video.playing / loadedmetadata.
+  if(!hasFrames && live && video?.readyState>=2 && !video.paused && video.videoWidth>0){
+    if(hvsStartupVideoFallbackElement!==video){
+      hvsStartupVideoFallbackElement=video;
+      hvsStartupVideoFallbackTime=video.currentTime||0;
+    } else if(video.currentTime>hvsStartupVideoFallbackTime+.25){
+      hasFrames=true;
+    }
+  }
+  let picture=null;
+  if(hasFrames && Date.now()-hvsStartupVideoLastSampleTime>=350){
+    hvsStartupVideoLastSampleTime=Date.now();
+    picture=hvsStartupSamplePicture(video);
+    hvsStartupVideoSample=picture===true?'visible':picture===false?'black':'unavailable';
+  }else if(hasFrames){
+    picture=hvsStartupVideoSample==='visible'?true:hvsStartupVideoSample==='black'?false:null;
+  }
+  const good=hasFrames && picture!==false;
+  hvsStartupVideoVisibleChecks=good ? hvsStartupVideoVisibleChecks+1 : 0;
+  const state={hasVideo:!!video,videoWidth:video?.videoWidth||0,videoHeight:video?.videoHeight||0,
+    readyState:video?.readyState??null,paused:video?.paused??null,trackLive:live,
+    frames:frameCount,hasFrames,picture:hvsStartupVideoSample,
+    aspectMatched:hasFrames&&!hvsStreamAspectMismatched(),good,
+    checks:hvsStartupVideoVisibleChecks};
+  hvsStartupVideoLastInspection=state;
+  return state;
+}
+window.homeViewStartupVideoStatus=()=>({
+  unrealLevelLoaded:levelReady,uiRevealed:hvsGameRevealStarted,
+  waitingSeconds:hvsStartupVideoWaitStarted ? Math.round((performance.now()-hvsStartupVideoWaitStarted)/100)/10:0,
+  ...hvsStartupVideoLastInspection,
+  note:'No automatic cloud reconnection is performed during startup.'
+});
+
 function hvsCompleteGameReveal() {
-  if (hvsGameRevealStarted) return;
+  if (hvsGameRevealStarted || window.homeViewSessionIntentional || homeViewTeardownStarted)return;
   hvsGameRevealStarted = true;
-  const curtain = document.getElementById('hvsStageRevealCurtain');
-  const ui = document.getElementById('homeViewUI');
-  if (!ui) return;
-  // ONE overlapping reveal: black fades as the GAME READY text can remain
-  // visible, and the docked main menu/rail glide in during the SAME fade.
-  // Never change the proven WebRTC stream fit or resolution routine here.
+  hvsStartupMonitorToken++;
+  hvsStartupSetNotice('hide');
+  const curtain=document.getElementById('hvsStageRevealCurtain');
+  const overlay=document.getElementById('introOverlay');
+  const ui=document.getElementById('homeViewUI');
+  if(!ui)return;
+  // The logo/loading animation stays visible until VIDEO is confirmed.
+  // Only now may the GAME READY notice, video fade and dock entrance begin.
+  overlay?.style.setProperty('opacity','0');
+  setTimeout(()=>window.homeViewShowGameReady?.(),270);
   ui.classList.add('is-ready');
+  window.homeViewLevelReady=true;
+  window.homeViewOnLevelReadyForAfk?.();
   document.body.classList.add('hvs-audio-ready');
-  requestAnimationFrame(() => {
+  requestAnimationFrame(()=>{
     curtain?.classList.add('is-dismissing');
-    // Brief offset gives the entering UI its first rendered offscreen frame,
-    // but does not wait for the curtain or GAME READY notice to disappear.
-    setTimeout(() => {
+    setTimeout(()=>{
       document.body.classList.remove('hvs-stage-menu-entrance');
       releaseUiFocus();
-    }, 190);
+    },190);
   });
-}
-function hvsWaitForStartupFit() {
-  const started = performance.now();
-  let stableMatches = 0;
-  const check = () => {
-    if (document.hidden) { setTimeout(check, 280); return; }
-    const video = document.querySelector('#video-container video');
-    const hasVideo = Boolean(video?.videoWidth && video?.videoHeight);
-    const matched = hasVideo && !hvsStreamAspectMismatched();
-    stableMatches = matched ? stableMatches + 1 : 0;
-    const elapsed = performance.now() - started;
-    // Reveal as soon as a few correctly-sized frames have arrived; do not
-    // serialize the menu entrance after the GAME READY text exits.
-    // Safari can report a slightly different video ratio indefinitely due to
-    // decoder pixel rounding. Do not hold the entire presentation for 8.5s.
-    const fitConfirmed = elapsed >= 520 && stableMatches >= 2;
-    const videoReadyFallback = elapsed >= 2550 && hasVideo;
-    const disconnectedFallback = elapsed >= 3650;
-    if (fitConfirmed || videoReadyFallback || disconnectedFallback) {
-      if (!fitConfirmed) console.info('[STARTUP] Continuing reveal after bounded stream check', {
-        hasVideo, matched, elapsed:Math.round(elapsed)
-      });
-      hvsCompleteGameReveal();
-    } else {
-      setTimeout(check, 140);
-    }
-  };
-  setTimeout(check, 250);
-}
-function revealHomeView() {
-  if (levelReady) return;
-  levelReady = true;
-  window.homeViewLevelReady = true;
-  window.homeViewOnLevelReadyForAfk?.();
-  const overlay = document.getElementById('introOverlay');
-  const ui = document.getElementById('homeViewUI');
-  if (!overlay || !ui) return;
-  document.body.classList.add('hvs-stage-menu-entrance');
-  // The original loading overlay fades into the new black curtain, never into
-  // a partially resized Unreal frame.
-  overlay.style.opacity = '0';
-  setTimeout(() => window.homeViewShowGameReady?.(), 270);
-  hvsWaitForStartupFit();
-  setTimeout(() => {
+  setTimeout(()=>{
     loadingAnimation?.stop();
     document.getElementById('loadingIntroBg')?.pause();
     document.getElementById('introVideo')?.pause();
-    overlay.remove();
-  }, 1240);
+    overlay?.remove();
+  },1240);
+}
+function hvsWaitForStartupFit() {
+  const token=++hvsStartupMonitorToken;
+  hvsStartupVideoWaitStarted=performance.now();
+  const check=()=>{
+    if(token!==hvsStartupMonitorToken || hvsGameRevealStarted ||
+      window.homeViewSessionIntentional || homeViewTeardownStarted)return;
+    if(document.hidden){setTimeout(check,750);return;}
+    const elapsed=performance.now()-hvsStartupVideoWaitStarted;
+    const state=hvsStartupInspectVideo();
+    // Confirm a couple of genuine video frames before revealing the menu.
+    // A slight encoded-aspect discrepancy must not hide usable picture forever.
+    const pictureReady=state.good && state.checks>=3;
+    const fitSettled=state.aspectMatched || elapsed>=3000;
+    if(pictureReady && fitSettled){
+      console.info('[STARTUP VIDEO] Picture confirmed, revealing the game.',state);
+      hvsCompleteGameReveal();
+      return;
+    }
+    if(elapsed>=20000){
+      const detail=state.hasFrames && state.picture==='black'
+        ? 'The stream is delivering black frames. Unreal may still be rendering its scene. You can wait, retry playback, or end the session.'
+        : state.hasVideo && state.paused
+          ? 'The browser has paused the video. Tap TRY VIDEO PLAYBACK, or end the session.'
+          : 'Unreal is ready, but the first picture has not arrived. You can wait, retry playback, or end the session to save streaming time.';
+      hvsStartupSetNotice('stuck',detail);
+    }else if(elapsed>=8000){
+      hvsStartupSetNotice('slow');
+    }
+    // Do not tear down, reload or create another SDK session automatically.
+    setTimeout(check,250);
+  };
+  setTimeout(check,250);
+}
+function revealHomeView() {
+  if(levelReady)return;
+  levelReady=true;
+  // Unreal's ready signal is NOT evidence of a visible WebRTC picture.
+  // Keep the existing animated loader until the decoded scene is available.
+  document.body.classList.add('hvs-stage-menu-entrance');
+  hvsWaitForStartupFit();
 }
 
 // STANDALONE WEB APP: Unlike a Safari tab, an installed iOS home-screen app
@@ -9795,7 +9975,8 @@ let hvsQualityGood=0;
 let hvsQualityBad=0;
 let hvsQualityMeasured=null;
 function hvsQualityAllowed(){return !dev_mode && !window.homeViewSessionIntentional &&
-  !homeViewTeardownStarted && !document.hidden && Boolean(application) && levelReady;}
+  !homeViewTeardownStarted && !document.hidden && Boolean(application) &&
+  window.homeViewLevelReady === true;}
 function hvsApplyBitrateHint(){
   if(!hvsQualityAllowed())return false;
   const limit=HVS_QUALITY_LEVELS[hvsQualityIndex];
