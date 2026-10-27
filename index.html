@@ -9703,9 +9703,14 @@ function hvsCompleteGameReveal() {
     overlay?.remove();
   },1240);
 }
+// After Unreal has loaded AND decoded video is visible, keep the animated
+// loading presentation up for 2.5 more seconds so shader/scene settling is
+// less noticeable. No new Unreal messages or Arcware sessions are triggered.
+const HVS_STARTUP_SETTLE_MS = 2500;
 function hvsWaitForStartupFit() {
   const token=++hvsStartupMonitorToken;
   hvsStartupVideoWaitStarted=performance.now();
+  let hvsStartupVideoSettlingSince = 0;
   const check=()=>{
     if(token!==hvsStartupMonitorToken || hvsGameRevealStarted ||
       window.homeViewSessionIntentional || homeViewTeardownStarted)return;
@@ -9717,18 +9722,29 @@ function hvsWaitForStartupFit() {
     const pictureReady=state.good && state.checks>=3;
     const fitSettled=state.aspectMatched || elapsed>=3000;
     if(pictureReady && fitSettled){
-      console.info('[STARTUP VIDEO] Picture confirmed, revealing the game.',state);
-      hvsCompleteGameReveal();
-      return;
+      if(!hvsStartupVideoSettlingSince){
+        hvsStartupVideoSettlingSince=performance.now();
+        hvsStartupSetNotice('hide');
+        console.info('[STARTUP VIDEO] Picture confirmed; keeping loading screen for 2.5 more seconds.',state);
+      }
+      if(performance.now()-hvsStartupVideoSettlingSince >= HVS_STARTUP_SETTLE_MS){
+        console.info('[STARTUP VIDEO] Scene settling period complete; revealing the game.',state);
+        hvsCompleteGameReveal();
+        return;
+      }
+    }else{
+      // A stall or black frame restarts the settling time. Don't expose the
+      // world until video stays usable through the full settling interval.
+      hvsStartupVideoSettlingSince=0;
     }
-    if(elapsed>=20000){
+    if(!hvsStartupVideoSettlingSince && elapsed>=20000){
       const detail=state.hasFrames && state.picture==='black'
         ? 'The stream is delivering black frames. Unreal may still be rendering its scene. You can wait, retry playback, or end the session.'
         : state.hasVideo && state.paused
           ? 'The browser has paused the video. Tap TRY VIDEO PLAYBACK, or end the session.'
           : 'Unreal is ready, but the first picture has not arrived. You can wait, retry playback, or end the session to save streaming time.';
       hvsStartupSetNotice('stuck',detail);
-    }else if(elapsed>=8000){
+    }else if(!hvsStartupVideoSettlingSince && elapsed>=8000){
       hvsStartupSetNotice('slow');
     }
     // Do not tear down, reload or create another SDK session automatically.
