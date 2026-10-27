@@ -3769,14 +3769,9 @@ body.hvs-tutorial-open #homeViewUI #sliderContainer *{pointer-events:auto!import
 #homeViewUI #kitchenFinishOptions {grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding-inline:2px;}
 #homeViewUI .kitchenFinishThumb {max-width:120px;margin-inline:auto;}
 #homeViewUI .kitchenFinishCard {padding:7px 4px;}
-/* PERSONALIZE: opening/room verification must not shift the panel.
-   Previously translateY(-50%) recentered whenever CHECKING LOCATION was
-   replaced with variable-height buttons. Keep one fixed top anchor instead. */
-#homeViewUI #profileMenuWrapper {
-  top:max(16px, calc(50% - 124px)) !important;
-  transform-origin:right top;
-  transform:translate3d(var(--profile-x),0,0) scale(var(--ui-scale));
-}
+/* PERSONALIZE: use the ORIGINAL vertically centered wrapper placement.
+   Its height changes as rooms reveal more or fewer choices. Avoid a fixed
+   top anchor, which caused the taller menus to appear too high. */
 /* Keep the original entrance transitions. Only disable TRANSFORM easing while
    the scale-slider is being actively dragged (no 1.1s animation backlog). */
 body.hvs-user-scaling #homeViewUI #uiWrapper,
@@ -4805,8 +4800,10 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active) #hvsGameSoun
   position:fixed;
   top:max(12px,env(safe-area-inset-top,0px));
   right:max(12px,env(safe-area-inset-right,0px));
-  z-index:6500;
-  width:52px;height:52px;
+  /* Keep the button underneath the Home View menu overlay (z-index:100).
+     Large scaled menus can cover it instead of the icon covering the menus. */
+  z-index:80;
+  width:44px;height:44px;
   display:none;align-items:center;justify-content:center;
   margin:0;padding:0;
   border:0;border-radius:0;
@@ -4821,7 +4818,7 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active) #hvsFullscre
   display:flex;
 }
 #hvsFullscreenControl img {
-  width:44px;height:44px;display:block;object-fit:contain;
+  width:30px;height:30px;display:block;object-fit:contain;
   pointer-events:none;user-select:none;-webkit-user-drag:none;
   border:0;background:none;box-shadow:none;filter:none;
 }
@@ -4830,9 +4827,9 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active) #hvsFullscre
   #hvsFullscreenControl {
     top:max(5px,env(safe-area-inset-top,0px));
     right:max(6px,env(safe-area-inset-right,0px));
-    width:44px;height:44px;
+    width:42px;height:42px;
   }
-  #hvsFullscreenControl img {width:36px;height:36px;}
+  #hvsFullscreenControl img {width:26px;height:26px;}
 }
 </style>
 
@@ -9785,11 +9782,12 @@ let localStyles = null;
 // cloud-controlled encoder settings can override it. No resolution changes.
 const HVS_QUALITY_MOBILE = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ||
   (window.matchMedia('(pointer:coarse)').matches && Math.min(innerWidth,innerHeight)<900);
-// Mobile v2: begins at 2.2 Mbps, can step down to 1.6 Mbps if the network
-// is weak, then climbs cautiously when decoded frames and packet loss recover.
-// Desktop levels and starting quality are intentionally unchanged.
-const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [1600,2200,3000,4200,6000] : [5000,7000,10000,14000];
-let hvsQualityIndex=HVS_QUALITY_MOBILE?1:0;
+// Mobile v3: begin at 2.0 Mbps, with finer downward steps to 1.3 Mbps.
+// Drop earlier when frame rate, packet loss or RTT suggest a struggling link;
+// restore quality only after sustained healthy playback. Desktop unchanged.
+// These are Arcware/Epic WebRTC bitrate requests; encoder may override them.
+const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [1300,1600,2000,2800,4000,6000] : [5000,7000,10000,14000];
+let hvsQualityIndex=HVS_QUALITY_MOBILE?2:0;
 let hvsQualityConfig=null;
 let hvsQualityTimer=null;
 let hvsQualityPrevious=null;
@@ -9842,20 +9840,20 @@ async function hvsMonitorQuality(){
         // Mobile needs earlier protection from jitter; desktop thresholds
         // remain exactly the same as the successfully tested build.
         const bad=HVS_QUALITY_MOBILE
-          ? ((fps<23 && kbps>180) || lossRatio>.035 || (rtt!==null&&rtt>.32))
+          ? ((fps<25 && kbps>180) || lossRatio>.025 || (rtt!==null&&rtt>.28))
           : ((fps<17 && kbps>180) || lossRatio>.075 || (rtt!==null&&rtt>.48));
         const good=HVS_QUALITY_MOBILE
-          ? (fps>=27 && lossRatio<.012 && (rtt===null||rtt<.20))
+          ? (fps>=28 && lossRatio<.010 && (rtt===null||rtt<.18))
           : (fps>=24 && lossRatio<.018 && (rtt===null||rtt<.22));
         const severe=HVS_QUALITY_MOBILE &&
-          ((fps<13 && kbps>180) || lossRatio>.10);
+          ((fps<15 && kbps>180) || lossRatio>.08);
         if(bad){hvsQualityBad++;hvsQualityGood=0;}
         else if(good){hvsQualityGood++;hvsQualityBad=0;}
         else{hvsQualityBad=0;hvsQualityGood=0;}
         // Hysteresis prevents bitrate oscillation. Loss/RTT are hints, not guarantees.
         if((hvsQualityBad>=2 || severe) && hvsQualityIndex>0){
           hvsQualityIndex--;hvsQualityBad=0;hvsQualityGood=0;hvsApplyBitrateHint();
-        } else if(hvsQualityGood>=(HVS_QUALITY_MOBILE?6:4) && hvsQualityIndex<HVS_QUALITY_LEVELS.length-1){
+        } else if(hvsQualityGood>=(HVS_QUALITY_MOBILE?7:4) && hvsQualityIndex<HVS_QUALITY_LEVELS.length-1){
           hvsQualityIndex++;hvsQualityGood=0;hvsQualityBad=0;hvsApplyBitrateHint();
         }
       }
@@ -10567,10 +10565,9 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
 /* Short landscape phone: keep the header in place and scroll ONLY the finish
    buttons. Bounded height respects the existing UI scale slider. No fixed
    percentage offsets or new window-scaling systems. */
-body.hvs-phone-landscape #homeViewUI #profileMenuWrapper {
-  top:max(9px, env(safe-area-inset-top, 0px)) !important;
-  transform-origin:right top !important;
-}
+/* The existing wrapper's top:50%, translateY(-50%), and center
+   transform origin also apply on landscape phones. The scroll/height limits
+   below protect the menu without pinning it to the top of the screen. */
 body.hvs-phone-landscape #homeViewUI #profileOuterBox {
   box-sizing:border-box;
   display:flex;
