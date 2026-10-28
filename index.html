@@ -9265,11 +9265,11 @@ function getStreamingViewportResolution() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   let width = Math.round(cssWidth * dpr);
   let height = Math.round(cssHeight * dpr);
-  // Mobile resolution test: cap the LONGEST render edge at 1280 physical pixels.
+  // Mobile resolution test: cap the LONGEST render edge at 1600 physical pixels.
   // Preserve the browser aspect ratio, and never upscale a smaller viewport.
   // No bitrate, FPS, decoder, desktop, reconnection or session changes.
   if (window.matchMedia('(pointer:coarse)').matches) {
-    const factor = Math.min(1, 1280 / Math.max(width, height));
+    const factor = Math.min(1, 1600 / Math.max(width, height));
     width = Math.round(width * factor);
     height = Math.round(height * factor);
   }
@@ -9289,7 +9289,7 @@ function sendViewportResolutionToUnreal(reason='viewport', force=false) {
   const key = `${width}x${height}`;
   if (!force && key === lastSentViewportResolution) return;
   const command = `r.SetRes ${key}w`;
-  if (sendUnreal({console:true, Command:command})) {
+  if (sendUnreal({consoleCommand:command})) {
     lastSentViewportResolution = key;
     console.info(`[STREAM] ${reason}: ${command}`);
   }
