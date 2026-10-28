@@ -9255,6 +9255,7 @@ window.homeViewSend = sendUnreal;
 // ============================================================================
 let unrealIsReadyForResolution = false;
 let lastSentViewportResolution = '';
+let hvsResolutionLastSendStatus = 'not sent';
 let viewportSyncTimer = null;
 let viewportRetryTimers = [];
 function getStreamingViewportResolution() {
@@ -9289,17 +9290,36 @@ function sendViewportResolutionToUnreal(reason='viewport', force=false) {
   const {width,height} = getStreamingViewportResolution();
   const key = `${width}x${height}`;
   if (!force && key === lastSentViewportResolution) return false;
-  const command = `r.SetRes ${key}w`;
-  if (sendUnreal({consoleCommand:command})) {
-    lastSentViewportResolution = key;
-    console.info(`[STREAM] ${reason}: ${command}`);
-    return true; // Sent over the data channel, not acknowledged by Unreal.
+  // UE5.6 Pixel Streaming's NATIVE resolution command travels over the
+  // stream Command channel, unlike our Blueprint/UIInteraction consoleCommand.
+  // See Epic's UE5.6 WebRtcPlayerController.ts onMatchViewportResolutionCallback.
+  // Do not send both commands: that would make testing inconclusive.
+  const stream = dev_mode ? localStream : window.homeViewArcwareAudioStream;
+  if (typeof stream?.emitCommand !== 'function') {
+    console.warn('[STREAM] Native Pixel Streaming emitCommand is unavailable');
+    hvsResolutionLastSendStatus = 'native command unavailable';
+    return false;
+  }
+  try {
+    const accepted = stream.emitCommand({'Resolution.Width':width,'Resolution.Height':height});
+    if (accepted === true) {
+      lastSentViewportResolution = key;
+      hvsResolutionLastSendStatus = 'native request sent';
+      console.info(`[STREAM] ${reason}: native resolution request ${key}`);
+      return true; // Only accepted by frontend; output resolution not yet confirmed.
+    }
+    hvsResolutionLastSendStatus = 'native request rejected';
+    console.warn('[STREAM] Native resolution request not accepted:', key, accepted);
+  } catch (error) {
+    hvsResolutionLastSendStatus = 'native request error';
+    console.warn('[STREAM] Native resolution request failed:',error);
   }
   return false;
 }
-// Mobile-only resolution verification. Unlike an aspect-ratio-only check,
+// Mobile-only resolution verification. Uses UE5.6 native Command channel.
+// Unlike an aspect-ratio-only check,
 // compare the ACTUAL received video dimensions with the requested target.
-// A successful UIInteraction send does not prove Unreal or Arcware applied it.
+// A successful native Command send does not prove Unreal or Arcware applied it.
 // The verifier waits for playable video, retries at most TWICE, then stops.
 // It never restarts/reconnects a stream or changes bitrate/FPS.
 const HVS_RESOLUTION_VERIFY_MAX_RETRIES = 2;
@@ -9339,7 +9359,7 @@ function hvsStartResolutionVerification() {
     if(elapsed>35000 || hvsResolutionVerifyRetries>=HVS_RESOLUTION_VERIFY_MAX_RETRIES){
       hvsResolutionVerifyState='still mismatched (stopped)';
       console.warn('[STREAM] Resolution remains',actual.width+'x'+actual.height,
-        'after bounded retries; this may be a Pixel Streaming capture/encoder issue.');
+        'after native resize retries; verify UE output and Arcware encoder configuration.');
       hvsStopResolutionVerification();return;
     }
     if(elapsed<6500 || (hvsResolutionVerifyLastRetryAt && Date.now()-hvsResolutionVerifyLastRetryAt<5500))return;
@@ -10375,7 +10395,7 @@ function hvsStartAdaptiveQuality(config){
       const capKbps=HVS_QUALITY_LEVELS[hvsQualityIndex];
       const values={
         target:fmtSize(requested.width,requested.height),
-        command:lastSentViewportResolution?lastSentViewportResolution.replace('x',' × '):'not sent',
+        command:lastSentViewportResolution?lastSentViewportResolution.replace('x',' × '):hvsResolutionLastSendStatus,
         video:video?.videoWidth&&video?.videoHeight?fmtSize(video.videoWidth,video.videoHeight):'waiting',
         verification:hvsResolutionVerifyState,
         fps:'N/A',bitrate:'N/A',cap:fmtMbps(capKbps),rtt:'N/A',loss:'N/A',
@@ -10611,7 +10631,7 @@ async function initialiseEpicLocalPlayer() {
       AutoConnect:true,
       AutoPlayVideo:true,
       StartVideoMuted:true,
-      MatchViewportRes:true,
+      MatchViewportRes:false, // HVS issues capped native resize requests explicitly
       HoveringMouse:true,
       FakeMouseWithTouches:true,
       WaitForStreamer:true,
@@ -10664,6 +10684,7 @@ if (dev_mode) {
     const setup = new ArcwareInit(
       { shareId:SHARE_ID },
       { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
+          MatchViewportRes:false, // Do not compete with our 1600px mobile cap
           WebRTCMaxBitrate:HVS_QUALITY_LEVELS[hvsQualityIndex],
           WebRTCMinBitrate:0,
           // LUX uses StartVideoMuted:true. Make mobile equally autoplay-safe
@@ -11364,7 +11385,7 @@ body.hvs-session-ended #hvsRotateOverlay {display:none!important;pointer-events:
   <div class="hvsDiagTitle"><span>HOME VIEW · STREAM TEST</span><small>LIVE</small></div>
   <div class="hvsDiagGrid">
     <span class="hvsDiagLabel">Render target</span><span class="hvsDiagValue" id="hvsDiagTarget">waiting</span>
-    <span class="hvsDiagLabel">Resolution command</span><span class="hvsDiagValue" id="hvsDiagCommand">not sent</span>
+    <span class="hvsDiagLabel">Native resize sent</span><span class="hvsDiagValue" id="hvsDiagCommand">not sent</span>
     <span class="hvsDiagLabel">Received video</span><span class="hvsDiagValue" id="hvsDiagVideo">waiting</span>
     <span class="hvsDiagLabel">Resolution check</span><span class="hvsDiagValue" id="hvsDiagVerification">waiting</span>
     <span class="hvsDiagLabel">Decoded FPS</span><span class="hvsDiagValue" id="hvsDiagFPS">N/A</span>
