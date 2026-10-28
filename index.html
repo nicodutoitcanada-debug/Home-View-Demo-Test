@@ -9066,9 +9066,11 @@ function getStreamingViewportResolution() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   let width = Math.round(cssWidth * dpr);
   let height = Math.round(cssHeight * dpr);
-  // Keep the existing mobile bandwidth cap WITHOUT changing aspect ratio.
+  // Mobile resolution test: cap the LONGEST render edge at 1600 physical pixels.
+  // Preserve the browser aspect ratio, and never upscale a smaller viewport.
+  // No bitrate, FPS, decoder, desktop, reconnection or session changes.
   if (window.matchMedia('(pointer:coarse)').matches) {
-    const factor = Math.min(1, 1920 / Math.max(width, height));
+    const factor = Math.min(1, 1600 / Math.max(width, height));
     width = Math.round(width * factor);
     height = Math.round(height * factor);
   }
@@ -9699,10 +9701,9 @@ function hvsCompleteGameReveal() {
     overlay?.remove();
   },1240);
 }
-// After Unreal has loaded AND decoded video is visible, keep the animated
-// loading presentation up for 2.5 more seconds so shader/scene settling is
-// less noticeable. No new Unreal messages or Arcware sessions are triggered.
-const HVS_STARTUP_SETTLE_MS = 2500;
+// Reveal promptly once Unreal reports ready and decoded video is confirmed.
+// Extra 2.5-second scene settling hold disabled; stream safety is unchanged.
+const HVS_STARTUP_SETTLE_MS = 0;
 function hvsWaitForStartupFit() {
   const token=++hvsStartupMonitorToken;
   hvsStartupVideoWaitStarted=performance.now();
@@ -9721,10 +9722,10 @@ function hvsWaitForStartupFit() {
       if(!hvsStartupVideoSettlingSince){
         hvsStartupVideoSettlingSince=performance.now();
         hvsStartupSetNotice('hide');
-        console.info('[STARTUP VIDEO] Picture confirmed; keeping loading screen for 2.5 more seconds.',state);
+        console.info('[STARTUP VIDEO] Picture confirmed; revealing without extra settling delay.',state);
       }
       if(performance.now()-hvsStartupVideoSettlingSince >= HVS_STARTUP_SETTLE_MS){
-        console.info('[STARTUP VIDEO] Scene settling period complete; revealing the game.',state);
+        console.info('[STARTUP VIDEO] Ready video confirmed; revealing the game.',state);
         hvsCompleteGameReveal();
         return;
       }
