@@ -4957,6 +4957,43 @@ body.hvs-movie-active #hvsPropertyInvite {visibility:hidden!important;pointer-ev
 }
 @media(prefers-reduced-motion:reduce) {#hvsPropertyInvite,#hvsPropertyInviteDialog {transition-duration:.01ms!important;}}
 </style>
+
+<style id="hvs-live-mobile-diagnostics-css">
+/* Diagnostic-only test overlay. It never intercepts Unreal, menu, or touch input. */
+#hvsLiveMobileStats {
+  display:none; position:fixed;
+  top:max(8px,env(safe-area-inset-top,0px));
+  left:max(8px,env(safe-area-inset-left,0px));
+  z-index:22000; width:min(285px,calc(100vw - 20px));
+  box-sizing:border-box; padding:9px 11px 8px;
+  background:rgba(6,11,16,.90); color:#f4f6f7;
+  border:1px solid rgba(255,255,255,.26); border-radius:12px;
+  box-shadow:0 6px 20px rgba(0,0,0,.23);
+  font-family:"HomeView Myriad",Arial,sans-serif; line-height:1.27;
+  pointer-events:none!important; user-select:none; -webkit-user-select:none;
+  max-height:calc(100dvh - 16px); overflow:hidden;
+}
+#hvsLiveMobileStats, #hvsLiveMobileStats * {pointer-events:none!important;}
+#hvsLiveMobileStats .hvsDiagTitle{font-weight:700;letter-spacing:.085em;font-size:11px;
+  color:#fff;margin:0 0 7px;display:flex;justify-content:space-between;gap:5px;}
+#hvsLiveMobileStats .hvsDiagTitle small{font-size:9px;color:#ff8b5d;font-weight:700;letter-spacing:.07em;}
+#hvsLiveMobileStats .hvsDiagGrid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 9px;}
+#hvsLiveMobileStats .hvsDiagLabel{color:rgba(235,239,241,.76);font-size:10.5px;white-space:nowrap;}
+#hvsLiveMobileStats .hvsDiagValue{font:600 11px/1.27 ui-monospace,SFMono-Regular,Consolas,monospace;
+  color:#fff;text-align:right;white-space:nowrap;}
+#hvsLiveMobileStats .hvsDiagFoot{border-top:1px solid rgba(255,255,255,.16);
+  padding-top:5px;margin-top:7px;color:rgba(235,239,241,.67);font-size:9px;}
+body.hvs-session-ended #hvsLiveMobileStats {display:none!important;}
+@media(max-height:410px){
+  #hvsLiveMobileStats{padding:6px 9px;width:min(272px,calc(100vw - 20px));}
+  #hvsLiveMobileStats .hvsDiagTitle{margin-bottom:4px;font-size:10px;}
+  #hvsLiveMobileStats .hvsDiagGrid{gap:1px 8px;}
+  #hvsLiveMobileStats .hvsDiagLabel{font-size:10px;}
+  #hvsLiveMobileStats .hvsDiagValue{font-size:10px;}
+  #hvsLiveMobileStats .hvsDiagFoot{margin-top:4px;padding-top:4px;font-size:8px;}
+}
+</style>
+
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <!-- Stream audio starts muted on devices requiring a user gesture.
@@ -10233,6 +10270,125 @@ function hvsStartAdaptiveQuality(config){
   hvsQualityTimer=setInterval(hvsMonitorQuality,5000);
 }
 
+
+// HVS_MOBILE_STREAM_DIAGNOSTICS_2026_10_28
+// Screenshot-friendly, read-only measurements. No changes to bitrate, resolution,
+// WebRTC peer, Arcware connection, game input, or automatic recovery.
+(() => {
+  const isMobileTest=HVS_QUALITY_MOBILE || (/Android|iPhone|iPod|iPad/i.test(navigator.userAgent));
+  if(!isMobileTest)return;
+  const panel=document.getElementById('hvsLiveMobileStats');
+  if(!panel)return;
+  panel.style.display='block';
+  const fields={
+    target:'hvsDiagTarget',command:'hvsDiagCommand',video:'hvsDiagVideo',
+    fps:'hvsDiagFPS',bitrate:'hvsDiagBitrate',cap:'hvsDiagCap',
+    rtt:'hvsDiagRTT',loss:'hvsDiagLoss',buffer:'hvsDiagBuffer',
+    decode:'hvsDiagDecode',connection:'hvsDiagConnection'
+  };
+  const nodes={};
+  for(const [key,id] of Object.entries(fields))nodes[key]=document.getElementById(id);
+  const set=(key,value)=>{if(nodes[key])nodes[key].textContent=String(value);};
+  const fmtSize=(w,h)=>w>0&&h>0?`${w} × ${h}`:'waiting';
+  const fmtMbps=kbps=>Number.isFinite(kbps)?(kbps/1000).toFixed(2)+' Mbps':'N/A';
+  let lastStats=null;
+  let previousVideoQuality=null;
+  let running=false;
+  let snapshot={};
+  window.homeViewMobileDiagSnapshot=()=>({...snapshot});
+
+  async function sample(){
+    if(document.hidden||window.homeViewSessionIntentional||homeViewTeardownStarted||running)return;
+    running=true;
+    try{
+      const video=document.querySelector('#video-container video');
+      const requested=getStreamingViewportResolution();
+      const pc=hvsRtcPeer();
+      const capKbps=HVS_QUALITY_LEVELS[hvsQualityIndex];
+      const values={
+        target:fmtSize(requested.width,requested.height),
+        command:lastSentViewportResolution?lastSentViewportResolution.replace('x',' × '):'not sent',
+        video:video?.videoWidth&&video?.videoHeight?fmtSize(video.videoWidth,video.videoHeight):'waiting',
+        fps:'N/A',bitrate:'N/A',cap:fmtMbps(capKbps),rtt:'N/A',loss:'N/A',
+        buffer:'N/A',decode:'N/A',
+        connection:pc?.connectionState||pc?.iceConnectionState||(video?.paused?'video paused':'connecting')
+      };
+      if(video?.paused && video.srcObject)values.connection+=' / paused';
+
+      // Fallback for browsers not exposing the PeerConnection to the Arcware SDK.
+      if(hvsQualityMeasured){
+        if(Number.isFinite(hvsQualityMeasured.fps))values.fps=hvsQualityMeasured.fps.toFixed(1);
+        if(Number.isFinite(hvsQualityMeasured.kbps))values.bitrate=fmtMbps(hvsQualityMeasured.kbps);
+        if(Number.isFinite(hvsQualityMeasured.loss))values.loss=(hvsQualityMeasured.loss*100).toFixed(1)+'%';
+        if(Number.isFinite(hvsQualityMeasured.rtt))values.rtt=Math.round(hvsQualityMeasured.rtt*1000)+' ms';
+      }
+      if(pc && typeof pc.getStats==='function'){
+        const report=await pc.getStats();
+        if(window.homeViewSessionIntentional)return;
+        let inbound=null,candidate=null,selectedId=null;
+        report.forEach(row=>{
+          if(row.type==='inbound-rtp'&&(row.kind==='video'||row.mediaType==='video')&&!row.isRemote)
+            inbound=row;
+          if(row.type==='transport'&&row.selectedCandidatePairId)selectedId=row.selectedCandidatePairId;
+          if(row.type==='candidate-pair'&&row.state==='succeeded'&&(row.selected||row.nominated))
+            candidate=row;
+        });
+        if(selectedId && report.get(selectedId))candidate=report.get(selectedId);
+        if(Number.isFinite(candidate?.currentRoundTripTime))
+          values.rtt=Math.round(candidate.currentRoundTripTime*1000)+' ms';
+        if(inbound){
+          const next={
+            id:inbound.id,t:inbound.timestamp,
+            bytes:Number(inbound.bytesReceived),decoded:Number(inbound.framesDecoded),
+            received:Number(inbound.packetsReceived),lost:Number(inbound.packetsLost),
+            bufferDelay:Number(inbound.jitterBufferDelay),
+            bufferCount:Number(inbound.jitterBufferEmittedCount),
+            decodeTime:Number(inbound.totalDecodeTime)
+          };
+          if(lastStats?.id===next.id && next.t>lastStats.t){
+            const seconds=(next.t-lastStats.t)/1000;
+            const delta=(key)=>next[key]-lastStats[key];
+            if(seconds>.25 && seconds<30){
+              if(Number.isFinite(delta('bytes')))
+                values.bitrate=fmtMbps(Math.max(0,delta('bytes'))*8/seconds/1000);
+              if(Number.isFinite(delta('decoded')))
+                values.fps=(Math.max(0,delta('decoded'))/seconds).toFixed(1);
+              const packets=delta('received'),lost=delta('lost');
+              if(Number.isFinite(packets)&&Number.isFinite(lost))
+                values.loss=(100*Math.max(0,lost)/Math.max(1,Math.max(0,packets)+Math.max(0,lost))).toFixed(1)+'%';
+              if(Number.isFinite(delta('bufferDelay'))&&Number.isFinite(delta('bufferCount'))&&delta('bufferCount')>0)
+                values.buffer=(Math.max(0,delta('bufferDelay'))/delta('bufferCount')*1000).toFixed(0)+' ms';
+              if(Number.isFinite(delta('decodeTime'))&&Number.isFinite(delta('decoded'))&&delta('decoded')>0)
+                values.decode=(Math.max(0,delta('decodeTime'))/delta('decoded')*1000).toFixed(1)+' ms';
+            }
+          }
+          lastStats=next;
+        }
+      }
+      // If the peer isn't accessible, HTMLVideoElement still reports presented frames
+      // on many browsers. This is only a fallback, never added to WebRTC fps.
+      if(values.fps==='N/A' && typeof video?.getVideoPlaybackQuality==='function'){
+        const now=performance.now();
+        const quality=video.getVideoPlaybackQuality();
+        if(previousVideoQuality && now>previousVideoQuality.t){
+          const secs=(now-previousVideoQuality.t)/1000;
+          if(secs>.25 && secs<30)
+            values.fps=(Math.max(0,quality.totalVideoFrames-previousVideoQuality.frames)/secs).toFixed(1)+'*';
+        }
+        previousVideoQuality={t:now,frames:quality.totalVideoFrames};
+      }
+      snapshot={...values, mobile:true, requestedMaxKbps:capKbps, at:new Date().toISOString()};
+      for(const [key,val] of Object.entries(values))set(key,val);
+    }catch(error){
+      console.debug('[HOME VIEW MOBILE DIAGNOSTICS] Statistics unavailable:',error?.message||error);
+      set('connection','stats unavailable');
+    }finally{running=false;}
+  }
+  sample();
+  setInterval(sample,2000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){lastStats=null;previousVideoQuality=null;sample();}});
+})();
+
 // INTENTIONAL VS UNEXPECTED DISCONNECT — SEARCH FOR: HVS_STREAM_END
 // Adapted from the proven LUX frontend: explicitly mark an intentional end,
 // block SDK reconnect, send end:session once, then release the streaming session.
@@ -11132,4 +11288,24 @@ body.hvs-session-ended #hvsRotateOverlay {display:none!important;pointer-events:
   update();
 })();
 </script>
+
+<!-- Mobile-only, read-only streaming diagnostics. No buttons and no click blocker. -->
+<div id="hvsLiveMobileStats" aria-label="Mobile streaming diagnostics" role="status">
+  <div class="hvsDiagTitle"><span>HOME VIEW · STREAM TEST</span><small>LIVE</small></div>
+  <div class="hvsDiagGrid">
+    <span class="hvsDiagLabel">Render target</span><span class="hvsDiagValue" id="hvsDiagTarget">waiting</span>
+    <span class="hvsDiagLabel">Resolution command</span><span class="hvsDiagValue" id="hvsDiagCommand">not sent</span>
+    <span class="hvsDiagLabel">Received video</span><span class="hvsDiagValue" id="hvsDiagVideo">waiting</span>
+    <span class="hvsDiagLabel">Decoded FPS</span><span class="hvsDiagValue" id="hvsDiagFPS">N/A</span>
+    <span class="hvsDiagLabel">Received bitrate</span><span class="hvsDiagValue" id="hvsDiagBitrate">N/A</span>
+    <span class="hvsDiagLabel">Requested bitrate cap</span><span class="hvsDiagValue" id="hvsDiagCap">N/A</span>
+    <span class="hvsDiagLabel">Network RTT</span><span class="hvsDiagValue" id="hvsDiagRTT">N/A</span>
+    <span class="hvsDiagLabel">Packet loss</span><span class="hvsDiagValue" id="hvsDiagLoss">N/A</span>
+    <span class="hvsDiagLabel">Frame buffer delay</span><span class="hvsDiagValue" id="hvsDiagBuffer">N/A</span>
+    <span class="hvsDiagLabel">Decode time / frame</span><span class="hvsDiagValue" id="hvsDiagDecode">N/A</span>
+    <span class="hvsDiagLabel">Connection</span><span class="hvsDiagValue" id="hvsDiagConnection">connecting</span>
+  </div>
+  <div class="hvsDiagFoot">Requested ≠ confirmed. Compare command with received video.</div>
+</div>
+
 </body></html>
