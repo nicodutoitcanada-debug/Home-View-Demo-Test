@@ -4918,7 +4918,7 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 #upstairsLayoutDialog .hvsLayoutPreviewImage {
   display:block;width:100%;height:clamp(76px,15vh,145px);object-fit:contain;
   box-sizing:border-box;padding:5px;border-radius:12px;
-  background:rgba(255,255,255,.92);border:1px solid rgba(255,255,255,.27);
+  background:transparent;border:0;
 }
 #upstairsLayoutDialog .hvsLayoutPreviewChoice .layoutChoiceButton {
   width:100%;min-height:44px;height:auto;padding:9px 7px;
@@ -4930,6 +4930,19 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
   #upstairsLayoutDialog .hvsLayoutPreviewImage {height:clamp(54px,18vh,100px);padding:3px;border-radius:8px;}
   #upstairsLayoutDialog .hvsLayoutPreviewChoice .layoutChoiceButton {min-height:36px;font-size:9px;padding:7px 5px;}
 }
+</style>
+<style id="hvs-property-introduction-style">
+/* Non-modal: no full-screen blur, backdrop, focus trap, or click interception. */
+#hvsPropertyIntroduction{position:fixed;inset:0;z-index:15990;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;visibility:hidden;opacity:0;pointer-events:none;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;transition:opacity .2s ease,visibility .2s ease;}
+#hvsPropertyIntroduction.is-open{visibility:visible;opacity:1;}
+#hvsPropertyIntroductionCard{pointer-events:auto;width:min(390px,calc(100vw - 24px));max-height:calc(100dvh - 20px);overflow:auto;box-sizing:border-box;padding:19px 20px 17px;color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:19px;background:linear-gradient(145deg,rgba(59,69,72,.94),rgba(13,21,25,.96));box-shadow:0 12px 34px rgba(0,0,0,.32);font-family:"HomeView Myriad",Arial,sans-serif;text-align:center;}
+#hvsPropertyIntroductionCard h2{font-size:17px;letter-spacing:.07em;line-height:1.2;margin:0 0 10px;}
+#hvsPropertyIntroductionCard p{font-size:13px;line-height:1.4;margin:0 0 15px;color:rgba(255,255,255,.88);}
+.hvsPropertyIntroActions{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;}
+.hvsPropertyIntroActions button{border:1px solid rgba(255,255,255,.28);border-radius:100px;min-height:39px;padding:9px 14px;cursor:pointer;color:#fff;background:rgba(255,255,255,.1);font:700 11px "HomeView Myriad",Arial,sans-serif;letter-spacing:.04em;touch-action:manipulation;}
+#hvsPropertyIntroChoose{background:linear-gradient(140deg,#f56b32,#b63f1c);}
+.hvsPropertyIntroActions button:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+@media(max-height:440px) and (orientation:landscape){#hvsPropertyIntroduction{align-items:flex-start;padding:7px 12px;}#hvsPropertyIntroductionCard{width:min(530px,calc(100vw - 24px));padding:10px 14px;}#hvsPropertyIntroductionCard h2{font-size:14px;margin-bottom:5px;}#hvsPropertyIntroductionCard p{font-size:11px;margin-bottom:8px;}.hvsPropertyIntroActions button{min-height:31px;padding:6px 12px;font-size:10px;}}
 </style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
@@ -5527,6 +5540,18 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 
 <!-- Persistent, non-interactive admin mode reminder. -->
 <div id="hvsAdminModeBadge" role="status" aria-live="polite" hidden></div>
+
+<!-- Outdoors introduction: pointer events pass through everywhere except the small card. -->
+<div id="hvsPropertyIntroduction" aria-hidden="true">
+  <section id="hvsPropertyIntroductionCard" role="region" aria-label="View your home from another property">
+    <h2>SEE THE VIEW FROM YOUR PROPERTY</h2>
+    <p>Wondering what the view would look like from your own homesite? Choose a property to explore its outlook, or continue your walkthrough.</p>
+    <div class="hvsPropertyIntroActions">
+      <button type="button" id="hvsPropertyIntroChoose">CHOOSE A PROPERTY</button>
+      <button type="button" id="hvsPropertyIntroContinue">CONTINUE PLAYING</button>
+    </div>
+  </section>
+</div>
 
 <!-- PROPERTY SELECTOR — automatic first-time offer / manual Personalize action. -->
 <div id="hvsPropertyPrompt" role="presentation" aria-hidden="true">
@@ -6937,20 +6962,35 @@ function hvsShowPropertyPrompt(){
     // Non-modal on purpose: do not steal focus from Unreal's keyboard controls.
     return true;
 }
+const hvsPropertyIntroduction=document.getElementById('hvsPropertyIntroduction');
+function hvsClosePropertyIntroduction(){
+    hvsPropertyIntroduction.classList.remove('is-open');
+    hvsPropertyIntroduction.setAttribute('aria-hidden','true');
+    if(document.activeElement?.closest?.('#hvsPropertyIntroduction'))document.activeElement.blur();
+}
+function hvsShowPropertyIntroduction(){
+    if(hvsPropertyIntroduction.classList.contains('is-open'))return false;
+    hvsPropertyIntroduction.classList.add('is-open');
+    hvsPropertyIntroduction.setAttribute('aria-hidden','false');
+    // Deliberately do not hide #homeViewUI, blur the game or trap focus.
+    return true;
+}
 window.homeViewShowPropertyOfferOnce=function(){
     if(window.homeViewPropertyOfferWasSeen?.())return false;
     if(document.body.classList.contains('hvs-movie-active')){
-        // Defer the initial property offer until the cutscene ends.
         window.homeViewPendingPropertyOffer=true;
         return false;
     }
     window.homeViewMarkPropertyOfferSeen?.();
-    return hvsShowPropertyPrompt();
+    return hvsShowPropertyIntroduction();
 };
 window.homeViewOpenPropertySelector=function(){
     window.homeViewMarkPropertyOfferSeen?.();
+    hvsClosePropertyIntroduction();
     return hvsShowPropertyPrompt();
 };
+document.getElementById('hvsPropertyIntroChoose').addEventListener('click',()=>window.homeViewOpenPropertySelector());
+document.getElementById('hvsPropertyIntroContinue').addEventListener('click',hvsClosePropertyIntroduction);
 window.homeViewTestPropertyOffer=()=>hvsShowPropertyPrompt();
 function hvsChooseProperty(property){
     if(!['one','two'].includes(property) || window.homeViewGetPropertyChoice?.()===property)return;
