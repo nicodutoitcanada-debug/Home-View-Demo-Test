@@ -9284,16 +9284,80 @@ function hvsStreamAspectMismatched() {
 }
 function sendViewportResolutionToUnreal(reason='viewport', force=false) {
   if (screenshotRequestInFlight || screenshotBlob || document.hidden ||
-      !unrealIsReadyForResolution || !application) return;
+      window.homeViewSessionIntentional || homeViewTeardownStarted ||
+      !unrealIsReadyForResolution || !application) return false;
   const {width,height} = getStreamingViewportResolution();
   const key = `${width}x${height}`;
-  if (!force && key === lastSentViewportResolution) return;
+  if (!force && key === lastSentViewportResolution) return false;
   const command = `r.SetRes ${key}w`;
   if (sendUnreal({consoleCommand:command})) {
     lastSentViewportResolution = key;
     console.info(`[STREAM] ${reason}: ${command}`);
+    return true; // Sent over the data channel, not acknowledged by Unreal.
   }
+  return false;
 }
+// Mobile-only resolution verification. Unlike an aspect-ratio-only check,
+// compare the ACTUAL received video dimensions with the requested target.
+// A successful UIInteraction send does not prove Unreal or Arcware applied it.
+// The verifier waits for playable video, retries at most TWICE, then stops.
+// It never restarts/reconnects a stream or changes bitrate/FPS.
+const HVS_RESOLUTION_VERIFY_MAX_RETRIES = 2;
+let hvsResolutionVerifyTimer = null;
+let hvsResolutionVerifyStartedAt = 0;
+let hvsResolutionVerifyLastRetryAt = 0;
+let hvsResolutionVerifyRetries = 0;
+let hvsResolutionVerifyState = 'waiting for video';
+const hvsResolutionVerifyMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+  (window.matchMedia('(pointer:coarse)').matches && Math.min(innerWidth,innerHeight)<900);
+function hvsStopResolutionVerification() {
+  if(hvsResolutionVerifyTimer!==null)clearInterval(hvsResolutionVerifyTimer);
+  hvsResolutionVerifyTimer=null;
+}
+function hvsStartResolutionVerification() {
+  hvsStopResolutionVerification();
+  if(!hvsResolutionVerifyMobile || window.homeViewSessionIntentional || homeViewTeardownStarted)return;
+  hvsResolutionVerifyStartedAt=Date.now();
+  hvsResolutionVerifyLastRetryAt=0;
+  hvsResolutionVerifyRetries=0;
+  hvsResolutionVerifyState='waiting for video';
+  hvsResolutionVerifyTimer=setInterval(()=>{
+    if(window.homeViewSessionIntentional || homeViewTeardownStarted){
+      hvsResolutionVerifyState='session ended';hvsStopResolutionVerification();return;
+    }
+    if(!levelReady || !unrealIsReadyForResolution || !application ||
+       document.hidden || hvsScreenshotProtected())return;
+    const video=document.querySelector('#video-container video');
+    if(!video?.videoWidth || !video?.videoHeight || video.readyState<2)return;
+    const expected=getStreamingViewportResolution();
+    const actual={width:video.videoWidth,height:video.videoHeight};
+    const matches=Math.abs(actual.width-expected.width)<=8 &&
+                  Math.abs(actual.height-expected.height)<=8;
+    if(matches){hvsResolutionVerifyState='matched';hvsStopResolutionVerification();return;}
+    hvsResolutionVerifyState=`mismatch (${hvsResolutionVerifyRetries}/${HVS_RESOLUTION_VERIFY_MAX_RETRIES} retries)`;
+    const elapsed=Date.now()-hvsResolutionVerifyStartedAt;
+    if(elapsed>35000 || hvsResolutionVerifyRetries>=HVS_RESOLUTION_VERIFY_MAX_RETRIES){
+      hvsResolutionVerifyState='still mismatched (stopped)';
+      console.warn('[STREAM] Resolution remains',actual.width+'x'+actual.height,
+        'after bounded retries; this may be a Pixel Streaming capture/encoder issue.');
+      hvsStopResolutionVerification();return;
+    }
+    if(elapsed<6500 || (hvsResolutionVerifyLastRetryAt && Date.now()-hvsResolutionVerifyLastRetryAt<5500))return;
+    hvsResolutionVerifyLastRetryAt=Date.now();
+    // Force a resend only on a measured mismatch with already playing video.
+    // No player resize events, SDK reconnects, or new paid Arcware sessions.
+    if(sendViewportResolutionToUnreal('received video still mismatched',true)){
+      hvsResolutionVerifyRetries++;
+      hvsResolutionVerifyState=`retry sent (${hvsResolutionVerifyRetries}/${HVS_RESOLUTION_VERIFY_MAX_RETRIES})`;
+    }
+  },1500);
+}
+window.homeViewResolutionVerificationStatus=()=>({
+  state:hvsResolutionVerifyState,retries:hvsResolutionVerifyRetries,
+  maxRetries:HVS_RESOLUTION_VERIFY_MAX_RETRIES,
+  requested:getStreamingViewportResolution(),
+  received:(()=>{const v=document.querySelector('#video-container video');return v?{width:v.videoWidth,height:v.videoHeight}:null;})()
+});
 // LUX-style one-shot layout refresh. A fresh Pixel Streaming connection can
 // start with a 16:9 *decoded track* despite the phone already being landscape.
 // r.SetRes alone does not necessarily make the browser player's viewport
@@ -9407,6 +9471,8 @@ function startViewportResolutionSync() {
   window.addEventListener('orientationchange',()=>{
     update('orientation',true);
     recheckOrientation();
+    // A new orientation produces a new target; verify it with a fresh bounded window.
+    if(levelReady)setTimeout(hvsStartResolutionVerification,450);
   },{passive:true});
   if(typeof ResizeObserver!=='undefined')
     new ResizeObserver(()=>{
@@ -9722,6 +9788,7 @@ function receiveUnrealResponse(response) {
       // is only considered once actual video dimensions are available.
       setTimeout(() => sendViewportResolutionToUnreal('Home View level ready', true), 380);
       hvsRefreshInitialPlayerFit();
+      hvsStartResolutionVerification();
       // On initial mobile connection the Unreal video may still be 16:9 even
       // though the phone's stage is much wider. Rotation fixed this before;
       // perform the same aspect verification at startup with BOUNDED retries.
@@ -10282,6 +10349,7 @@ function hvsStartAdaptiveQuality(config){
   panel.style.display='block';
   const fields={
     target:'hvsDiagTarget',command:'hvsDiagCommand',video:'hvsDiagVideo',
+    verification:'hvsDiagVerification',
     fps:'hvsDiagFPS',bitrate:'hvsDiagBitrate',cap:'hvsDiagCap',
     rtt:'hvsDiagRTT',loss:'hvsDiagLoss',buffer:'hvsDiagBuffer',
     decode:'hvsDiagDecode',connection:'hvsDiagConnection'
@@ -10309,6 +10377,7 @@ function hvsStartAdaptiveQuality(config){
         target:fmtSize(requested.width,requested.height),
         command:lastSentViewportResolution?lastSentViewportResolution.replace('x',' × '):'not sent',
         video:video?.videoWidth&&video?.videoHeight?fmtSize(video.videoWidth,video.videoHeight):'waiting',
+        verification:hvsResolutionVerifyState,
         fps:'N/A',bitrate:'N/A',cap:fmtMbps(capKbps),rtt:'N/A',loss:'N/A',
         buffer:'N/A',decode:'N/A',
         connection:pc?.connectionState||pc?.iceConnectionState||(video?.paused?'video paused':'connecting')
@@ -10429,6 +10498,7 @@ window.homeViewEndSession=async(message='Your session has ended.')=>{
   hvsRecoveryProbeToken++;
   hvsRecoveryInProgress=false;
   window.homeViewStopAdaptiveQuality?.();
+  hvsStopResolutionVerification();
   // The intentional bit is set BEFORE the end command so SDK disconnects do not
   // surface as an error and trigger another Arcware reconnection.
   homeViewDisableReconnect();
@@ -11296,6 +11366,7 @@ body.hvs-session-ended #hvsRotateOverlay {display:none!important;pointer-events:
     <span class="hvsDiagLabel">Render target</span><span class="hvsDiagValue" id="hvsDiagTarget">waiting</span>
     <span class="hvsDiagLabel">Resolution command</span><span class="hvsDiagValue" id="hvsDiagCommand">not sent</span>
     <span class="hvsDiagLabel">Received video</span><span class="hvsDiagValue" id="hvsDiagVideo">waiting</span>
+    <span class="hvsDiagLabel">Resolution check</span><span class="hvsDiagValue" id="hvsDiagVerification">waiting</span>
     <span class="hvsDiagLabel">Decoded FPS</span><span class="hvsDiagValue" id="hvsDiagFPS">N/A</span>
     <span class="hvsDiagLabel">Received bitrate</span><span class="hvsDiagValue" id="hvsDiagBitrate">N/A</span>
     <span class="hvsDiagLabel">Requested bitrate cap</span><span class="hvsDiagValue" id="hvsDiagCap">N/A</span>
