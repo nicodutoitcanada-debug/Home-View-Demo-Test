@@ -4861,6 +4861,53 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 }
 </style>
 
+
+<style id="homeview-subdivision-map-styles">
+/* HVS Fictional Subdivision: replaces only the property-selection dialog. */
+#hvsPropertyPrompt { padding:clamp(8px,2dvh,20px); }
+#hvsPropertyPrompt #hvsPropertyDialog {
+ width:min(1080px, 97vw); max-width:100%; max-height:calc(100dvh - 16px);
+ padding:12px 14px 10px; overflow:hidden; display:flex; flex-direction:column;
+ border-radius:23px; box-sizing:border-box;
+ background:linear-gradient(155deg,rgba(83,100,106,.63),rgba(25,33,37,.90) 30%,rgba(12,19,23,.95));
+}
+#hvsPropertyDialog .hvsMapHeading {display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;padding:0 6px 8px;}
+#hvsPropertyDialog .hvsMapHeading h2 {font-size:clamp(14px,2.4dvh,20px);text-align:left;margin:0 0 3px;letter-spacing:.09em;}
+#hvsPropertyDialog .hvsMapHeading p {font-size:clamp(10px,1.65dvh,12px);text-align:left;line-height:1.25;opacity:.76;margin:0;}
+#hvsPropertyPrompt #hvsPropertyDismiss {flex:none;display:grid;place-items:center;width:32px;height:32px;margin:0;padding:0;border:1px solid rgba(255,255,255,.2);border-radius:50%;background:rgba(4,9,12,.25);color:#fff;font-size:25px;line-height:1;}
+#hvsPropertyPrompt #hvsPropertyOptions {flex:1 1 auto;min-height:0;width:100%;display:flex;justify-content:center;align-items:center;overflow:hidden;}
+#hvsPropertyMapFrame {position:relative;box-sizing:border-box;flex:0 1 auto;width:min(100%,calc((100dvh - 131px) * 2.0628));max-height:100%;aspect-ratio:1444/700;overflow:hidden;border-radius:13px;border:1px solid rgba(255,255,255,.2);background:#20292a;box-shadow:0 8px 25px #0004;}
+#hvsPropertyMapImage {position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;display:block;user-select:none;}
+#hvsPropertyPrompt #hvsPropertyOptions button.hvsMapHotspot {
+ position:absolute;display:block;z-index:2;min-height:0;padding:0;margin:0;border:0!important;
+ border-radius:0;width:auto;background:transparent!important;box-shadow:none!important;
+ cursor:pointer;transition:background-color .18s ease;touch-action:manipulation;
+}
+#hvsPropertyPrompt #hvsPropertyOptions button.hvsMapHotspot:hover:not(:disabled),
+#hvsPropertyPrompt #hvsPropertyOptions button.hvsMapHotspot:focus-visible {background:rgba(255,104,43,.17)!important;outline:0;}
+#hvsPropertyPrompt #hvsPropertyOptions button.hvsMapHotspot:disabled {cursor:default;opacity:1;}
+#hvsPropertyPrompt #hvsPropertyOptions button.hvsMapHotspot12 {
+ left:39.3%;top:35%;width:19%;height:32%;clip-path:polygon(0% 31%,57% 0%,78% 4%,100% 99%,16% 95%);
+}
+#hvsPropertyPrompt #hvsPropertyOptions button.hvsMapHotspot18 {
+ left:65%;top:8%;width:16%;height:34%;clip-path:polygon(18% 0%,82% 17%,100% 94%,0% 87%);
+}
+.hvsVisuallyHidden {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+#hvsPropertyDialog .hvsMapFooter {display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 7px 0;flex:none;font-size:clamp(9px,1.85dvh,13px);color:rgba(255,255,255,.75);}
+#hvsPropertyDialog .hvsMapSelectedText {display:flex;align-items:center;gap:9px;letter-spacing:.05em;font-size:inherit;white-space:nowrap;}
+#hvsPropertyDialog .hvsMapSelectedText strong {color:#ff804f;letter-spacing:.1em;font-size:1.1em;}
+#hvsPropertyDialog .hvsMapFooter>span {text-align:right;}
+@media(max-height:475px) and (orientation:landscape) {
+ #hvsPropertyPrompt #hvsPropertyDialog {padding:7px 9px 6px;border-radius:15px;}
+ #hvsPropertyDialog .hvsMapHeading {padding-bottom:4px;}
+ #hvsPropertyDialog .hvsMapHeading h2 {margin:0;font-size:14px;}
+ #hvsPropertyDialog .hvsMapHeading p {font-size:9px;}
+ #hvsPropertyPrompt #hvsPropertyDismiss {width:26px;height:26px;font-size:20px;}
+ #hvsPropertyMapFrame {width:min(100%,calc((100dvh - 95px) * 2.0628));}
+ #hvsPropertyDialog .hvsMapFooter {padding-top:4px;font-size:9px;}
+}
+@media(prefers-reduced-motion:reduce){#hvsPropertyPrompt #hvsPropertyDialog {transition-duration:.01ms!important;}}
+</style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <!-- Stream audio starts muted on devices requiring a user gesture.
@@ -5455,13 +5502,18 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 <!-- PROPERTY SELECTOR — automatic first-time offer / manual Personalize action. -->
 <div id="hvsPropertyPrompt" role="presentation" aria-hidden="true">
   <section id="hvsPropertyDialog" role="dialog" aria-modal="false" aria-label="Choose your property">
-    <h2>CHOOSE YOUR PROPERTY</h2>
-    <p>See this home from the actual property you plan to build on. For this demo, explore either of two prepared locations. You can change the property anytime in <strong>PERSONALIZE</strong>.</p>
-    <div id="hvsPropertyOptions" role="group" aria-label="Available properties">
-      <button type="button" id="hvsPropertyOne" data-property="one">PROPERTY ONE</button>
-      <button type="button" id="hvsPropertyTwo" data-property="two">PROPERTY TWO</button>
+    <header class="hvsMapHeading">
+      <div><h2>CHOOSE YOUR PROPERTY</h2><p>Select a homesite from the development map. Two lots are available in this demo.</p></div>
+      <button type="button" id="hvsPropertyDismiss" aria-label="Close property map" title="Close">×</button>
+    </header>
+    <div id="hvsPropertyOptions" role="group" aria-label="Development lot selection">
+      <div id="hvsPropertyMapFrame">
+        <img id="hvsPropertyMapImage" src="Property Map/development_lot12_selected.png" alt="Aerial illustration of a residential community showing lots 12 and 18 available for selection and the other lots unavailable." draggable="false">
+        <button type="button" id="hvsPropertyOne" class="hvsMapHotspot hvsMapHotspot12" data-property="one" aria-label="Lot 12, currently selected" title="Lot 12"><span class="hvsVisuallyHidden">Lot 12 / Property 01</span></button>
+        <button type="button" id="hvsPropertyTwo" class="hvsMapHotspot hvsMapHotspot18" data-property="two" aria-label="Select Lot 18" title="Lot 18"><span class="hvsVisuallyHidden">Lot 18 / Property 02</span></button>
+      </div>
     </div>
-    <button type="button" id="hvsPropertyDismiss">MAYBE LATER</button>
+    <footer class="hvsMapFooter"><div class="hvsMapSelectedText">CURRENT PROPERTY <strong id="hvsPropertyCurrentLot">LOT 12</strong></div><span>Tap the other available lot to change properties.</span></footer>
   </section>
 </div>
 
@@ -6824,13 +6876,21 @@ const hvsPropertyTwo=document.getElementById('hvsPropertyTwo');
 const hvsPropertyDismiss=document.getElementById('hvsPropertyDismiss');
 function hvsRefreshPropertyChoices(){
     const selected=window.homeViewGetPropertyChoice?.()||null;
-    for(const [button,property] of [[hvsPropertyOne,'one'],[hvsPropertyTwo,'two']]){
+    for(const [button,property,lot] of [[hvsPropertyOne,'one','Lot 12'],[hvsPropertyTwo,'two','Lot 18']]){
         const active=selected===property;
         button.classList.toggle('is-selected',active);
         button.setAttribute('aria-pressed',String(active));
         button.disabled=active;
-        button.setAttribute('aria-label',`Property ${property}${active?' (current property)':''}`);
+        button.setAttribute('aria-label',`${lot}${active?' (currently selected)':' (select this property)'}`);
     }
+    // This only changes the map artwork. No Unreal message is sent on open.
+    const mapImg=document.getElementById('hvsPropertyMapImage');
+    const currentLabel=document.getElementById('hvsPropertyCurrentLot');
+    if(mapImg){
+      const desired=`Property Map/development_lot${selected==='two'?'18':'12'}_selected.png`;
+      if(mapImg.getAttribute('src')!==desired)mapImg.setAttribute('src',desired);
+    }
+    if(currentLabel)currentLabel.textContent=selected==='two'?'LOT 18':'LOT 12';
 }
 function hvsClosePropertyPrompt(){
     if(!hvsPropertyPrompt.classList.contains('is-open'))return;
