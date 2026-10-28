@@ -4908,6 +4908,55 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 }
 @media(prefers-reduced-motion:reduce){#hvsPropertyPrompt #hvsPropertyDialog {transition-duration:.01ms!important;}}
 </style>
+
+<style id="hvs-property-view-invitation-styles">
+/* Outdoor Unreal chooseProperty trigger: invitation first, map only by choice. */
+#hvsPropertyInvite {
+ position:fixed;inset:0;z-index:16010;display:flex;align-items:center;justify-content:center;
+ padding:clamp(10px,3dvh,20px);box-sizing:border-box;
+ background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;
+ opacity:0;visibility:hidden;pointer-events:none;
+ transition:opacity .34s ease,visibility 0s linear .34s;
+}
+#hvsPropertyInvite.is-open {opacity:1;visibility:visible;pointer-events:none;transition-delay:0s;}
+#hvsPropertyInviteDialog {
+ pointer-events:auto;
+ position:relative;width:min(435px,96vw);max-height:calc(100dvh - 20px);overflow:auto;
+ padding:clamp(17px,3dvh,27px) clamp(16px,3vw,25px) 19px;box-sizing:border-box;
+ border-radius:23px;border:1px solid rgba(255,255,255,.22);
+ background:linear-gradient(155deg,rgba(112,127,131,.51),rgba(29,39,43,.83) 38%,rgba(14,22,27,.92));
+ box-shadow:0 18px 54px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.17);
+ -webkit-backdrop-filter:blur(13px) saturate(120%);backdrop-filter:blur(13px) saturate(120%);
+ color:#fff;font-family:"HomeView Myriad",Arial,sans-serif;text-align:center;
+ transform:translateY(14px) scale(.96);transition:transform .48s cubic-bezier(.22,1,.36,1);
+}
+#hvsPropertyInvite.is-open #hvsPropertyInviteDialog {transform:translateY(0) scale(1);}
+#hvsPropertyInviteDialog h2 {
+ margin:0 0 12px;font-size:clamp(16px,2.6dvh,21px);font-weight:700;line-height:1.2;letter-spacing:.075em;
+}
+#hvsPropertyInviteDialog p {
+ margin:0 0 19px;font-size:clamp(12px,2dvh,14px);font-weight:300;line-height:1.48;
+ color:rgba(255,255,255,.89);
+}
+#hvsPropertyInviteActions {display:grid;gap:9px;}
+#hvsPropertyInviteActions button {
+ appearance:none;min-height:43px;padding:10px 12px;width:100%;border-radius:999px;
+ cursor:pointer;font:700 clamp(10px,1.65dvh,12px)/1.2 "HomeView Myriad",Arial,sans-serif;
+ letter-spacing:.07em;color:#fff;touch-action:manipulation;
+}
+#hvsPropertyInviteChoose {border:1px solid rgba(255,105,53,.78);background:linear-gradient(180deg,rgba(249,79,25,.88),rgba(167,45,14,.91));}
+#hvsPropertyInviteContinue {border:1px solid rgba(255,255,255,.19);background:rgba(10,16,19,.35);}
+#hvsPropertyInviteActions button:focus-visible {outline:2px solid #ff6935;outline-offset:3px;}
+body.hvs-movie-active #hvsPropertyInvite {visibility:hidden!important;pointer-events:none!important;}
+@media(max-height:430px) and (orientation:landscape) {
+ #hvsPropertyInviteDialog {padding:14px 17px 12px;}
+ #hvsPropertyInviteDialog h2 {margin-bottom:7px;}
+ #hvsPropertyInviteDialog p {margin-bottom:11px;}
+ #hvsPropertyInviteActions {grid-template-columns:1fr 1fr;gap:8px;}
+ #hvsPropertyInviteActions button {min-height:37px;padding:8px 6px;font-size:10px;}
+}
+@media(prefers-reduced-motion:reduce) {#hvsPropertyInvite,#hvsPropertyInviteDialog {transition-duration:.01ms!important;}}
+</style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <!-- Stream audio starts muted on devices requiring a user gesture.
@@ -5499,7 +5548,20 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 <!-- Persistent, non-interactive admin mode reminder. -->
 <div id="hvsAdminModeBadge" role="status" aria-live="polite" hidden></div>
 
-<!-- PROPERTY SELECTOR — automatic first-time offer / manual Personalize action. -->
+<!-- Outside-view invitation: shown when Unreal sends EditMenuOptions: chooseProperty.
+     Opening the lot map is always a deliberate user action. -->
+<div id="hvsPropertyInvite" role="presentation" aria-hidden="true">
+  <section id="hvsPropertyInviteDialog" role="dialog" aria-modal="false" aria-labelledby="hvsPropertyInviteTitle" aria-describedby="hvsPropertyInviteDescription">
+    <h2 id="hvsPropertyInviteTitle">DISCOVER YOUR VIEW</h2>
+    <p id="hvsPropertyInviteDescription">Every homesite has its own view. You can explore the view from another available lot in this development, or stay on your current property and continue exploring.</p>
+    <div id="hvsPropertyInviteActions">
+      <button type="button" id="hvsPropertyInviteChoose">CHOOSE A PROPERTY</button>
+      <button type="button" id="hvsPropertyInviteContinue">CONTINUE EXPLORING</button>
+    </div>
+  </section>
+</div>
+
+<!-- PROPERTY SELECTOR — opened manually from Personalize or the view invitation. -->
 <div id="hvsPropertyPrompt" role="presentation" aria-hidden="true">
   <section id="hvsPropertyDialog" role="dialog" aria-modal="false" aria-label="Choose your property">
     <header class="hvsMapHeading">
@@ -5922,10 +5984,10 @@ function setEditMenuRoom(room) {
         window.homeViewShowLayoutOfferOnce?.();
         return;
     }
-    // PROPERTY_SELECTOR — one-time introduction; do not overwrite the
-    // previous room or reset the player's currently open interface.
+    // PROPERTY VIEW INVITATION: stepping outside offers the lot map,
+    // but never opens it unless the user explicitly chooses to.
     if (typeof room === 'string' && room.trim() === 'chooseProperty') {
-        window.homeViewShowPropertyOfferOnce?.();
+        window.homeViewShowPropertyInvitation?.();
         return;
     }
     // A room trigger can be stale by the time the user clicks Personalize.
@@ -6867,8 +6929,8 @@ document.addEventListener('keydown',event=>{
     }
 },true);
 
-// PROPERTY_SELECTOR — both the one-time Unreal trigger and the always-
-// available Personalize action use this same dialog. Existing menu classes,
+// PROPERTY_SELECTOR — the map opens only after an explicit user action
+// from the outdoor invitation or the Personalize menu. Existing menu classes,
 // map tracking, calculator, and viewport state are preserved throughout.
 const hvsPropertyPrompt=document.getElementById('hvsPropertyPrompt');
 const hvsPropertyOne=document.getElementById('hvsPropertyOne');
@@ -6900,6 +6962,7 @@ function hvsClosePropertyPrompt(){
     if(document.activeElement?.closest?.('#hvsPropertyPrompt'))document.activeElement.blur();
 }
 function hvsShowPropertyPrompt(){
+    hvsClosePropertyInvitation();
     if(hvsPropertyPrompt.classList.contains('is-open'))return false;
     hvsRefreshPropertyChoices();
     document.body.classList.add('hvs-property-offer-visible');
@@ -6908,21 +6971,60 @@ function hvsShowPropertyPrompt(){
     // Non-modal on purpose: do not steal focus from Unreal's keyboard controls.
     return true;
 }
-window.homeViewShowPropertyOfferOnce=function(){
-    if(window.homeViewPropertyOfferWasSeen?.())return false;
+// Unreal's {"EditMenuOptions":"chooseProperty"} is an OUTDOOR VIEW OFFER,
+// never a request to open the development map automatically. Both outdoor
+// triggers may show this invitation. Ignore rapid duplicate trigger messages.
+const hvsPropertyInvite=document.getElementById('hvsPropertyInvite');
+const hvsPropertyInviteChoose=document.getElementById('hvsPropertyInviteChoose');
+const hvsPropertyInviteContinue=document.getElementById('hvsPropertyInviteContinue');
+// Offer this information only once per active Home View visit, including
+// when Unreal sends the same outdoor trigger repeatedly or from two locations.
+let hvsPropertyInviteSeenThisRun=false;
+function hvsClosePropertyInvitation(){
+    if(!hvsPropertyInvite.classList.contains('is-open'))return;
+    hvsPropertyInvite.classList.remove('is-open');
+    hvsPropertyInvite.setAttribute('aria-hidden','true');
+    // Outdoor view invitation is non-modal: it never suppresses the game UI.
+    if(document.activeElement?.closest?.('#hvsPropertyInvite'))document.activeElement.blur();
+}
+function hvsShowPropertyInvitation(){
+    // A local profile that has already seen the offer should not get it again;
+    // the in-memory flag also survives a guest-to-admin switch in this visit.
+    if(hvsPropertyInviteSeenThisRun || window.homeViewPropertyOfferWasSeen?.())return false;
+    if(document.body.classList.contains('hvs-session-ended'))return false;
     if(document.body.classList.contains('hvs-movie-active')){
-        // Defer the initial property offer until the cutscene ends.
         window.homeViewPendingPropertyOffer=true;
         return false;
     }
+    if(hvsPropertyInvite.classList.contains('is-open')||hvsPropertyPrompt.classList.contains('is-open'))return false;
+    // Mark it as seen when first displayed, not on dismissal, so neither
+    // outdoor trigger can show it again after Continue, Escape, or Choose.
+    hvsPropertyInviteSeenThisRun=true;
     window.homeViewMarkPropertyOfferSeen?.();
-    return hvsShowPropertyPrompt();
-};
+    // Keep game and menu input available outside the invitation card.
+    hvsPropertyInvite.classList.add('is-open');
+    hvsPropertyInvite.setAttribute('aria-hidden','false');
+    return true;
+}
+window.homeViewShowPropertyInvitation=hvsShowPropertyInvitation;
+window.homeViewShowPropertyOfferOnce=hvsShowPropertyInvitation; // legacy compatibility
 window.homeViewOpenPropertySelector=function(){
+    // If the user already opened the map manually, do not later show the tip.
+    hvsPropertyInviteSeenThisRun=true;
     window.homeViewMarkPropertyOfferSeen?.();
     return hvsShowPropertyPrompt();
 };
-window.homeViewTestPropertyOffer=()=>hvsShowPropertyPrompt();
+window.homeViewTestPropertyOffer=()=>hvsShowPropertyInvitation();
+hvsPropertyInviteChoose.addEventListener('click',()=>{
+    hvsClosePropertyInvitation();
+    window.homeViewOpenPropertySelector();
+});
+hvsPropertyInviteContinue.addEventListener('click',hvsClosePropertyInvitation);
+document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&hvsPropertyInvite.classList.contains('is-open')){
+        event.preventDefault();event.stopPropagation();hvsClosePropertyInvitation();
+    }
+},true);
 function hvsChooseProperty(property){
     if(!['one','two'].includes(property) || window.homeViewGetPropertyChoice?.()===property)return;
     window.homeViewSavePropertyChoice?.(property);
@@ -8573,7 +8675,7 @@ function hvsMovieFinish(){
         hvsMovieTargetsSuspended=false;
         if(window.homeViewPendingPropertyOffer){
             window.homeViewPendingPropertyOffer=false;
-            window.homeViewShowPropertyOfferOnce?.();
+            window.homeViewShowPropertyInvitation?.();
         }
     });
 }
@@ -9126,11 +9228,11 @@ function getStreamingViewportResolution() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   let width = Math.round(cssWidth * dpr);
   let height = Math.round(cssHeight * dpr);
-  // Mobile resolution test: cap the LONGEST render edge at 1600 physical pixels.
+  // Mobile resolution test: cap the LONGEST render edge at 1280 physical pixels.
   // Preserve the browser aspect ratio, and never upscale a smaller viewport.
   // No bitrate, FPS, decoder, desktop, reconnection or session changes.
   if (window.matchMedia('(pointer:coarse)').matches) {
-    const factor = Math.min(1, 1600 / Math.max(width, height));
+    const factor = Math.min(1, 1280 / Math.max(width, height));
     width = Math.round(width * factor);
     height = Math.round(height * factor);
   }
