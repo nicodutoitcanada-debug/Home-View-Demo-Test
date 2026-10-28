@@ -4908,92 +4908,29 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 }
 @media(prefers-reduced-motion:reduce){#hvsPropertyPrompt #hvsPropertyDialog {transition-duration:.01ms!important;}}
 </style>
-
-<style id="hvs-property-view-invitation-styles">
-/* Outdoor Unreal chooseProperty trigger: invitation first, map only by choice. */
-#hvsPropertyInvite {
- position:fixed;inset:0;z-index:16010;display:flex;align-items:center;justify-content:center;
- padding:clamp(10px,3dvh,20px);box-sizing:border-box;
- background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;
- opacity:0;visibility:hidden;pointer-events:none;
- transition:opacity .34s ease,visibility 0s linear .34s;
+<style>
+/* Layout previews, kept inside the existing first-floor selector.
+   The original choice button IDs and selection handlers remain unchanged. */
+#upstairsLayoutDialog .layoutChoiceOptions {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;
 }
-#hvsPropertyInvite.is-open {opacity:1;visibility:visible;pointer-events:none;transition-delay:0s;}
-#hvsPropertyInviteDialog {
- pointer-events:auto;
- position:relative;width:min(435px,96vw);max-height:calc(100dvh - 20px);overflow:auto;
- padding:clamp(17px,3dvh,27px) clamp(16px,3vw,25px) 19px;box-sizing:border-box;
- border-radius:23px;border:1px solid rgba(255,255,255,.22);
- background:linear-gradient(155deg,rgba(112,127,131,.51),rgba(29,39,43,.83) 38%,rgba(14,22,27,.92));
- box-shadow:0 18px 54px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.17);
- -webkit-backdrop-filter:blur(13px) saturate(120%);backdrop-filter:blur(13px) saturate(120%);
- color:#fff;font-family:"HomeView Myriad",Arial,sans-serif;text-align:center;
- transform:translateY(14px) scale(.96);transition:transform .48s cubic-bezier(.22,1,.36,1);
+#upstairsLayoutDialog .hvsLayoutPreviewChoice {min-width:0;display:flex;flex-direction:column;gap:8px;}
+#upstairsLayoutDialog .hvsLayoutPreviewImage {
+  display:block;width:100%;height:clamp(76px,15vh,145px);object-fit:contain;
+  box-sizing:border-box;padding:5px;border-radius:12px;
+  background:rgba(255,255,255,.92);border:1px solid rgba(255,255,255,.27);
 }
-#hvsPropertyInvite.is-open #hvsPropertyInviteDialog {transform:translateY(0) scale(1);}
-#hvsPropertyInviteDialog h2 {
- margin:0 0 12px;font-size:clamp(16px,2.6dvh,21px);font-weight:700;line-height:1.2;letter-spacing:.075em;
+#upstairsLayoutDialog .hvsLayoutPreviewChoice .layoutChoiceButton {
+  width:100%;min-height:44px;height:auto;padding:9px 7px;
+  white-space:normal;overflow-wrap:break-word;border-radius:15px;
 }
-#hvsPropertyInviteDialog p {
- margin:0 0 19px;font-size:clamp(12px,2dvh,14px);font-weight:300;line-height:1.48;
- color:rgba(255,255,255,.89);
-}
-#hvsPropertyInviteActions {display:grid;gap:9px;}
-#hvsPropertyInviteActions button {
- appearance:none;min-height:43px;padding:10px 12px;width:100%;border-radius:999px;
- cursor:pointer;font:700 clamp(10px,1.65dvh,12px)/1.2 "HomeView Myriad",Arial,sans-serif;
- letter-spacing:.07em;color:#fff;touch-action:manipulation;
-}
-#hvsPropertyInviteChoose {border:1px solid rgba(255,105,53,.78);background:linear-gradient(180deg,rgba(249,79,25,.88),rgba(167,45,14,.91));}
-#hvsPropertyInviteContinue {border:1px solid rgba(255,255,255,.19);background:rgba(10,16,19,.35);}
-#hvsPropertyInviteActions button:focus-visible {outline:2px solid #ff6935;outline-offset:3px;}
-body.hvs-movie-active #hvsPropertyInvite {visibility:hidden!important;pointer-events:none!important;}
-@media(max-height:430px) and (orientation:landscape) {
- #hvsPropertyInviteDialog {padding:14px 17px 12px;}
- #hvsPropertyInviteDialog h2 {margin-bottom:7px;}
- #hvsPropertyInviteDialog p {margin-bottom:11px;}
- #hvsPropertyInviteActions {grid-template-columns:1fr 1fr;gap:8px;}
- #hvsPropertyInviteActions button {min-height:37px;padding:8px 6px;font-size:10px;}
-}
-@media(prefers-reduced-motion:reduce) {#hvsPropertyInvite,#hvsPropertyInviteDialog {transition-duration:.01ms!important;}}
-</style>
-
-<style id="hvs-live-mobile-diagnostics-css">
-/* Diagnostic-only test overlay. It never intercepts Unreal, menu, or touch input. */
-#hvsLiveMobileStats {
-  display:none; position:fixed;
-  top:max(8px,env(safe-area-inset-top,0px));
-  left:max(8px,env(safe-area-inset-left,0px));
-  z-index:22000; width:min(285px,calc(100vw - 20px));
-  box-sizing:border-box; padding:9px 11px 8px;
-  background:rgba(6,11,16,.90); color:#f4f6f7;
-  border:1px solid rgba(255,255,255,.26); border-radius:12px;
-  box-shadow:0 6px 20px rgba(0,0,0,.23);
-  font-family:"HomeView Myriad",Arial,sans-serif; line-height:1.27;
-  pointer-events:none!important; user-select:none; -webkit-user-select:none;
-  max-height:calc(100dvh - 16px); overflow:hidden;
-}
-#hvsLiveMobileStats, #hvsLiveMobileStats * {pointer-events:none!important;}
-#hvsLiveMobileStats .hvsDiagTitle{font-weight:700;letter-spacing:.085em;font-size:11px;
-  color:#fff;margin:0 0 7px;display:flex;justify-content:space-between;gap:5px;}
-#hvsLiveMobileStats .hvsDiagTitle small{font-size:9px;color:#ff8b5d;font-weight:700;letter-spacing:.07em;}
-#hvsLiveMobileStats .hvsDiagGrid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 9px;}
-#hvsLiveMobileStats .hvsDiagLabel{color:rgba(235,239,241,.76);font-size:10.5px;white-space:nowrap;}
-#hvsLiveMobileStats .hvsDiagValue{font:600 11px/1.27 ui-monospace,SFMono-Regular,Consolas,monospace;
-  color:#fff;text-align:right;white-space:nowrap;}
-#hvsLiveMobileStats .hvsDiagFoot{border-top:1px solid rgba(255,255,255,.16);
-  padding-top:5px;margin-top:7px;color:rgba(235,239,241,.67);font-size:9px;}
-body.hvs-session-ended #hvsLiveMobileStats {display:none!important;}
-@media(max-height:410px){
-  #hvsLiveMobileStats{padding:6px 9px;width:min(272px,calc(100vw - 20px));}
-  #hvsLiveMobileStats .hvsDiagTitle{margin-bottom:4px;font-size:10px;}
-  #hvsLiveMobileStats .hvsDiagGrid{gap:1px 8px;}
-  #hvsLiveMobileStats .hvsDiagLabel{font-size:10px;}
-  #hvsLiveMobileStats .hvsDiagValue{font-size:10px;}
-  #hvsLiveMobileStats .hvsDiagFoot{margin-top:4px;padding-top:4px;font-size:8px;}
+@media(max-width:650px), (max-height:460px) {
+  #upstairsLayoutDialog .layoutChoiceOptions {gap:7px;}
+  #upstairsLayoutDialog .hvsLayoutPreviewChoice {gap:5px;}
+  #upstairsLayoutDialog .hvsLayoutPreviewImage {height:clamp(54px,18vh,100px);padding:3px;border-radius:8px;}
+  #upstairsLayoutDialog .hvsLayoutPreviewChoice .layoutChoiceButton {min-height:36px;font-size:9px;padding:7px 5px;}
 }
 </style>
-
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <!-- Stream audio starts muted on devices requiring a user gesture.
@@ -5285,8 +5222,14 @@ body.hvs-session-ended #hvsLiveMobileStats {display:none!important;}
                 </div>
                 <p class="layoutChoiceText">Keep an open lounge for relaxing, or turn the space into an extra bedroom with new walls and a door.</p>
                 <div class="layoutChoiceOptions">
-                    <button id="upstairsLayoutLounge" class="layoutChoiceButton is-selected" type="button" aria-pressed="true">BONUS LOUNGE · INCLUDED</button>
-                    <button id="upstairsLayoutBedroom" class="layoutChoiceButton" type="button" aria-pressed="false">BONUS BEDROOM · +$4,500</button>
+                    <div class="hvsLayoutPreviewChoice">
+                        <img class="hvsLayoutPreviewImage" src="thumb-lounge.png" alt="Floor plan preview of the bonus lounge" loading="lazy" decoding="async">
+                        <button id="upstairsLayoutLounge" class="layoutChoiceButton is-selected" type="button" aria-pressed="true">BONUS LOUNGE · INCLUDED</button>
+                    </div>
+                    <div class="hvsLayoutPreviewChoice">
+                        <img class="hvsLayoutPreviewImage" src="thumb-bedroom.png" alt="Floor plan preview of the bonus bedroom" loading="lazy" decoding="async">
+                        <button id="upstairsLayoutBedroom" class="layoutChoiceButton" type="button" aria-pressed="false">BONUS BEDROOM · +$4,500</button>
+                    </div>
                 </div>
                 <p class="layoutChoiceFoot">Bedroom upgrade price is an estimate in CAD.</p>
             </section>
@@ -5585,20 +5528,7 @@ body.hvs-session-ended #hvsLiveMobileStats {display:none!important;}
 <!-- Persistent, non-interactive admin mode reminder. -->
 <div id="hvsAdminModeBadge" role="status" aria-live="polite" hidden></div>
 
-<!-- Outside-view invitation: shown when Unreal sends EditMenuOptions: chooseProperty.
-     Opening the lot map is always a deliberate user action. -->
-<div id="hvsPropertyInvite" role="presentation" aria-hidden="true">
-  <section id="hvsPropertyInviteDialog" role="dialog" aria-modal="false" aria-labelledby="hvsPropertyInviteTitle" aria-describedby="hvsPropertyInviteDescription">
-    <h2 id="hvsPropertyInviteTitle">DISCOVER YOUR VIEW</h2>
-    <p id="hvsPropertyInviteDescription">Every homesite has its own view. You can explore the view from another available lot in this development, or stay on your current property and continue exploring.</p>
-    <div id="hvsPropertyInviteActions">
-      <button type="button" id="hvsPropertyInviteChoose">CHOOSE A PROPERTY</button>
-      <button type="button" id="hvsPropertyInviteContinue">CONTINUE EXPLORING</button>
-    </div>
-  </section>
-</div>
-
-<!-- PROPERTY SELECTOR — opened manually from Personalize or the view invitation. -->
+<!-- PROPERTY SELECTOR — automatic first-time offer / manual Personalize action. -->
 <div id="hvsPropertyPrompt" role="presentation" aria-hidden="true">
   <section id="hvsPropertyDialog" role="dialog" aria-modal="false" aria-label="Choose your property">
     <header class="hvsMapHeading">
@@ -6021,10 +5951,10 @@ function setEditMenuRoom(room) {
         window.homeViewShowLayoutOfferOnce?.();
         return;
     }
-    // PROPERTY VIEW INVITATION: stepping outside offers the lot map,
-    // but never opens it unless the user explicitly chooses to.
+    // PROPERTY_SELECTOR — one-time introduction; do not overwrite the
+    // previous room or reset the player's currently open interface.
     if (typeof room === 'string' && room.trim() === 'chooseProperty') {
-        window.homeViewShowPropertyInvitation?.();
+        window.homeViewShowPropertyOfferOnce?.();
         return;
     }
     // A room trigger can be stale by the time the user clicks Personalize.
@@ -6966,8 +6896,8 @@ document.addEventListener('keydown',event=>{
     }
 },true);
 
-// PROPERTY_SELECTOR — the map opens only after an explicit user action
-// from the outdoor invitation or the Personalize menu. Existing menu classes,
+// PROPERTY_SELECTOR — both the one-time Unreal trigger and the always-
+// available Personalize action use this same dialog. Existing menu classes,
 // map tracking, calculator, and viewport state are preserved throughout.
 const hvsPropertyPrompt=document.getElementById('hvsPropertyPrompt');
 const hvsPropertyOne=document.getElementById('hvsPropertyOne');
@@ -6999,7 +6929,6 @@ function hvsClosePropertyPrompt(){
     if(document.activeElement?.closest?.('#hvsPropertyPrompt'))document.activeElement.blur();
 }
 function hvsShowPropertyPrompt(){
-    hvsClosePropertyInvitation();
     if(hvsPropertyPrompt.classList.contains('is-open'))return false;
     hvsRefreshPropertyChoices();
     document.body.classList.add('hvs-property-offer-visible');
@@ -7008,60 +6937,21 @@ function hvsShowPropertyPrompt(){
     // Non-modal on purpose: do not steal focus from Unreal's keyboard controls.
     return true;
 }
-// Unreal's {"EditMenuOptions":"chooseProperty"} is an OUTDOOR VIEW OFFER,
-// never a request to open the development map automatically. Both outdoor
-// triggers may show this invitation. Ignore rapid duplicate trigger messages.
-const hvsPropertyInvite=document.getElementById('hvsPropertyInvite');
-const hvsPropertyInviteChoose=document.getElementById('hvsPropertyInviteChoose');
-const hvsPropertyInviteContinue=document.getElementById('hvsPropertyInviteContinue');
-// Offer this information only once per active Home View visit, including
-// when Unreal sends the same outdoor trigger repeatedly or from two locations.
-let hvsPropertyInviteSeenThisRun=false;
-function hvsClosePropertyInvitation(){
-    if(!hvsPropertyInvite.classList.contains('is-open'))return;
-    hvsPropertyInvite.classList.remove('is-open');
-    hvsPropertyInvite.setAttribute('aria-hidden','true');
-    // Outdoor view invitation is non-modal: it never suppresses the game UI.
-    if(document.activeElement?.closest?.('#hvsPropertyInvite'))document.activeElement.blur();
-}
-function hvsShowPropertyInvitation(){
-    // A local profile that has already seen the offer should not get it again;
-    // the in-memory flag also survives a guest-to-admin switch in this visit.
-    if(hvsPropertyInviteSeenThisRun || window.homeViewPropertyOfferWasSeen?.())return false;
-    if(document.body.classList.contains('hvs-session-ended'))return false;
+window.homeViewShowPropertyOfferOnce=function(){
+    if(window.homeViewPropertyOfferWasSeen?.())return false;
     if(document.body.classList.contains('hvs-movie-active')){
+        // Defer the initial property offer until the cutscene ends.
         window.homeViewPendingPropertyOffer=true;
         return false;
     }
-    if(hvsPropertyInvite.classList.contains('is-open')||hvsPropertyPrompt.classList.contains('is-open'))return false;
-    // Mark it as seen when first displayed, not on dismissal, so neither
-    // outdoor trigger can show it again after Continue, Escape, or Choose.
-    hvsPropertyInviteSeenThisRun=true;
-    window.homeViewMarkPropertyOfferSeen?.();
-    // Keep game and menu input available outside the invitation card.
-    hvsPropertyInvite.classList.add('is-open');
-    hvsPropertyInvite.setAttribute('aria-hidden','false');
-    return true;
-}
-window.homeViewShowPropertyInvitation=hvsShowPropertyInvitation;
-window.homeViewShowPropertyOfferOnce=hvsShowPropertyInvitation; // legacy compatibility
-window.homeViewOpenPropertySelector=function(){
-    // If the user already opened the map manually, do not later show the tip.
-    hvsPropertyInviteSeenThisRun=true;
     window.homeViewMarkPropertyOfferSeen?.();
     return hvsShowPropertyPrompt();
 };
-window.homeViewTestPropertyOffer=()=>hvsShowPropertyInvitation();
-hvsPropertyInviteChoose.addEventListener('click',()=>{
-    hvsClosePropertyInvitation();
-    window.homeViewOpenPropertySelector();
-});
-hvsPropertyInviteContinue.addEventListener('click',hvsClosePropertyInvitation);
-document.addEventListener('keydown',event=>{
-    if(event.key==='Escape'&&hvsPropertyInvite.classList.contains('is-open')){
-        event.preventDefault();event.stopPropagation();hvsClosePropertyInvitation();
-    }
-},true);
+window.homeViewOpenPropertySelector=function(){
+    window.homeViewMarkPropertyOfferSeen?.();
+    return hvsShowPropertyPrompt();
+};
+window.homeViewTestPropertyOffer=()=>hvsShowPropertyPrompt();
 function hvsChooseProperty(property){
     if(!['one','two'].includes(property) || window.homeViewGetPropertyChoice?.()===property)return;
     window.homeViewSavePropertyChoice?.(property);
@@ -8712,7 +8602,7 @@ function hvsMovieFinish(){
         hvsMovieTargetsSuspended=false;
         if(window.homeViewPendingPropertyOffer){
             window.homeViewPendingPropertyOffer=false;
-            window.homeViewShowPropertyInvitation?.();
+            window.homeViewShowPropertyOfferOnce?.();
         }
     });
 }
@@ -9255,7 +9145,6 @@ window.homeViewSend = sendUnreal;
 // ============================================================================
 let unrealIsReadyForResolution = false;
 let lastSentViewportResolution = '';
-let hvsResolutionLastSendStatus = 'not sent';
 let viewportSyncTimer = null;
 let viewportRetryTimers = [];
 function getStreamingViewportResolution() {
@@ -9266,11 +9155,11 @@ function getStreamingViewportResolution() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   let width = Math.round(cssWidth * dpr);
   let height = Math.round(cssHeight * dpr);
-  // Mobile resolution test: cap the LONGEST render edge at 1600 physical pixels.
+  // Mobile resolution test: cap the LONGEST render edge at 1440 physical pixels.
   // Preserve the browser aspect ratio, and never upscale a smaller viewport.
   // No bitrate, FPS, decoder, desktop, reconnection or session changes.
   if (window.matchMedia('(pointer:coarse)').matches) {
-    const factor = Math.min(1, 1600 / Math.max(width, height));
+    const factor = Math.min(1, 1440 / Math.max(width, height));
     width = Math.round(width * factor);
     height = Math.round(height * factor);
   }
@@ -9285,99 +9174,16 @@ function hvsStreamAspectMismatched() {
 }
 function sendViewportResolutionToUnreal(reason='viewport', force=false) {
   if (screenshotRequestInFlight || screenshotBlob || document.hidden ||
-      window.homeViewSessionIntentional || homeViewTeardownStarted ||
-      !unrealIsReadyForResolution || !application) return false;
+      !unrealIsReadyForResolution || !application) return;
   const {width,height} = getStreamingViewportResolution();
   const key = `${width}x${height}`;
-  if (!force && key === lastSentViewportResolution) return false;
-  // UE5.6 Pixel Streaming's NATIVE resolution command travels over the
-  // stream Command channel, unlike our Blueprint/UIInteraction consoleCommand.
-  // See Epic's UE5.6 WebRtcPlayerController.ts onMatchViewportResolutionCallback.
-  // Do not send both commands: that would make testing inconclusive.
-  const stream = dev_mode ? localStream : window.homeViewArcwareAudioStream;
-  if (typeof stream?.emitCommand !== 'function') {
-    console.warn('[STREAM] Native Pixel Streaming emitCommand is unavailable');
-    hvsResolutionLastSendStatus = 'native command unavailable';
-    return false;
+  if (!force && key === lastSentViewportResolution) return;
+  const command = `r.SetRes ${key}w`;
+  if (sendUnreal({console:true, Command:command})) {
+    lastSentViewportResolution = key;
+    console.info(`[STREAM] ${reason}: ${command}`);
   }
-  try {
-    const accepted = stream.emitCommand({'Resolution.Width':width,'Resolution.Height':height});
-    if (accepted === true) {
-      lastSentViewportResolution = key;
-      hvsResolutionLastSendStatus = 'native request sent';
-      console.info(`[STREAM] ${reason}: native resolution request ${key}`);
-      return true; // Only accepted by frontend; output resolution not yet confirmed.
-    }
-    hvsResolutionLastSendStatus = 'native request rejected';
-    console.warn('[STREAM] Native resolution request not accepted:', key, accepted);
-  } catch (error) {
-    hvsResolutionLastSendStatus = 'native request error';
-    console.warn('[STREAM] Native resolution request failed:',error);
-  }
-  return false;
 }
-// Mobile-only resolution verification. Uses UE5.6 native Command channel.
-// Unlike an aspect-ratio-only check,
-// compare the ACTUAL received video dimensions with the requested target.
-// A successful native Command send does not prove Unreal or Arcware applied it.
-// The verifier waits for playable video, retries at most TWICE, then stops.
-// It never restarts/reconnects a stream or changes bitrate/FPS.
-const HVS_RESOLUTION_VERIFY_MAX_RETRIES = 2;
-let hvsResolutionVerifyTimer = null;
-let hvsResolutionVerifyStartedAt = 0;
-let hvsResolutionVerifyLastRetryAt = 0;
-let hvsResolutionVerifyRetries = 0;
-let hvsResolutionVerifyState = 'waiting for video';
-const hvsResolutionVerifyMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-  (window.matchMedia('(pointer:coarse)').matches && Math.min(innerWidth,innerHeight)<900);
-function hvsStopResolutionVerification() {
-  if(hvsResolutionVerifyTimer!==null)clearInterval(hvsResolutionVerifyTimer);
-  hvsResolutionVerifyTimer=null;
-}
-function hvsStartResolutionVerification() {
-  hvsStopResolutionVerification();
-  if(!hvsResolutionVerifyMobile || window.homeViewSessionIntentional || homeViewTeardownStarted)return;
-  hvsResolutionVerifyStartedAt=Date.now();
-  hvsResolutionVerifyLastRetryAt=0;
-  hvsResolutionVerifyRetries=0;
-  hvsResolutionVerifyState='waiting for video';
-  hvsResolutionVerifyTimer=setInterval(()=>{
-    if(window.homeViewSessionIntentional || homeViewTeardownStarted){
-      hvsResolutionVerifyState='session ended';hvsStopResolutionVerification();return;
-    }
-    if(!levelReady || !unrealIsReadyForResolution || !application ||
-       document.hidden || hvsScreenshotProtected())return;
-    const video=document.querySelector('#video-container video');
-    if(!video?.videoWidth || !video?.videoHeight || video.readyState<2)return;
-    const expected=getStreamingViewportResolution();
-    const actual={width:video.videoWidth,height:video.videoHeight};
-    const matches=Math.abs(actual.width-expected.width)<=8 &&
-                  Math.abs(actual.height-expected.height)<=8;
-    if(matches){hvsResolutionVerifyState='matched';hvsStopResolutionVerification();return;}
-    hvsResolutionVerifyState=`mismatch (${hvsResolutionVerifyRetries}/${HVS_RESOLUTION_VERIFY_MAX_RETRIES} retries)`;
-    const elapsed=Date.now()-hvsResolutionVerifyStartedAt;
-    if(elapsed>35000 || hvsResolutionVerifyRetries>=HVS_RESOLUTION_VERIFY_MAX_RETRIES){
-      hvsResolutionVerifyState='still mismatched (stopped)';
-      console.warn('[STREAM] Resolution remains',actual.width+'x'+actual.height,
-        'after native resize retries; verify UE output and Arcware encoder configuration.');
-      hvsStopResolutionVerification();return;
-    }
-    if(elapsed<6500 || (hvsResolutionVerifyLastRetryAt && Date.now()-hvsResolutionVerifyLastRetryAt<5500))return;
-    hvsResolutionVerifyLastRetryAt=Date.now();
-    // Force a resend only on a measured mismatch with already playing video.
-    // No player resize events, SDK reconnects, or new paid Arcware sessions.
-    if(sendViewportResolutionToUnreal('received video still mismatched',true)){
-      hvsResolutionVerifyRetries++;
-      hvsResolutionVerifyState=`retry sent (${hvsResolutionVerifyRetries}/${HVS_RESOLUTION_VERIFY_MAX_RETRIES})`;
-    }
-  },1500);
-}
-window.homeViewResolutionVerificationStatus=()=>({
-  state:hvsResolutionVerifyState,retries:hvsResolutionVerifyRetries,
-  maxRetries:HVS_RESOLUTION_VERIFY_MAX_RETRIES,
-  requested:getStreamingViewportResolution(),
-  received:(()=>{const v=document.querySelector('#video-container video');return v?{width:v.videoWidth,height:v.videoHeight}:null;})()
-});
 // LUX-style one-shot layout refresh. A fresh Pixel Streaming connection can
 // start with a 16:9 *decoded track* despite the phone already being landscape.
 // r.SetRes alone does not necessarily make the browser player's viewport
@@ -9491,8 +9297,6 @@ function startViewportResolutionSync() {
   window.addEventListener('orientationchange',()=>{
     update('orientation',true);
     recheckOrientation();
-    // A new orientation produces a new target; verify it with a fresh bounded window.
-    if(levelReady)setTimeout(hvsStartResolutionVerification,450);
   },{passive:true});
   if(typeof ResizeObserver!=='undefined')
     new ResizeObserver(()=>{
@@ -9808,7 +9612,6 @@ function receiveUnrealResponse(response) {
       // is only considered once actual video dimensions are available.
       setTimeout(() => sendViewportResolutionToUnreal('Home View level ready', true), 380);
       hvsRefreshInitialPlayerFit();
-      hvsStartResolutionVerification();
       // On initial mobile connection the Unreal video may still be 16:9 even
       // though the phone's stage is much wider. Rotation fixed this before;
       // perform the same aspect verification at startup with BOUNDED retries.
@@ -10357,127 +10160,6 @@ function hvsStartAdaptiveQuality(config){
   hvsQualityTimer=setInterval(hvsMonitorQuality,5000);
 }
 
-
-// HVS_MOBILE_STREAM_DIAGNOSTICS_2026_10_28
-// Screenshot-friendly, read-only measurements. No changes to bitrate, resolution,
-// WebRTC peer, Arcware connection, game input, or automatic recovery.
-(() => {
-  const isMobileTest=HVS_QUALITY_MOBILE || (/Android|iPhone|iPod|iPad/i.test(navigator.userAgent));
-  if(!isMobileTest)return;
-  const panel=document.getElementById('hvsLiveMobileStats');
-  if(!panel)return;
-  panel.style.display='block';
-  const fields={
-    target:'hvsDiagTarget',command:'hvsDiagCommand',video:'hvsDiagVideo',
-    verification:'hvsDiagVerification',
-    fps:'hvsDiagFPS',bitrate:'hvsDiagBitrate',cap:'hvsDiagCap',
-    rtt:'hvsDiagRTT',loss:'hvsDiagLoss',buffer:'hvsDiagBuffer',
-    decode:'hvsDiagDecode',connection:'hvsDiagConnection'
-  };
-  const nodes={};
-  for(const [key,id] of Object.entries(fields))nodes[key]=document.getElementById(id);
-  const set=(key,value)=>{if(nodes[key])nodes[key].textContent=String(value);};
-  const fmtSize=(w,h)=>w>0&&h>0?`${w} × ${h}`:'waiting';
-  const fmtMbps=kbps=>Number.isFinite(kbps)?(kbps/1000).toFixed(2)+' Mbps':'N/A';
-  let lastStats=null;
-  let previousVideoQuality=null;
-  let running=false;
-  let snapshot={};
-  window.homeViewMobileDiagSnapshot=()=>({...snapshot});
-
-  async function sample(){
-    if(document.hidden||window.homeViewSessionIntentional||homeViewTeardownStarted||running)return;
-    running=true;
-    try{
-      const video=document.querySelector('#video-container video');
-      const requested=getStreamingViewportResolution();
-      const pc=hvsRtcPeer();
-      const capKbps=HVS_QUALITY_LEVELS[hvsQualityIndex];
-      const values={
-        target:fmtSize(requested.width,requested.height),
-        command:lastSentViewportResolution?lastSentViewportResolution.replace('x',' × '):hvsResolutionLastSendStatus,
-        video:video?.videoWidth&&video?.videoHeight?fmtSize(video.videoWidth,video.videoHeight):'waiting',
-        verification:hvsResolutionVerifyState,
-        fps:'N/A',bitrate:'N/A',cap:fmtMbps(capKbps),rtt:'N/A',loss:'N/A',
-        buffer:'N/A',decode:'N/A',
-        connection:pc?.connectionState||pc?.iceConnectionState||(video?.paused?'video paused':'connecting')
-      };
-      if(video?.paused && video.srcObject)values.connection+=' / paused';
-
-      // Fallback for browsers not exposing the PeerConnection to the Arcware SDK.
-      if(hvsQualityMeasured){
-        if(Number.isFinite(hvsQualityMeasured.fps))values.fps=hvsQualityMeasured.fps.toFixed(1);
-        if(Number.isFinite(hvsQualityMeasured.kbps))values.bitrate=fmtMbps(hvsQualityMeasured.kbps);
-        if(Number.isFinite(hvsQualityMeasured.loss))values.loss=(hvsQualityMeasured.loss*100).toFixed(1)+'%';
-        if(Number.isFinite(hvsQualityMeasured.rtt))values.rtt=Math.round(hvsQualityMeasured.rtt*1000)+' ms';
-      }
-      if(pc && typeof pc.getStats==='function'){
-        const report=await pc.getStats();
-        if(window.homeViewSessionIntentional)return;
-        let inbound=null,candidate=null,selectedId=null;
-        report.forEach(row=>{
-          if(row.type==='inbound-rtp'&&(row.kind==='video'||row.mediaType==='video')&&!row.isRemote)
-            inbound=row;
-          if(row.type==='transport'&&row.selectedCandidatePairId)selectedId=row.selectedCandidatePairId;
-          if(row.type==='candidate-pair'&&row.state==='succeeded'&&(row.selected||row.nominated))
-            candidate=row;
-        });
-        if(selectedId && report.get(selectedId))candidate=report.get(selectedId);
-        if(Number.isFinite(candidate?.currentRoundTripTime))
-          values.rtt=Math.round(candidate.currentRoundTripTime*1000)+' ms';
-        if(inbound){
-          const next={
-            id:inbound.id,t:inbound.timestamp,
-            bytes:Number(inbound.bytesReceived),decoded:Number(inbound.framesDecoded),
-            received:Number(inbound.packetsReceived),lost:Number(inbound.packetsLost),
-            bufferDelay:Number(inbound.jitterBufferDelay),
-            bufferCount:Number(inbound.jitterBufferEmittedCount),
-            decodeTime:Number(inbound.totalDecodeTime)
-          };
-          if(lastStats?.id===next.id && next.t>lastStats.t){
-            const seconds=(next.t-lastStats.t)/1000;
-            const delta=(key)=>next[key]-lastStats[key];
-            if(seconds>.25 && seconds<30){
-              if(Number.isFinite(delta('bytes')))
-                values.bitrate=fmtMbps(Math.max(0,delta('bytes'))*8/seconds/1000);
-              if(Number.isFinite(delta('decoded')))
-                values.fps=(Math.max(0,delta('decoded'))/seconds).toFixed(1);
-              const packets=delta('received'),lost=delta('lost');
-              if(Number.isFinite(packets)&&Number.isFinite(lost))
-                values.loss=(100*Math.max(0,lost)/Math.max(1,Math.max(0,packets)+Math.max(0,lost))).toFixed(1)+'%';
-              if(Number.isFinite(delta('bufferDelay'))&&Number.isFinite(delta('bufferCount'))&&delta('bufferCount')>0)
-                values.buffer=(Math.max(0,delta('bufferDelay'))/delta('bufferCount')*1000).toFixed(0)+' ms';
-              if(Number.isFinite(delta('decodeTime'))&&Number.isFinite(delta('decoded'))&&delta('decoded')>0)
-                values.decode=(Math.max(0,delta('decodeTime'))/delta('decoded')*1000).toFixed(1)+' ms';
-            }
-          }
-          lastStats=next;
-        }
-      }
-      // If the peer isn't accessible, HTMLVideoElement still reports presented frames
-      // on many browsers. This is only a fallback, never added to WebRTC fps.
-      if(values.fps==='N/A' && typeof video?.getVideoPlaybackQuality==='function'){
-        const now=performance.now();
-        const quality=video.getVideoPlaybackQuality();
-        if(previousVideoQuality && now>previousVideoQuality.t){
-          const secs=(now-previousVideoQuality.t)/1000;
-          if(secs>.25 && secs<30)
-            values.fps=(Math.max(0,quality.totalVideoFrames-previousVideoQuality.frames)/secs).toFixed(1)+'*';
-        }
-        previousVideoQuality={t:now,frames:quality.totalVideoFrames};
-      }
-      snapshot={...values, mobile:true, requestedMaxKbps:capKbps, at:new Date().toISOString()};
-      for(const [key,val] of Object.entries(values))set(key,val);
-    }catch(error){
-      console.debug('[HOME VIEW MOBILE DIAGNOSTICS] Statistics unavailable:',error?.message||error);
-      set('connection','stats unavailable');
-    }finally{running=false;}
-  }
-  sample();
-  setInterval(sample,2000);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden){lastStats=null;previousVideoQuality=null;sample();}});
-})();
-
 // INTENTIONAL VS UNEXPECTED DISCONNECT — SEARCH FOR: HVS_STREAM_END
 // Adapted from the proven LUX frontend: explicitly mark an intentional end,
 // block SDK reconnect, send end:session once, then release the streaming session.
@@ -10518,7 +10200,6 @@ window.homeViewEndSession=async(message='Your session has ended.')=>{
   hvsRecoveryProbeToken++;
   hvsRecoveryInProgress=false;
   window.homeViewStopAdaptiveQuality?.();
-  hvsStopResolutionVerification();
   // The intentional bit is set BEFORE the end command so SDK disconnects do not
   // surface as an error and trigger another Arcware reconnection.
   homeViewDisableReconnect();
@@ -10631,7 +10312,7 @@ async function initialiseEpicLocalPlayer() {
       AutoConnect:true,
       AutoPlayVideo:true,
       StartVideoMuted:true,
-      MatchViewportRes:false, // HVS issues capped native resize requests explicitly
+      MatchViewportRes:true,
       HoveringMouse:true,
       FakeMouseWithTouches:true,
       WaitForStreamer:true,
@@ -10684,7 +10365,6 @@ if (dev_mode) {
     const setup = new ArcwareInit(
       { shareId:SHARE_ID },
       { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
-          MatchViewportRes:false, // Do not compete with our 1600px mobile cap
           WebRTCMaxBitrate:HVS_QUALITY_LEVELS[hvsQualityIndex],
           WebRTCMinBitrate:0,
           // LUX uses StartVideoMuted:true. Make mobile equally autoplay-safe
@@ -11379,25 +11059,4 @@ body.hvs-session-ended #hvsRotateOverlay {display:none!important;pointer-events:
   update();
 })();
 </script>
-
-<!-- Mobile-only, read-only streaming diagnostics. No buttons and no click blocker. -->
-<div id="hvsLiveMobileStats" aria-label="Mobile streaming diagnostics" role="status">
-  <div class="hvsDiagTitle"><span>HOME VIEW · STREAM TEST</span><small>LIVE</small></div>
-  <div class="hvsDiagGrid">
-    <span class="hvsDiagLabel">Render target</span><span class="hvsDiagValue" id="hvsDiagTarget">waiting</span>
-    <span class="hvsDiagLabel">Native resize sent</span><span class="hvsDiagValue" id="hvsDiagCommand">not sent</span>
-    <span class="hvsDiagLabel">Received video</span><span class="hvsDiagValue" id="hvsDiagVideo">waiting</span>
-    <span class="hvsDiagLabel">Resolution check</span><span class="hvsDiagValue" id="hvsDiagVerification">waiting</span>
-    <span class="hvsDiagLabel">Decoded FPS</span><span class="hvsDiagValue" id="hvsDiagFPS">N/A</span>
-    <span class="hvsDiagLabel">Received bitrate</span><span class="hvsDiagValue" id="hvsDiagBitrate">N/A</span>
-    <span class="hvsDiagLabel">Requested bitrate cap</span><span class="hvsDiagValue" id="hvsDiagCap">N/A</span>
-    <span class="hvsDiagLabel">Network RTT</span><span class="hvsDiagValue" id="hvsDiagRTT">N/A</span>
-    <span class="hvsDiagLabel">Packet loss</span><span class="hvsDiagValue" id="hvsDiagLoss">N/A</span>
-    <span class="hvsDiagLabel">Frame buffer delay</span><span class="hvsDiagValue" id="hvsDiagBuffer">N/A</span>
-    <span class="hvsDiagLabel">Decode time / frame</span><span class="hvsDiagValue" id="hvsDiagDecode">N/A</span>
-    <span class="hvsDiagLabel">Connection</span><span class="hvsDiagValue" id="hvsDiagConnection">connecting</span>
-  </div>
-  <div class="hvsDiagFoot">Requested ≠ confirmed. Compare command with received video.</div>
-</div>
-
 </body></html>
