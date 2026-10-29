@@ -3038,8 +3038,13 @@ protected price storage, and user profile database.
     font-size:14px;line-height:1.45;font-weight:300;color:rgba(255,255,255,.88);
     margin:0 0 19px;text-align:center;
 }
-#hvsLayoutRoomDialog .layoutOfferButtons {display:grid;gap:10px;}
-#hvsLayoutRoomDialog .layoutChoiceButton {min-height:47px;font-size:12px;}
+#hvsLayoutRoomDialog .layoutOfferButtons {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+#hvsLayoutRoomDialog .hvsLayoutPreviewChoice {min-width:0;display:flex;flex-direction:column;gap:8px;}
+#hvsLayoutRoomDialog .hvsLayoutPreviewImage {
+    display:block;width:100%;height:clamp(105px,20vh,190px);object-fit:contain;
+    box-sizing:border-box;padding:3px;border:0;border-radius:12px;background:transparent;
+}
+#hvsLayoutRoomDialog .layoutChoiceButton {width:100%;min-height:47px;height:auto;padding:10px 7px;font-size:12px;white-space:normal;overflow-wrap:break-word;}
 #hvsLayoutRoomDialog .layoutOfferDismiss {
     display:block;margin:16px auto 0;border:0;background:transparent;cursor:pointer;
     padding:7px 15px;color:rgba(255,255,255,.7);font:600 12px "HomeView Myriad",Arial,sans-serif;
@@ -3060,6 +3065,10 @@ body.hvs-layout-offer-visible #teleportStatusOverlay {visibility:hidden !importa
     #hvsLayoutRoomDialog {padding:18px 15px;border-radius:19px;}
     #hvsLayoutRoomDialog .layoutOfferTitle {font-size:17px;}
     #hvsLayoutRoomDialog .layoutOfferDescription {font-size:12px;}
+    #hvsLayoutRoomDialog .layoutOfferButtons {gap:8px;}
+    #hvsLayoutRoomDialog .hvsLayoutPreviewChoice {gap:5px;}
+    #hvsLayoutRoomDialog .hvsLayoutPreviewImage {height:clamp(76px,22vh,130px);padding:2px;border-radius:8px;}
+    #hvsLayoutRoomDialog .layoutChoiceButton {min-height:39px;padding:8px 5px;font-size:10px;}
 }
 @media(prefers-reduced-motion:reduce){
     #hvsLayoutRoomPrompt,#hvsLayoutRoomDialog {transition-duration:.01ms !important;}
@@ -4916,8 +4925,8 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 }
 #upstairsLayoutDialog .hvsLayoutPreviewChoice {min-width:0;display:flex;flex-direction:column;gap:8px;}
 #upstairsLayoutDialog .hvsLayoutPreviewImage {
-  display:block;width:100%;height:clamp(76px,15vh,145px);object-fit:contain;
-  box-sizing:border-box;padding:5px;border-radius:12px;
+  display:block;width:100%;height:clamp(96px,19vh,185px);object-fit:contain;
+  box-sizing:border-box;padding:3px;border-radius:12px;
   background:transparent;border:0;
 }
 #upstairsLayoutDialog .hvsLayoutPreviewChoice .layoutChoiceButton {
@@ -4927,7 +4936,7 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 @media(max-width:650px), (max-height:460px) {
   #upstairsLayoutDialog .layoutChoiceOptions {gap:7px;}
   #upstairsLayoutDialog .hvsLayoutPreviewChoice {gap:5px;}
-  #upstairsLayoutDialog .hvsLayoutPreviewImage {height:clamp(54px,18vh,100px);padding:3px;border-radius:8px;}
+  #upstairsLayoutDialog .hvsLayoutPreviewImage {height:clamp(70px,22vh,125px);padding:2px;border-radius:8px;}
   #upstairsLayoutDialog .hvsLayoutPreviewChoice .layoutChoiceButton {min-height:36px;font-size:9px;padding:7px 5px;}
 }
 </style>
@@ -5498,8 +5507,14 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
     <h2 class="layoutOfferTitle" id="hvsLayoutRoomTitle">MAKE THIS SPACE YOURS</h2>
     <p class="layoutOfferDescription" id="hvsLayoutRoomDescription">Enjoy an open upstairs lounge, or turn this space into an additional bedroom. You can change your choice anytime in <strong>Teleport Map → Upstairs Layout</strong>.</p>
     <div class="layoutOfferButtons">
-      <button id="hvsLayoutRoomLounge" class="layoutChoiceButton" type="button">BONUS LOUNGE · INCLUDED</button>
-      <button id="hvsLayoutRoomBedroom" class="layoutChoiceButton" type="button">BONUS BEDROOM · +$4,500</button>
+      <div class="hvsLayoutPreviewChoice">
+        <img class="hvsLayoutPreviewImage" src="thumb-lounge.png" alt="Floor plan preview of the bonus lounge" loading="lazy" decoding="async">
+        <button id="hvsLayoutRoomLounge" class="layoutChoiceButton" type="button">BONUS LOUNGE · INCLUDED</button>
+      </div>
+      <div class="hvsLayoutPreviewChoice">
+        <img class="hvsLayoutPreviewImage" src="thumb-bedroom.png" alt="Floor plan preview of the bonus bedroom" loading="lazy" decoding="async">
+        <button id="hvsLayoutRoomBedroom" class="layoutChoiceButton" type="button">BONUS BEDROOM · +$4,500</button>
+      </div>
     </div>
     <p class="layoutOfferFoot">Bedroom upgrade prices are illustrative CAD amounts.</p>
     <button id="hvsLayoutRoomDismiss" class="layoutOfferDismiss" type="button">MAYBE LATER</button>
