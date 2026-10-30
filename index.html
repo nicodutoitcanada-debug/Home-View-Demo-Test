@@ -3011,15 +3011,17 @@ protected price storage, and user profile database.
 #hvsLayoutRoomPrompt {
     position:fixed;inset:0;z-index:15000;display:flex;align-items:center;justify-content:center;
     padding:20px;box-sizing:border-box;
-    background:rgba(4,7,9,.42);
-    -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
+    /* NON-MODAL: keep the live game fully visible and interactive around the card. */
+    background:transparent;
+    -webkit-backdrop-filter:none;backdrop-filter:none;
     opacity:0;visibility:hidden;pointer-events:none;
     transition:opacity .32s ease,visibility 0s linear .32s;
 }
 #hvsLayoutRoomPrompt.is-open {
-    opacity:1;visibility:visible;pointer-events:auto;transition-delay:0s;
+    opacity:1;visibility:visible;pointer-events:none;transition-delay:0s;
 }
 #hvsLayoutRoomDialog {
+    pointer-events:auto;
     width:min(430px,100%);max-height:min(90dvh,650px);overflow:auto;
     border:1px solid rgba(255,255,255,.23);border-radius:24px;
     padding:24px 22px 19px;box-sizing:border-box;
@@ -3053,14 +3055,8 @@ protected price storage, and user profile database.
 #hvsLayoutRoomDialog .layoutOfferFoot {
     margin:13px 0 0;text-align:center;color:rgba(255,255,255,.61);font-size:11px;font-weight:300;
 }
-/* Window *state* remains intact. Concealing the UI temporarily avoids
-   re-running menu enter/exit animations or stopping map tracking. */
-body.hvs-layout-offer-visible #homeViewUI {
-    opacity:0 !important;visibility:hidden !important;pointer-events:none !important;
-}
-body.hvs-layout-offer-visible #homeViewUI * {pointer-events:none !important;}
-body.hvs-layout-offer-visible #hvsBudgetToast,
-body.hvs-layout-offer-visible #teleportStatusOverlay {visibility:hidden !important;}
+/* The lounge offer is deliberately non-modal. Existing Home View controls,
+   Pixel Streaming input and status UI remain available around the card. */
 @media(max-width:500px){
     #hvsLayoutRoomDialog {padding:18px 15px;border-radius:19px;}
     #hvsLayoutRoomDialog .layoutOfferTitle {font-size:17px;}
@@ -5503,7 +5499,7 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 <!-- Upstairs lounge announcement. Kept outside #homeViewUI so existing
      windows can be temporarily hidden, then restored, without closing. -->
 <div id="hvsLayoutRoomPrompt" role="presentation" aria-hidden="true">
-  <section id="hvsLayoutRoomDialog" role="dialog" aria-modal="true" aria-labelledby="hvsLayoutRoomTitle" aria-describedby="hvsLayoutRoomDescription">
+  <section id="hvsLayoutRoomDialog" role="dialog" aria-modal="false" aria-labelledby="hvsLayoutRoomTitle" aria-describedby="hvsLayoutRoomDescription">
     <h2 class="layoutOfferTitle" id="hvsLayoutRoomTitle">MAKE THIS SPACE YOURS</h2>
     <p class="layoutOfferDescription" id="hvsLayoutRoomDescription">Enjoy an open upstairs lounge, or turn this space into an additional bedroom. You can change your choice anytime in <strong>Teleport Map → Upstairs Layout</strong>.</p>
     <div class="layoutOfferButtons">
@@ -6907,7 +6903,6 @@ function hvsCloseLayoutRoomPrompt(){
     if(!hvsLayoutRoomPrompt.classList.contains('is-open'))return;
     hvsLayoutRoomPrompt.classList.remove('is-open');
     hvsLayoutRoomPrompt.setAttribute('aria-hidden','true');
-    document.body.classList.remove('hvs-layout-offer-visible');
     if(document.activeElement?.closest?.('#hvsLayoutRoomPrompt'))document.activeElement.blur();
     // Existing UI mode, calculator, map state and animations were never reset.
 }
@@ -6915,10 +6910,10 @@ function hvsShowLayoutRoomPrompt(){
     if(hvsLayoutRoomPrompt.classList.contains('is-open'))return;
     closeUpstairsLayoutDialog();
     hvsSyncLayoutRoomPrompt();
-    document.body.classList.add('hvs-layout-offer-visible');
     hvsLayoutRoomPrompt.classList.add('is-open');
     hvsLayoutRoomPrompt.setAttribute('aria-hidden','false');
-    hvsLayoutRoomLounge.focus({preventScroll:true});
+    // Do not move focus into the popup. Keeping focus where it was lets
+    // keyboard/mouse game input continue normally around this non-modal card.
 }
 window.homeViewShowLayoutOfferOnce=function(){
     if(window.homeViewLayoutOfferWasSeen?.())return false;
@@ -9202,6 +9197,28 @@ let unrealIsReadyForResolution = false;
 let lastSentViewportResolution = '';
 let viewportSyncTimer = null;
 let viewportRetryTimers = [];
+
+// DESKTOP ONLY: LUX-proven, colour-neutral adaptive render size.
+// Do NOT change the working mobile bitrate controller, video sizing or rotation logic.
+// Keep a 30 FPS request for BOTH devices; never request 60 FPS.
+const HVS_REQUESTED_MAX_FPS = 30;
+const HVS_DESKTOP_RESOLUTION_TIERS = [1280, 1600, 1920]; // longest edge, never crop
+const HVS_DESKTOP_RESIZE_ENABLED = !/Android|iPhone|iPod|iPad/i.test(navigator.userAgent) &&
+  !window.matchMedia('(pointer:coarse)').matches;
+let hvsDesktopResolutionTier = 1; // 1600px balanced default on PC
+let hvsDesktopRtcStream = null;
+let hvsDesktopResolutionTransport = 'not sent';
+let hvsDesktopResolutionError = '';
+let hvsDesktopResolutionCheckToken = 0;
+let hvsDesktopMonitorTimer = null;
+let hvsDesktopQualityPrevious = null;
+let hvsDesktopQualityStats = null;
+let hvsDesktopQualityBad = 0;
+let hvsDesktopQualityGood = 0;
+let hvsDesktopQualityLastChanged = 0;
+let hvsDesktopQualityLastReason = 'balanced startup';
+let hvsDesktopStatsUnavailable = false;
+
 function getStreamingViewportResolution() {
   const stage = document.getElementById('video-container');
   // clientWidth/clientHeight are untransformed CSS layout dimensions.
@@ -9212,11 +9229,18 @@ function getStreamingViewportResolution() {
   let height = Math.round(cssHeight * dpr);
   // Mobile resolution test: cap the LONGEST render edge at 1440 physical pixels.
   // Preserve the browser aspect ratio, and never upscale a smaller viewport.
-  // No bitrate, FPS, decoder, desktop, reconnection or session changes.
+  // Mobile remains unchanged; desktop has its own colour-safe adaptive tiers.
   if (window.matchMedia('(pointer:coarse)').matches) {
+    // MOBILE: identical 1440px logic as the already-successful mobile build.
     const factor = Math.min(1, 1440 / Math.max(width, height));
     width = Math.round(width * factor);
     height = Math.round(height * factor);
+  } else if (HVS_DESKTOP_RESIZE_ENABLED) {
+    const cap = HVS_DESKTOP_RESOLUTION_TIERS[hvsDesktopResolutionTier];
+    const factor = Math.min(1, cap / Math.max(width, height));
+    // Round to even dimensions for the H.264 video encoder.
+    width = Math.max(2, 2 * Math.round(width * factor / 2));
+    height = Math.max(2, 2 * Math.round(height * factor / 2));
   }
   return {width:Math.max(1,width), height:Math.max(1,height)};
 }
@@ -9227,17 +9251,88 @@ function hvsStreamAspectMismatched() {
   if (!stage?.clientWidth || !stage?.clientHeight) return false;
   return Math.abs(video.videoWidth/video.videoHeight - stage.clientWidth/stage.clientHeight) > .025;
 }
-function sendViewportResolutionToUnreal(reason='viewport', force=false) {
+// DESKTOP: use Unreal Pixel Streaming native Command transport (same as fixed LUX).
+// This bypasses the optional Blueprint console handler and works with Arcware
+// Dynamic Resolution OFF. Mobile continues using its original message path.
+function hvsSendNativeDesktopResolution(width, height) {
+  const command = {'Resolution.Width':width, 'Resolution.Height':height};
+  const targets = [
+    ['Arcware PixelStreaming',hvsDesktopRtcStream],
+    ['local PixelStreaming',localStream],
+    ['application stream',application?.stream],
+    ['application pixelStreaming',application?.pixelStreaming],
+    ['application controller',application?.webRtcController],
+    ['application',application]
+  ];
+  const seen=new Set();
+  let supported=false;
+  for (const [name, target] of targets) {
+    if (!target || seen.has(target)) continue;
+    seen.add(target);
+    if (typeof target.emitCommand !== 'function') continue;
+    supported=true;
+    try {
+      if (target.emitCommand(command) !== false)
+        return {sent:true, supported:true, via:name+'.emitCommand'};
+    } catch(err) {hvsDesktopResolutionError=err?.message||String(err);}
+  }
+  return {sent:false, supported, via:supported?'native data channel not ready':'native Command API unavailable'};
+}
+function hvsVerifyDesktopAspect(key) {
+  const token=++hvsDesktopResolutionCheckToken;
+  setTimeout(()=>{
+    if(token!==hvsDesktopResolutionCheckToken || !HVS_DESKTOP_RESIZE_ENABLED ||
+       document.hidden || !levelReady || key!==lastSentViewportResolution ||
+       window.homeViewSessionIntentional || hvsScreenshotProtected())return;
+    if(hvsStreamAspectMismatched()){
+      console.warn('[HVS DESKTOP] Stream aspect mismatch; retrying native resize once.',
+        window.homeViewDesktopResolutionStatus?.());
+      sendViewportResolutionToUnreal('desktop aspect mismatch (one retry)',true,true);
+    }
+  },1700);
+  setTimeout(()=>{
+    if(token!==hvsDesktopResolutionCheckToken || document.hidden ||
+       key!==lastSentViewportResolution || window.homeViewSessionIntentional)return;
+    if(hvsStreamAspectMismatched())
+      console.warn('[HVS DESKTOP] Unreal has not matched viewport. Check native command transport.',
+        window.homeViewDesktopResolutionStatus?.());
+  },4100);
+}
+function sendViewportResolutionToUnreal(reason='viewport', force=false, desktopAspectRetry=false) {
   if (screenshotRequestInFlight || screenshotBlob || document.hidden ||
       !unrealIsReadyForResolution || !application) return;
   const {width,height} = getStreamingViewportResolution();
   const key = `${width}x${height}`;
   if (!force && key === lastSentViewportResolution) return;
+  if (HVS_DESKTOP_RESIZE_ENABLED) {
+    if (hvsScreenshotProtected() || window.homeViewSessionIntentional ||
+        homeViewTeardownStarted) return false;
+    let result=hvsSendNativeDesktopResolution(width,height);
+    // Preserve the old Blueprint path only as a legacy fallback when no
+    // native Command API exists. Never send two competing resolution messages.
+    if (!result.sent && !result.supported) {
+      const legacy=`r.SetRes ${key}w`;
+      result={sent:sendUnreal({console:true,Command:legacy}),
+        via:'legacy Blueprint fallback (not verified)'};
+    }
+    hvsDesktopResolutionTransport=result.via;
+    if (!result.sent) {
+      console.warn('[HVS DESKTOP] Resolution command not ready:',reason,key,result.via);
+      return false;
+    }
+    lastSentViewportResolution=key;
+    console.info(`[HVS DESKTOP] ${reason}: ${key} via ${result.via}`);
+    if (!desktopAspectRetry) hvsVerifyDesktopAspect(key);
+    return true;
+  }
+  // MOBILE: exact same r.SetRes/UIInteraction route as the working release.
   const command = `r.SetRes ${key}w`;
   if (sendUnreal({console:true, Command:command})) {
     lastSentViewportResolution = key;
     console.info(`[STREAM] ${reason}: ${command}`);
+    return true;
   }
+  return false;
 }
 // LUX-style one-shot layout refresh. A fresh Pixel Streaming connection can
 // start with a 16:9 *decoded track* despite the phone already being landscape.
@@ -9364,6 +9459,147 @@ function startViewportResolutionSync() {
   prepareVideos();
   update('initial viewport',true);
 }
+
+// ============================================================================
+// HVS DESKTOP ONLY: LUX's successful adaptive *resolution*, NOT adaptive bitrate.
+// Starts at 1600px longest edge, downshifts to 1280px on congestion, cautiously
+// recovers to 1920px. Never alters colour encoding, codec, browser video fit or
+// mobile's bitrate/rotation/recovery logic. Uses the EXISTING Arcware session.
+// ============================================================================
+function hvsDesktopQualityAllowed() {
+  return HVS_DESKTOP_RESIZE_ENABLED && !!application && !document.hidden &&
+    !window.homeViewSessionIntentional && !homeViewTeardownStarted &&
+    !window.homeViewConnectionProblem && !hvsScreenshotProtected() &&
+    window.homeViewLevelReady === true && !hvsRecoveryInProgress;
+}
+function hvsSwitchDesktopResolutionTier(next,reason) {
+  if (!hvsDesktopQualityAllowed() || next<0 ||
+      next>=HVS_DESKTOP_RESOLUTION_TIERS.length || next===hvsDesktopResolutionTier)return false;
+  const previous=hvsDesktopResolutionTier;
+  hvsDesktopResolutionTier=next;
+  if (!sendViewportResolutionToUnreal('desktop adaptive: '+reason,true)) {
+    hvsDesktopResolutionTier=previous;
+    return false;
+  }
+  hvsDesktopQualityLastChanged=performance.now();
+  hvsDesktopQualityLastReason=reason;
+  hvsDesktopQualityBad=hvsDesktopQualityGood=0;
+  console.info('[HVS DESKTOP] Requested max-long-edge',HVS_DESKTOP_RESOLUTION_TIERS[next],
+    'pixels for',reason,'(bitrate and colour settings unchanged)');
+  return true;
+}
+async function hvsMonitorDesktopResolution() {
+  if (!hvsDesktopQualityAllowed()) {
+    hvsDesktopQualityPrevious=null;
+    hvsDesktopQualityBad=hvsDesktopQualityGood=0;
+    return;
+  }
+  const pc=hvsRtcPeer();
+  if (typeof pc?.getStats !== 'function') {hvsDesktopStatsUnavailable=true;return;}
+  try {
+    const report=await pc.getStats();
+    if (!hvsDesktopQualityAllowed())return;
+    let inbound=null,pair=null;
+    report.forEach(row=>{
+      if (row.type==='inbound-rtp' && !row.isRemote &&
+          (row.kind==='video'||row.mediaType==='video')) inbound=row;
+      if (row.type==='candidate-pair' && row.state==='succeeded' &&
+          (row.nominated||row.selected)) pair=row;
+    });
+    if(!inbound){hvsDesktopStatsUnavailable=true;return;}
+    hvsDesktopStatsUnavailable=false;
+    const current={
+      timestamp:Number(inbound.timestamp)||Date.now(),
+      bytes:Number(inbound.bytesReceived)||0,
+      received:Number(inbound.packetsReceived)||0,
+      lost:Number(inbound.packetsLost)||0,
+      decoded:Number(inbound.framesDecoded)||0,
+      freezes:Number(inbound.freezeCount)||0,
+      jitterDelay:Number(inbound.jitterBufferDelay)||0,
+      jitterCount:Number(inbound.jitterBufferEmittedCount)||0,
+      rtt:typeof pair?.currentRoundTripTime==='number'?pair.currentRoundTripTime:null
+    };
+    if(!hvsDesktopQualityPrevious){hvsDesktopQualityPrevious=current;return;}
+    const prev=hvsDesktopQualityPrevious;
+    hvsDesktopQualityPrevious=current;
+    const seconds=(current.timestamp-prev.timestamp)/1000;
+    if(seconds<2||seconds>20)return;
+    const received=Math.max(0,current.received-prev.received);
+    const lost=Math.max(0,current.lost-prev.lost);
+    const total=received+lost;
+    const packetLoss=total>=30?lost/total:null;
+    const decodedFps=Math.max(0,current.decoded-prev.decoded)/seconds;
+    const freezes=Math.max(0,current.freezes-prev.freezes);
+    const emitted=current.jitterCount-prev.jitterCount;
+    const jitterSeconds=emitted>0?
+      Math.max(0,current.jitterDelay-prev.jitterDelay)/emitted:null;
+    const kbps=Math.max(0,current.bytes-prev.bytes)*8/seconds/1000;
+    hvsDesktopQualityStats={
+      receivedKbps:Math.round(kbps),
+      decodedFps:Math.round(decodedFps*10)/10,
+      packetLossPercent:packetLoss===null?null:Math.round(packetLoss*10000)/100,
+      rttMs:current.rtt===null?null:Math.round(current.rtt*1000),
+      jitterBufferMs:jitterSeconds===null?null:Math.round(jitterSeconds*1000),
+      newFreezes:freezes
+    };
+    // Low fps alone can mean Unreal GPU load, not network congestion.
+    // Never infer weak Wi-Fi from fps alone; never touch encoder bitrate.
+    const bad=(packetLoss!==null&&packetLoss>=.025)||
+      (current.rtt!==null&&current.rtt>=.38)||
+      (jitterSeconds!==null&&jitterSeconds>=.18)||freezes>0;
+    const severe=(packetLoss!==null&&packetLoss>=.10)||
+      freezes>=2||(current.rtt!==null&&current.rtt>=.75);
+    const good=(packetLoss!==null&&packetLoss<.006)&&
+      (current.rtt===null||current.rtt<.20)&&
+      (jitterSeconds===null||jitterSeconds<.09)&&
+      freezes===0&&decodedFps>=26;
+    if(bad){hvsDesktopQualityBad++;hvsDesktopQualityGood=0;}
+    else if(good){hvsDesktopQualityGood++;hvsDesktopQualityBad=0;}
+    else{hvsDesktopQualityBad=hvsDesktopQualityGood=0;}
+    if(performance.now()-hvsDesktopQualityLastChanged<20000)return;
+    if((severe||hvsDesktopQualityBad>=2)&&hvsDesktopResolutionTier>0)
+      hvsSwitchDesktopResolutionTier(hvsDesktopResolutionTier-1,'congested network');
+    else if(hvsDesktopQualityGood>=12&&hvsDesktopResolutionTier<HVS_DESKTOP_RESOLUTION_TIERS.length-1)
+      hvsSwitchDesktopResolutionTier(hvsDesktopResolutionTier+1,'stable network');
+  } catch(err) {
+    hvsDesktopStatsUnavailable=true;
+    console.debug('[HVS DESKTOP] WebRTC stats unavailable; keeping current resolution tier:',err?.message||err);
+  }
+}
+function hvsStartDesktopAdaptiveResolution() {
+  if(!HVS_DESKTOP_RESIZE_ENABLED||hvsDesktopMonitorTimer)return;
+  hvsDesktopMonitorTimer=setInterval(hvsMonitorDesktopResolution,5000);
+}
+function hvsStopDesktopAdaptiveResolution() {
+  clearInterval(hvsDesktopMonitorTimer);
+  hvsDesktopMonitorTimer=null;
+  hvsDesktopQualityPrevious=null;
+}
+window.homeViewDesktopResolutionStatus=()=>{
+  const video=document.querySelector('#video-container video');
+  const stage=document.getElementById('video-container');
+  const target=getStreamingViewportResolution();
+  return {
+    mode:dev_mode?'LOCAL':'ARCWARE',
+    device:HVS_DESKTOP_RESIZE_ENABLED?'desktop adaptive':'mobile (original, unchanged)',
+    nativeDesktopResize:HVS_DESKTOP_RESIZE_ENABLED,
+    fpsRequestedMax:HVS_REQUESTED_MAX_FPS,
+    requestedPixels:target.width+'x'+target.height,
+    lastSentPixels:lastSentViewportResolution,
+    streamPixels:video?.videoWidth?video.videoWidth+'x'+video.videoHeight:'waiting for video',
+    viewportPixels:stage?stage.clientWidth+'x'+stage.clientHeight:'unknown',
+    aspectMismatch:video?.videoWidth? hvsStreamAspectMismatched():null,
+    transport:hvsDesktopResolutionTransport,
+    transportError:hvsDesktopResolutionError,
+    tiers:HVS_DESKTOP_RESOLUTION_TIERS.slice(),
+    currentMaxLongEdge:HVS_DESKTOP_RESOLUTION_TIERS[hvsDesktopResolutionTier],
+    monitoring:!!hvsDesktopMonitorTimer,
+    statsUnavailable:hvsDesktopStatsUnavailable,
+    networkSample:hvsDesktopQualityStats,
+    lastTierChange:hvsDesktopQualityLastReason,
+    note:'Desktop: native Pixel Streaming Command, adaptive render resolution, original Arcware bitrate/codec; mobile: unchanged quality settings.'
+  };
+};
 
 // ============================================================================
 // HVS_STREAM_RECOVERY: Mobile Save/Share can suspend WebRTC on iOS/Android.
@@ -10201,11 +10437,13 @@ async function hvsMonitorQuality(){
 }
 window.homeViewStopAdaptiveQuality=()=>{
   clearInterval(hvsQualityTimer);hvsQualityTimer=null;hvsQualityConfig=null;
+  hvsStopDesktopAdaptiveResolution();
 };
 window.homeViewQualityStatus=()=>({mobile:HVS_QUALITY_MOBILE,
-  requestedMaxKbps:HVS_QUALITY_LEVELS[hvsQualityIndex],
-  telemetry:hvsQualityMeasured,active:!!hvsQualityTimer,
-  caveat:'Arcware/cloud may override WebRTC bitrate settings'});
+  requestedMaxKbps:HVS_QUALITY_MOBILE?HVS_QUALITY_LEVELS[hvsQualityIndex]:null,
+  telemetry:HVS_QUALITY_MOBILE?hvsQualityMeasured:null,active:!!hvsQualityTimer,
+  caveat:HVS_QUALITY_MOBILE?'Arcware/cloud may override WebRTC bitrate settings':
+    'Desktop: original Arcware bitrate/codec, no frontend bitrate override. Check homeViewDesktopResolutionStatus() for desktop adaptive resolution.'});
 function hvsStartAdaptiveQuality(config){
   if(window.homeViewSessionIntentional)return;
   hvsQualityConfig=config;
@@ -10367,7 +10605,8 @@ async function initialiseEpicLocalPlayer() {
       AutoConnect:true,
       AutoPlayVideo:true,
       StartVideoMuted:true,
-      MatchViewportRes:true,
+      MatchViewportRes:!HVS_DESKTOP_RESIZE_ENABLED, // desktop native commands; original mobile local behavior
+      WebRTCFPS:HVS_REQUESTED_MAX_FPS,
       HoveringMouse:true,
       FakeMouseWithTouches:true,
       WaitForStreamer:true,
@@ -10401,6 +10640,7 @@ async function initialiseEpicLocalPlayer() {
   root.style.margin = '0';
   root.style.padding = '0';
   configureStreamingInputTarget(root);
+  hvsStartDesktopAdaptiveResolution();
   console.info('[DEV MODE] Local Epic player mounted; waiting for Unreal Game:Loaded.');
   mobileDevStatus('Player mounted; waiting for Unreal Game Loaded');
   if (MOBILE_DIAGNOSTICS) setTimeout(() => { if (!levelReady && !loadRequested) mobileDevStatus('Still waiting for Game Loaded. Check signaling / only one player open.',true); else if (!levelReady) mobileDevStatus('Load requested; waiting for HomeViewLevelLoaded',true); }, 12000);
@@ -10419,19 +10659,28 @@ if (dev_mode) {
     const { ArcwareInit } = await import('https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs');
     const setup = new ArcwareInit(
       { shareId:SHARE_ID },
-      { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
-          WebRTCMaxBitrate:HVS_QUALITY_LEVELS[hvsQualityIndex],
-          WebRTCMinBitrate:0,
-          // LUX uses StartVideoMuted:true. Make mobile equally autoplay-safe
+       { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
+           WebRTCFPS:HVS_REQUESTED_MAX_FPS, // ALWAYS 30 on every platform
+           // Mobile: exact existing 1300..6000 kbps adaptive controller.
+           // Desktop: LUX-style original Arcware bitrate/codec for true colour;
+           // adapt only the render resolution, not bitrate.
+           ...(HVS_DESKTOP_RESIZE_ENABLED ? {MatchViewportRes:false} : {}),
+           ...(HVS_QUALITY_MOBILE ? {
+             WebRTCMaxBitrate:HVS_QUALITY_LEVELS[hvsQualityIndex],
+             WebRTCMinBitrate:0
+           } : {}),
+           // LUX uses StartVideoMuted:true. Make mobile equally autoplay-safe
           // after the OS Save/Share interface; preserve desktop game audio.
           StartVideoMuted:/Android|iPhone|iPod|iPad/i.test(navigator.userAgent)
             || (window.matchMedia('(pointer:coarse)').matches && window.innerWidth<=1280) },
         settings:{ infoButton:false, micButton:false, audioButton:true, fullscreenButton:false,
                    settingsButton:false, connectionStrengthIcon:false } }
     );
-    application = setup.Application;
-    hvsStartAdaptiveQuality(setup.Config);
-    // Let the custom sound icon reach Arcware's separate (sometimes detached)
+     application = setup.Application;
+     hvsDesktopRtcStream = setup.PixelStreaming || null;
+     if (HVS_QUALITY_MOBILE) hvsStartAdaptiveQuality(setup.Config); // original mobile bitrate optimizer
+     hvsStartDesktopAdaptiveResolution(); // desktop resolution only, original codec/bitrate
+     // Let the custom sound icon reach Arcware's separate (sometimes detached)
     // WebRTC audio element and its own toggleAudio(video, muted) method.
     window.homeViewArcwareAudioStream = setup.PixelStreaming;
     application.getApplicationResponse(receiveUnrealResponse);
@@ -11114,4 +11363,543 @@ body.hvs-session-ended #hvsRotateOverlay {display:none!important;pointer-events:
   update();
 })();
 </script>
+
+
+<!-- ================================================================
+     DISABLED / ARCHIVED: CINEMATIC PROPERTY FLIGHT EXPERIMENT
+     2026-10-30
+
+     This experiment is intentionally NOT active. The stable property
+     selection menu above is the live implementation. Keep this archive
+     so the bird's-eye camera/map transition can be refined later.
+     Nothing inside this <template> executes or affects the page.
+     ================================================================ -->
+<template id="hvsCinematicPropertyFlightArchive">
+  <!-- Archived cinematic CSS -->
+<style id="hvs-property-flight-cinematic">
+/* ================================================================
+   CINEMATIC PROPERTY FLIGHT
+   The old glass property window is deliberately flattened into a
+   full-screen bird's-eye transition. The map itself retains the exact
+   hotspot geometry and selected-lot artwork used by the prior selector.
+   ================================================================ */
+body.hvs-property-flight-active { overflow:hidden; }
+body.hvs-property-flight-active #homeViewUI {
+  opacity:0 !important; visibility:hidden !important; pointer-events:none !important;
+}
+body.hvs-property-flight-active #teleportStatusOverlay,
+body.hvs-property-flight-active #hvsBudgetToast,
+body.hvs-property-flight-active #hvsFloatingPersonalize {
+  opacity:0 !important; visibility:hidden !important; pointer-events:none !important;
+}
+
+#hvsPropertyPrompt {
+  position:fixed !important; inset:0 !important; z-index:16000 !important;
+  display:flex !important; align-items:center !important; justify-content:center !important;
+  padding:0 !important; margin:0 !important;
+  opacity:1 !important; visibility:hidden; pointer-events:none;
+  background-color:rgba(0,0,0,0) !important;
+  -webkit-backdrop-filter:none !important; backdrop-filter:none !important;
+  transition:none !important; overflow:hidden;
+}
+#hvsPropertyPrompt.is-open,
+#hvsPropertyPrompt.hvs-flight-mounted {
+  visibility:visible !important; pointer-events:auto !important;
+}
+#hvsPropertyPrompt.hvs-flight-entering,
+#hvsPropertyPrompt.hvs-flight-settled {
+  background-color:#000 !important;
+  transition:background-color 1800ms cubic-bezier(.16,1,.3,1) !important;
+}
+#hvsPropertyPrompt.hvs-flight-exiting {
+  background-color:rgba(0,0,0,0) !important;
+  transition:background-color 2400ms cubic-bezier(.7,0,.94,.35) !important;
+}
+
+#hvsPropertyPrompt #hvsPropertyDialog {
+  position:relative !important; width:100vw !important; height:100dvh !important;
+  max-width:none !important; max-height:none !important; padding:0 !important; margin:0 !important;
+  overflow:hidden !important; display:flex !important; align-items:center !important; justify-content:center !important;
+  border:0 !important; border-radius:0 !important; background:transparent !important;
+  -webkit-backdrop-filter:none !important; backdrop-filter:none !important;
+  box-shadow:none !important; transform:none !important; transition:none !important;
+  pointer-events:none !important;
+}
+/* The old heading becomes only a tiny escape control. The glass window,
+   title, paragraph and footer are gone from the visual experience. */
+#hvsPropertyPrompt #hvsPropertyDialog .hvsMapHeading {
+  position:fixed !important; top:max(13px,env(safe-area-inset-top)); right:max(13px,env(safe-area-inset-right));
+  z-index:8; display:block !important; padding:0 !important; margin:0 !important; pointer-events:none;
+}
+#hvsPropertyPrompt #hvsPropertyDialog .hvsMapHeading > div { display:none !important; }
+#hvsPropertyPrompt #hvsPropertyDismiss {
+  pointer-events:auto !important; display:grid !important; place-items:center !important;
+  width:38px !important; height:38px !important; margin:0 !important; padding:0 0 2px !important;
+  border:1px solid rgba(255,255,255,.30) !important; border-radius:50% !important;
+  background:rgba(0,0,0,.28) !important; color:#fff !important;
+  -webkit-backdrop-filter:blur(7px) !important; backdrop-filter:blur(7px) !important;
+  box-shadow:0 5px 20px rgba(0,0,0,.24) !important;
+  font:300 27px/1 Arial,sans-serif !important; opacity:.80; cursor:pointer;
+  transition:opacity .2s ease,transform .2s ease !important;
+}
+#hvsPropertyPrompt #hvsPropertyDismiss:hover,
+#hvsPropertyPrompt #hvsPropertyDismiss:focus-visible { opacity:1; transform:scale(1.06); }
+#hvsPropertyPrompt.hvs-property-loading #hvsPropertyDismiss { opacity:0 !important; pointer-events:none !important; }
+#hvsPropertyPrompt #hvsPropertyDialog .hvsMapFooter { display:none !important; }
+
+#hvsPropertyPrompt #hvsPropertyOptions {
+  position:absolute !important; inset:0 !important; width:100% !important; height:100% !important;
+  min-width:0 !important; min-height:0 !important; overflow:hidden !important;
+  display:flex !important; align-items:center !important; justify-content:center !important;
+  padding:0 !important; margin:0 !important; pointer-events:none !important;
+}
+/* 1444/700 = 2.062857... . This is true object-fit:contain geometry:
+   whichever edge reaches the viewport first wins, while the remaining gaps
+   stay pure black. */
+#hvsPropertyMapFrame {
+  position:relative !important; flex:none !important;
+  width:min(100vw,calc(100dvh * 2.062857143)) !important;
+  max-width:none !important; max-height:none !important;
+  aspect-ratio:1444/700 !important;
+  overflow:hidden !important; border:0 !important; border-radius:0 !important;
+  background:transparent !important; box-shadow:none !important;
+  transform-origin:50% 50%; transform:scale(2.72); opacity:0;
+  pointer-events:none !important; will-change:transform,opacity;
+}
+#hvsPropertyMapImage {
+  position:absolute !important; inset:0 !important; width:100% !important; height:100% !important;
+  display:block !important; object-fit:fill !important; pointer-events:none !important;
+  border:0 !important; border-radius:0 !important; user-select:none;
+}
+/* Strong AE-style ease-out: the map scale moves immediately, then settles
+   gently into exact full-screen contain size. */
+#hvsPropertyPrompt.hvs-flight-entering #hvsPropertyMapFrame {
+  transition:transform 3200ms cubic-bezier(.08,.82,.16,1),
+             opacity 1600ms cubic-bezier(.12,.72,.18,1) !important;
+}
+#hvsPropertyPrompt.hvs-flight-settled #hvsPropertyMapFrame {
+  transform:scale(1); opacity:1;
+  pointer-events:auto !important;
+}
+/* True reverse feel: gentle start, increasing speed as the oversized image
+   disappears, while the camera is already falling back toward the player. */
+#hvsPropertyPrompt.hvs-flight-exiting #hvsPropertyMapFrame {
+  transform:scale(2.72); opacity:0;
+  transition:transform 3000ms cubic-bezier(.78,0,.94,.32),
+             opacity 1800ms cubic-bezier(.66,0,.92,.28) !important;
+  pointer-events:none !important;
+}
+#hvsPropertyPrompt:not(.hvs-flight-ready) #hvsPropertyMapFrame,
+#hvsPropertyPrompt.hvs-property-loading #hvsPropertyMapFrame { pointer-events:none !important; }
+
+/* Preserve the existing percentage hotspots so they ride perfectly with the
+   scaling map. They become active only after the entrance has settled. */
+#hvsPropertyPrompt #hvsPropertyOptions button.hvsMapHotspot {
+  pointer-events:auto !important; z-index:20 !important; -webkit-tap-highlight-color:transparent;
+}
+#hvsPropertyPrompt.hvs-flight-ready #hvsPropertyOptions,
+#hvsPropertyPrompt.hvs-flight-ready #hvsPropertyMapFrame {
+  pointer-events:auto !important;
+}
+#hvsPropertyPrompt:not(.hvs-flight-ready) #hvsPropertyOptions button.hvsMapHotspot,
+#hvsPropertyPrompt.hvs-property-loading #hvsPropertyOptions button.hvsMapHotspot {
+  pointer-events:none !important;
+}
+
+#hvsPropertyLoading {
+  position:fixed; inset:0; z-index:7; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:15px; box-sizing:border-box;
+  color:#fff; background:rgba(0,0,0,.30); opacity:0; visibility:hidden;
+  pointer-events:none; transition:opacity 180ms ease,visibility 0s linear 180ms;
+  font-family:"HomeView Myriad",Arial,sans-serif; text-align:center;
+}
+#hvsPropertyLoading.is-visible {
+  opacity:1; visibility:visible; transition:opacity 180ms ease,visibility 0s linear 0s;
+}
+#hvsPropertyLoading.is-fading {
+  opacity:0; visibility:visible; transition:opacity 500ms cubic-bezier(.4,0,.7,1);
+}
+#hvsPropertyLoadingSpinner {
+  width:43px; height:43px; box-sizing:border-box; border-radius:50%;
+  border:3px solid rgba(255,255,255,.25); border-top-color:#fff;
+  animation:hvsPropertyLoadingSpin 820ms linear infinite;
+  filter:drop-shadow(0 4px 12px rgba(0,0,0,.24));
+}
+#hvsPropertyLoadingText {
+  font-size:clamp(12px,1.3vw,17px); font-weight:600; letter-spacing:.16em;
+  text-shadow:0 3px 12px rgba(0,0,0,.5);
+}
+@keyframes hvsPropertyLoadingSpin { to { transform:rotate(360deg); } }
+
+@media(max-width:650px) {
+  #hvsPropertyPrompt #hvsPropertyDismiss { width:34px !important; height:34px !important; font-size:24px !important; }
+  #hvsPropertyLoadingSpinner { width:38px; height:38px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  /* Keep the sequence and timing understandable, but reduce visual travel. */
+  #hvsPropertyPrompt #hvsPropertyMapFrame { transform:scale(1.18); }
+  #hvsPropertyPrompt.hvs-flight-settled #hvsPropertyMapFrame { transform:scale(1); }
+  #hvsPropertyPrompt.hvs-flight-exiting #hvsPropertyMapFrame { transform:scale(1.18); }
+}
+</style>
+<style id="hvs-property-flight-safety-fix">
+/* The old selector close control must never survive the cinematic view. */
+#hvsPropertyPrompt #hvsPropertyDismiss{display:none!important;pointer-events:none!important;}
+/* Slow the map so the camera rise is visible before the bird's-eye artwork takes over. */
+#hvsPropertyPrompt.hvs-flight-entering{transition:background-color 1900ms cubic-bezier(.16,1,.3,1)!important;}
+#hvsPropertyPrompt.hvs-flight-entering #hvsPropertyMapFrame{
+  transition:transform 3000ms cubic-bezier(.08,.82,.16,1),opacity 1850ms cubic-bezier(.12,.72,.18,1)!important;
+}
+#hvsPropertyPrompt.hvs-flight-exiting{transition:background-color 2300ms cubic-bezier(.7,0,.94,.35)!important;}
+#hvsPropertyPrompt.hvs-flight-exiting #hvsPropertyMapFrame{
+  transition:transform 3000ms cubic-bezier(.78,0,.94,.32),opacity 1750ms cubic-bezier(.66,0,.92,.28)!important;
+}
+/* When not explicitly open, this legacy element is inert even if another rule changes visibility. */
+#hvsPropertyPrompt:not(.is-open){pointer-events:none!important;visibility:hidden!important;}
+</style>
+
+  <!-- Archived loading markup -->
+    <div id="hvsPropertyLoading" role="status" aria-live="polite" aria-hidden="true">
+      <div id="hvsPropertyLoadingSpinner" aria-hidden="true"></div>
+      <div id="hvsPropertyLoadingText">ENVIRONMENT IS LOADING</div>
+    </div>
+
+  <!-- Archived cinematic JavaScript -->
+  <script type="text/plain" data-disabled-feature="cinematic-property-flight">
+// PROPERTY_SELECTOR / CINEMATIC BIRD'S-EYE FLIGHT
+// The automatic outdoor trigger still shows the small introduction first.
+// Choosing a property (or the manual Personalize action) now closes the current
+// menu, lifts the Unreal camera, and brings the development map straight onto
+// the screen without the old property-window chrome.
+const hvsPropertyPrompt=document.getElementById('hvsPropertyPrompt');
+const hvsPropertyOne=document.getElementById('hvsPropertyOne');
+const hvsPropertyTwo=document.getElementById('hvsPropertyTwo');
+const hvsPropertyDismiss=document.getElementById('hvsPropertyDismiss');
+const hvsPropertyLoading=document.getElementById('hvsPropertyLoading');
+const hvsPropertyCameraSlider=document.getElementById('cameraHeightSlider');
+
+// One easy tune point if the Unreal project later wants a higher/lower visual
+// lift. This value is sent only during the transition; the user's slider value
+// and preference are never overwritten.
+const HVS_PROPERTY_FLIGHT_PEAK_HEIGHT=520;
+const HVS_PROPERTY_FLIGHT_UP_MS=3400;
+const HVS_PROPERTY_FLIGHT_DOWN_MS=3600;
+const HVS_PROPERTY_MAP_START_DELAY_MS=900;
+const HVS_PROPERTY_MAP_ENTER_MS=3000;
+const HVS_PROPERTY_MAP_EXIT_MS=3000;
+const HVS_PROPERTY_LOADING_HOLD_MS=2500;
+const HVS_PROPERTY_LOADING_FADE_MS=500;
+
+const hvsPropertyFlight={
+    active:false,loading:false,returnMode:null,startHeight:-35,lastHeight:-35,
+    cameraAnimationToken:0,sequenceToken:0
+};
+
+function hvsRefreshPropertyChoices(){
+    const selected=window.homeViewGetPropertyChoice?.()||null;
+    for(const [button,property,lot] of [[hvsPropertyOne,'one','Lot 12'],[hvsPropertyTwo,'two','Lot 18']]){
+        const active=selected===property;
+        button.classList.toggle('is-selected',active);
+        button.setAttribute('aria-pressed',String(active));
+        button.disabled=false;
+        button.setAttribute('aria-label',`${lot}${active?' (currently selected; tap to confirm)':' (select this property)'}`);
+    }
+    const mapImg=document.getElementById('hvsPropertyMapImage');
+    const currentLabel=document.getElementById('hvsPropertyCurrentLot');
+    if(mapImg){
+      const desired=`Property Map/development_lot${selected==='two'?'18':'12'}_selected.png`;
+      if(mapImg.getAttribute('src')!==desired)mapImg.setAttribute('src',desired);
+    }
+    if(currentLabel)currentLabel.textContent=selected==='two'?'LOT 18':'LOT 12';
+}
+
+function hvsPropertyEaseIn(t){ return Math.pow(t,2.35); }
+function hvsPropertyEaseOut(t){ return 1-Math.pow(1-t,3.25); }
+function hvsPropertyWait(ms){ return new Promise(resolve=>setTimeout(resolve,ms)); }
+
+function hvsPropertyCameraLimits(){
+    const min=Number.parseFloat(hvsPropertyCameraSlider?.min);
+    const max=Number.parseFloat(hvsPropertyCameraSlider?.max);
+    return {
+        min:Number.isFinite(min)?min:-90,
+        max:Number.isFinite(max)?max:60
+    };
+}
+
+function hvsSendTemporaryCameraHeight(value){
+    // The normal camera UI intentionally exposes only -90..+60. For this cinematic
+    // flight we temporarily widen the *HTML slider* range, then dispatch the same
+    // proven input event used by a real drag. Unreal therefore receives the larger
+    // height through the existing camSetHeight route without permanently changing
+    // the user's camera control range.
+    const rounded=Math.round(Math.max(-500,Math.min(1200,value)));
+    hvsPropertyFlight.lastHeight=rounded;
+    if(hvsPropertyCameraSlider){
+        const originalMin=hvsPropertyCameraSlider.getAttribute('min');
+        const originalMax=hvsPropertyCameraSlider.getAttribute('max');
+        const normalMin=Number.parseFloat(originalMin);
+        const normalMax=Number.parseFloat(originalMax);
+        if(!Number.isFinite(normalMin) || rounded<normalMin)hvsPropertyCameraSlider.setAttribute('min',String(Math.min(-500,rounded)));
+        if(!Number.isFinite(normalMax) || rounded>normalMax)hvsPropertyCameraSlider.setAttribute('max',String(Math.max(1200,rounded)));
+        hvsPropertyCameraSlider.value=String(rounded);
+        hvsPropertyCameraSlider.dispatchEvent(new Event('input',{bubbles:true}));
+        if(originalMin===null)hvsPropertyCameraSlider.removeAttribute('min');else hvsPropertyCameraSlider.setAttribute('min',originalMin);
+        if(originalMax===null)hvsPropertyCameraSlider.removeAttribute('max');else hvsPropertyCameraSlider.setAttribute('max',originalMax);
+    }else{
+        sendUnreal({camSetHeight:String(rounded)});
+    }
+}
+
+function hvsAnimatePropertyCamera(from,to,duration,easing){
+    const token=++hvsPropertyFlight.cameraAnimationToken;
+    const start=performance.now();
+    let lastSent=-Infinity;
+    return new Promise(resolve=>{
+        function frame(now){
+            if(token!==hvsPropertyFlight.cameraAnimationToken){ resolve(false); return; }
+            const t=Math.min(1,(now-start)/duration);
+            const value=from+(to-from)*easing(t);
+            // About 18 Hz keeps the vertical movement visibly fluid without flooding
+            // the Pixel Streaming UIInteraction channel every rendered frame.
+            if(now-lastSent>=55 || t>=1){
+                hvsSendTemporaryCameraHeight(t>=1?to:value);
+                lastSent=now;
+            }
+            if(t<1)requestAnimationFrame(frame);else resolve(true);
+        }
+        requestAnimationFrame(frame);
+    });
+}
+
+function hvsCapturePropertyReturnMode(){
+    const modes=['profile-mode','teleport-mode','camera-mode','building-mode','environment-mode','confirm-mode','walk-mode'];
+    return modes.find(mode=>body.classList.contains(mode))||null;
+}
+
+function hvsCloseMenusForPropertyFlight(){
+    hvsPropertyFlight.returnMode=hvsCapturePropertyReturnMode();
+    // clearModes() also stops teleport marker tracking cleanly and leaves all
+    // menu contents/state mounted so they can be reopened afterwards.
+    clearModes();
+}
+
+function hvsRestoreMenuAfterPropertyFlight(){
+    const mode=hvsPropertyFlight.returnMode;
+    hvsPropertyFlight.returnMode=null;
+    switch(mode){
+        case 'profile-mode': openProfileMenu(); break;
+        case 'teleport-mode': openTeleportMenu(); break;
+        case 'camera-mode': openCameraMenu(); break;
+        case 'building-mode': openBuildingMenu(); break;
+        case 'confirm-mode': openConfirmMenu(); break;
+        case 'walk-mode': enterWalkMode(); break;
+        // This legacy panel has no dedicated opener in the current frontend.
+        case 'environment-mode': clearModes(); body.classList.add('environment-mode'); break;
+        default: clearModes(); break;
+    }
+}
+
+function hvsResetPropertyLoadingVisual(){
+    hvsPropertyLoading.classList.remove('is-visible','is-fading');
+    hvsPropertyLoading.setAttribute('aria-hidden','true');
+    hvsPropertyPrompt.classList.remove('hvs-property-loading');
+}
+
+async function hvsShowPropertyPrompt(){
+    if(hvsPropertyFlight.active || hvsPropertyPrompt.classList.contains('is-open'))return false;
+    const seq=++hvsPropertyFlight.sequenceToken;
+    hvsPropertyFlight.active=true;
+    hvsPropertyFlight.loading=false;
+    hvsClosePropertyIntroduction();
+    hvsRefreshPropertyChoices();
+
+    const sliderValue=parseFloat(hvsPropertyCameraSlider?.value);
+    hvsPropertyFlight.startHeight=Number.isFinite(sliderValue)?sliderValue:-35;
+    hvsPropertyFlight.lastHeight=hvsPropertyFlight.startHeight;
+
+    hvsCloseMenusForPropertyFlight();
+    document.body.classList.remove('hvs-property-offer-visible');
+    document.body.classList.add('hvs-property-flight-active');
+    hvsPropertyPrompt.removeAttribute('style');
+    hvsPropertyPrompt.inert=false;
+    hvsPropertyPrompt.className='hvs-flight-mounted is-open';
+    hvsPropertyPrompt.setAttribute('aria-hidden','false');
+    hvsResetPropertyLoadingVisual();
+
+    // The body begins rising first, slowly. The map catches up a fraction later.
+    const cameraUp=hvsAnimatePropertyCamera(
+        hvsPropertyFlight.startHeight,
+        HVS_PROPERTY_FLIGHT_PEAK_HEIGHT,
+        HVS_PROPERTY_FLIGHT_UP_MS,
+        hvsPropertyEaseIn
+    );
+
+    await hvsPropertyWait(HVS_PROPERTY_MAP_START_DELAY_MS);
+    if(seq!==hvsPropertyFlight.sequenceToken || !hvsPropertyFlight.active)return false;
+    hvsPropertyPrompt.classList.add('hvs-flight-entering');
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        if(seq!==hvsPropertyFlight.sequenceToken || !hvsPropertyFlight.active)return;
+        hvsPropertyPrompt.classList.add('hvs-flight-settled');
+    }));
+
+    // IMPORTANT: interaction readiness is tied to the map animation itself, not
+    // the Unreal camera-message animation. If Pixel Streaming ever delays or drops
+    // a camera callback, the visible map must never become a dead-end.
+    await hvsPropertyWait(HVS_PROPERTY_MAP_ENTER_MS);
+    if(seq!==hvsPropertyFlight.sequenceToken || !hvsPropertyFlight.active)return false;
+    hvsPropertyPrompt.classList.add('hvs-flight-ready');
+    // Let the camera continue settling independently if it has not finished yet.
+    cameraUp.catch?.(()=>{});
+    return true;
+}
+
+function hvsFinishPropertyFlightCleanup(seq){
+    if(seq!==hvsPropertyFlight.sequenceToken)return false;
+    // Cancel any remaining rAF sender and restore the exact starting slider value
+    // through the same working Camera Height input route. Cleanup never waits on
+    // Unreal or requestAnimationFrame, so a transparent screen blocker cannot survive.
+    hvsPropertyFlight.cameraAnimationToken++;
+    hvsSendTemporaryCameraHeight(hvsPropertyFlight.startHeight);
+    hvsResetPropertyLoadingVisual();
+    hvsPropertyPrompt.className='';
+    hvsPropertyPrompt.setAttribute('aria-hidden','true');
+    hvsPropertyPrompt.inert=true;
+    hvsPropertyPrompt.style.pointerEvents='none';
+    hvsPropertyPrompt.style.visibility='hidden';
+    document.body.classList.remove('hvs-property-offer-visible','hvs-property-flight-active');
+    if(document.activeElement?.closest?.('#hvsPropertyPrompt'))document.activeElement.blur();
+    hvsPropertyFlight.active=false;
+    hvsPropertyFlight.loading=false;
+    hvsRestoreMenuAfterPropertyFlight();
+    return true;
+}
+
+async function hvsClosePropertyPrompt(){
+    if(!hvsPropertyFlight.active || hvsPropertyFlight.loading)return false;
+    const seq=++hvsPropertyFlight.sequenceToken;
+    hvsPropertyFlight.loading=false;
+    hvsPropertyPrompt.classList.remove('hvs-flight-ready','hvs-flight-entering','hvs-flight-settled');
+    hvsPropertyPrompt.classList.add('hvs-flight-exiting');
+    hvsResetPropertyLoadingVisual();
+
+    // The fall begins with the map reverse, but critically it is fire-and-forget.
+    // Even if a browser/stream throttles rAF, the UI cleanup below still happens.
+    hvsAnimatePropertyCamera(
+        hvsPropertyFlight.lastHeight,
+        hvsPropertyFlight.startHeight,
+        HVS_PROPERTY_FLIGHT_DOWN_MS,
+        hvsPropertyEaseOut
+    ).catch?.(()=>{});
+
+    await hvsPropertyWait(Math.max(HVS_PROPERTY_MAP_EXIT_MS,HVS_PROPERTY_FLIGHT_DOWN_MS)+120);
+    return hvsFinishPropertyFlightCleanup(seq);
+}
+
+const hvsPropertyIntroduction=document.getElementById('hvsPropertyIntroduction');
+function hvsClosePropertyIntroduction(){
+    hvsPropertyIntroduction.classList.remove('is-open');
+    hvsPropertyIntroduction.setAttribute('aria-hidden','true');
+    if(document.activeElement?.closest?.('#hvsPropertyIntroduction'))document.activeElement.blur();
+}
+function hvsShowPropertyIntroduction(){
+    if(hvsPropertyIntroduction.classList.contains('is-open'))return false;
+    hvsPropertyIntroduction.classList.add('is-open');
+    hvsPropertyIntroduction.setAttribute('aria-hidden','false');
+    return true;
+}
+window.homeViewShowPropertyOfferOnce=function(){
+    if(window.homeViewPropertyOfferWasSeen?.())return false;
+    if(document.body.classList.contains('hvs-movie-active')){
+        window.homeViewPendingPropertyOffer=true;
+        return false;
+    }
+    window.homeViewMarkPropertyOfferSeen?.();
+    return hvsShowPropertyIntroduction();
+};
+window.homeViewOpenPropertySelector=function(){
+    window.homeViewMarkPropertyOfferSeen?.();
+    hvsClosePropertyIntroduction();
+    return hvsShowPropertyPrompt();
+};
+document.getElementById('hvsPropertyIntroChoose').addEventListener('click',()=>window.homeViewOpenPropertySelector());
+document.getElementById('hvsPropertyIntroContinue').addEventListener('click',hvsClosePropertyIntroduction);
+window.homeViewTestPropertyOffer=()=>hvsShowPropertyPrompt();
+
+async function hvsChooseProperty(property){
+    if(!hvsPropertyFlight.active || hvsPropertyFlight.loading ||
+       !['one','two'].includes(property))return;
+
+    hvsPropertyFlight.loading=true;
+    hvsPropertyPrompt.classList.remove('hvs-flight-ready');
+    hvsPropertyPrompt.classList.add('hvs-property-loading');
+    window.homeViewSavePropertyChoice?.(property);
+    hvsRefreshPropertyChoices();
+
+    // Trigger the Unreal environment change immediately, then deliberately mask
+    // the visible transition for 2.5s with a clean loading state.
+    const command={property};
+    const sent=window.homeViewSend?.(command);
+    if(sent===false)console.warn('[PROPERTY] Unable to confirm send:',command);
+    else console.info('[PROPERTY] Selected:',command);
+
+    hvsPropertyLoading.classList.remove('is-fading');
+    hvsPropertyLoading.classList.add('is-visible');
+    hvsPropertyLoading.setAttribute('aria-hidden','false');
+    await hvsPropertyWait(HVS_PROPERTY_LOADING_HOLD_MS);
+    if(!hvsPropertyFlight.active)return;
+    hvsPropertyLoading.classList.add('is-fading');
+    await hvsPropertyWait(HVS_PROPERTY_LOADING_FADE_MS);
+    if(!hvsPropertyFlight.active)return;
+    hvsPropertyLoading.classList.remove('is-visible','is-fading');
+    hvsPropertyLoading.setAttribute('aria-hidden','true');
+    hvsPropertyPrompt.classList.remove('hvs-property-loading');
+    hvsPropertyFlight.loading=false;
+    await hvsClosePropertyPrompt();
+}
+
+function hvsBindPropertyHotspot(button,property){
+    // Click is the normal path. Pointer-up is a mobile/PWA fallback for streamed
+    // sessions where a transformed transparent button can occasionally lose click.
+    let pointerHandled=false;
+    button.addEventListener('pointerup',event=>{
+        if(!hvsPropertyFlight.active || hvsPropertyFlight.loading)return;
+        if(event.pointerType==='touch' || event.pointerType==='pen'){
+            pointerHandled=true;
+            event.preventDefault();
+            hvsChooseProperty(property);
+            setTimeout(()=>{pointerHandled=false;},350);
+        }
+    });
+    button.addEventListener('click',event=>{
+        if(pointerHandled){event.preventDefault();return;}
+        hvsChooseProperty(property);
+    });
+}
+hvsBindPropertyHotspot(hvsPropertyOne,'one');
+hvsBindPropertyHotspot(hvsPropertyTwo,'two');
+hvsPropertyDismiss.addEventListener('click',()=>hvsClosePropertyPrompt());
+document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&hvsPropertyFlight.active&&!hvsPropertyFlight.loading){
+        event.preventDefault();event.stopPropagation();hvsClosePropertyPrompt();
+    }
+},true);
+// Keep movement/navigation keys from reaching Unreal while the cinematic map
+// owns the screen. Pointer input is already captured by the full-screen map.
+window.addEventListener('keydown',event=>{
+    if(!hvsPropertyFlight.active)return;
+    const blocked=['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' '];
+    if(blocked.includes(String(event.key).toLowerCase())){
+        event.preventDefault();event.stopImmediatePropagation();
+    }
+},true);
+window.addEventListener('keyup',event=>{
+    if(!hvsPropertyFlight.active)return;
+    const blocked=['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' '];
+    if(blocked.includes(String(event.key).toLowerCase())){
+        event.preventDefault();event.stopImmediatePropagation();
+    }
+},true);
+  <\/script>
+</template>
+
 </body></html>
