@@ -4953,7 +4953,7 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 .hvsPropertyIntroActions button{border:1px solid rgba(255,255,255,.28);border-radius:100px;min-height:39px;padding:9px 14px;cursor:pointer;color:#fff;background:rgba(255,255,255,.1);font:700 11px "HomeView Myriad",Arial,sans-serif;letter-spacing:.04em;touch-action:manipulation;}
 #hvsPropertyIntroChoose{background:linear-gradient(140deg,#f56b32,#b63f1c);}
 .hvsPropertyIntroActions button:focus-visible{outline:2px solid #fff;outline-offset:2px;}
-@media(max-height:440px) and (orientation:landscape){#hvsPropertyIntroduction{align-items:flex-start;padding:7px 12px;}#hvsPropertyIntroductionCard{width:min(530px,calc(100vw - 24px));padding:10px 14px;}#hvsPropertyIntroductionCard h2{font-size:14px;margin-bottom:5px;}#hvsPropertyIntroductionCard p{font-size:11px;margin-bottom:8px;}.hvsPropertyIntroActions button{min-height:31px;padding:6px 12px;font-size:10px;}}
+@media(max-height:440px) and (orientation:landscape){#hvsPropertyIntroduction{align-items:center;padding:7px 12px;}#hvsPropertyIntroductionCard{width:min(530px,calc(100vw - 24px));padding:10px 14px;}#hvsPropertyIntroductionCard h2{font-size:14px;margin-bottom:5px;}#hvsPropertyIntroductionCard p{font-size:11px;margin-bottom:8px;}.hvsPropertyIntroActions button{min-height:31px;padding:6px 12px;font-size:10px;}}
 </style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
@@ -9301,25 +9301,47 @@ function hvsSendNativeDesktopResolution(width, height) {
   }
   return {sent:false, supported, via:supported?'native data channel not ready':'native Command API unavailable'};
 }
+function hvsSendLegacyDesktopResolution(key, reason='UE 5.8 aspect fallback') {
+  if (!HVS_DESKTOP_RESIZE_ENABLED || document.hidden || window.homeViewSessionIntentional ||
+      homeViewTeardownStarted || hvsScreenshotProtected()) return false;
+  const command=`r.SetRes ${key}w`;
+  const sent=sendUnreal({console:true,Command:command});
+  if(sent){
+    hvsDesktopResolutionTransport='native Command + Blueprint r.SetRes fallback';
+    console.info(`[HVS DESKTOP] ${reason}: ${command}`);
+    return true;
+  }
+  console.warn('[HVS DESKTOP] Blueprint resolution fallback could not be sent:',reason,command);
+  return false;
+}
 function hvsVerifyDesktopAspect(key) {
   const token=++hvsDesktopResolutionCheckToken;
+
+  // UE 5.8 / Arcware can expose emitCommand and accept the descriptor while the
+  // decoded track remains at the launch aspect. If that happens, use Home View's
+  // already-proven Blueprint console route with the SAME target resolution.
   setTimeout(()=>{
     if(token!==hvsDesktopResolutionCheckToken || !HVS_DESKTOP_RESIZE_ENABLED ||
        document.hidden || !levelReady || key!==lastSentViewportResolution ||
        window.homeViewSessionIntentional || hvsScreenshotProtected())return;
     if(hvsStreamAspectMismatched()){
-      console.warn('[HVS DESKTOP] Stream aspect mismatch; retrying native resize once.',
+      console.warn('[HVS DESKTOP] Native resize did not change the decoded aspect; using Blueprint fallback.',
         window.homeViewDesktopResolutionStatus?.());
-      sendViewportResolutionToUnreal('desktop aspect mismatch (one retry)',true,true);
+      hvsSendLegacyDesktopResolution(key,'desktop aspect mismatch');
     }
   },1700);
+
+  // One bounded retry only. Never loop or create a second stream/session.
   setTimeout(()=>{
     if(token!==hvsDesktopResolutionCheckToken || document.hidden ||
-       key!==lastSentViewportResolution || window.homeViewSessionIntentional)return;
-    if(hvsStreamAspectMismatched())
-      console.warn('[HVS DESKTOP] Unreal has not matched viewport. Check native command transport.',
+       key!==lastSentViewportResolution || window.homeViewSessionIntentional ||
+       hvsScreenshotProtected())return;
+    if(hvsStreamAspectMismatched()){
+      hvsSendLegacyDesktopResolution(key,'desktop aspect mismatch final retry');
+      console.warn('[HVS DESKTOP] Stream still has the wrong aspect after native + Blueprint resize.',
         window.homeViewDesktopResolutionStatus?.());
-  },4100);
+    }
+  },4300);
 }
 function sendViewportResolutionToUnreal(reason='viewport', force=false, desktopAspectRetry=false) {
   // Isolate the D3D device-removed crash from any frontend r.SetRes/native resize.
@@ -9333,8 +9355,9 @@ function sendViewportResolutionToUnreal(reason='viewport', force=false, desktopA
     if (hvsScreenshotProtected() || window.homeViewSessionIntentional ||
         homeViewTeardownStarted) return false;
     let result=hvsSendNativeDesktopResolution(width,height);
-    // Preserve the old Blueprint path only as a legacy fallback when no
-    // native Command API exists. Never send two competing resolution messages.
+    // Preserve the old Blueprint path when no native Command API exists.
+    // If native transport reports success but UE 5.8 keeps the wrong decoded
+    // aspect, hvsVerifyDesktopAspect() performs a bounded same-resolution fallback.
     if (!result.sent && !result.supported) {
       const legacy=`r.SetRes ${key}w`;
       result={sent:sendUnreal({console:true,Command:legacy}),
