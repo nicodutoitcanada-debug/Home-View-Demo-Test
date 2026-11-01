@@ -1879,6 +1879,11 @@ body.walk-mode #homeViewUI.is-ready #sliderContainer { pointer-events:none; }
     border-color: rgba(255,95,38,.72);
 }
 .editOptionButton:active { transform: scale(.98); }
+.editOptionButton:disabled {
+    cursor:default;
+    opacity:.82;
+}
+.editOptionButton:disabled:active { transform:none; }
 .editOptionButton.is-selected {
     background: rgba(222,64,16,.48);
     border-color: rgba(255,78,18,.70);
@@ -5904,7 +5909,15 @@ let liveMapFloorReceivedAt = 0;
 let liveMapYawReceivedAt = 0;
 
 function renderEditMenu() {
-    const options = personalizeCheckPending ? [] : hvsPersonalizeOptionsForRoom(currentEditMenuRoom);
+    // PERSONALIZE ENTRY STABILITY:
+    // Do not collapse this panel to a tiny "checking" state while fresh XY/floor
+    // samples arrive. That height change was causing the centered wrapper to jump
+    // upward after its entrance animation had already begun.
+    let displayRoom = currentEditMenuRoom;
+    if (personalizeCheckPending && hvsLocationSnapshotIsFresh()) {
+        displayRoom = hvsRoomFromMapPosition(liveMapPoint.x, liveMapPoint.y, liveMapPlayerFloor) || displayRoom;
+    }
+    const options = hvsPersonalizeOptionsForRoom(displayRoom);
     editOptionButtons.replaceChildren();
     editMenuEmptyMessage.classList.toggle('is-visible', options.length === 0);
     if (options.length === 0) {
@@ -5921,7 +5934,12 @@ function renderEditMenu() {
         button.className = 'editOptionButton';
         button.textContent = option;
         button.dataset.editOption = option;
-        if(option==='LANDSCAPING' && currentEditMenuRoom==='Outside'){
+        // During the brief verification window the buttons are shown only to
+        // establish the correct panel geometry; they become interactive as soon
+        // as the fresh room is confirmed.
+        button.disabled = personalizeCheckPending;
+        button.setAttribute('aria-busy', String(personalizeCheckPending));
+        if(option==='LANDSCAPING' && displayRoom==='Outside'){
             const enabled=window.homeViewGetLandscaping?.()!=='off';
             button.textContent=`LANDSCAPING · ${enabled?'ON':'OFF'}`;
             button.classList.add('landscapingToggleButton');
@@ -7161,9 +7179,17 @@ function closeConfirmMenu() {
 
 function openProfileMenu() {
     clearModes();
+
+    // Build the provisional room controls while the panel is still hidden so
+    // its first visible frame already has the final mobile geometry.
+    hvsBeginPersonalizeCheck();
     window.homeViewPrepareMenuOpen?.('profileMenuWrapper');
+
     body.classList.add('profile-mode');
-    hvsBeginPersonalizeCheck(); // Verify fresh streaming XY+height before offering buttons.
+
+    // hvsBeginPersonalizeCheck() intentionally ran before profile-mode existed;
+    // now that the menu is active, immediately consume any fresh cached sample.
+    hvsTryConfirmPersonalize(false);
 }
 document.getElementById('hvsFloatingPersonalize').addEventListener('click',()=>{
     // Do not let an already open configuration or overlay be disturbed.
@@ -9268,12 +9294,13 @@ function getStreamingViewportResolution() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   let width = Math.round(cssWidth * dpr);
   let height = Math.round(cssHeight * dpr);
-  // Mobile resolution test: cap the LONGEST render edge at 1440 physical pixels.
-  // Preserve the browser aspect ratio, and never upscale a smaller viewport.
-  // Mobile remains unchanged; desktop has its own colour-safe adaptive tiers.
+  // MOBILE PERFORMANCE: cap the LONGEST render edge at 1152 physical pixels.
+  // The UE 5.8 live diagnostic proved the native resize is now taking effect.
+  // 1152 reduces pixels/frame by ~36% versus 1440 at the tested phone ratio,
+  // while preserving the browser aspect and never upscaling a smaller viewport.
+  // Desktop retains its separate colour-safe adaptive tiers unchanged.
   if (window.matchMedia('(pointer:coarse)').matches) {
-    // MOBILE: identical 1440px logic as the already-successful mobile build.
-    const factor = Math.min(1, 1440 / Math.max(width, height));
+    const factor = Math.min(1, 1152 / Math.max(width, height));
     width = Math.round(width * factor);
     height = Math.round(height * factor);
   } else if (HVS_DESKTOP_RESIZE_ENABLED) {
@@ -10479,12 +10506,12 @@ let localStyles = null;
 // cloud-controlled encoder settings can override it. No resolution changes.
 const HVS_QUALITY_MOBILE = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ||
   (window.matchMedia('(pointer:coarse)').matches && Math.min(innerWidth,innerHeight)<900);
-// Mobile v4: begin at 1.6 Mbps to reduce the heavy first-seconds startup load,
-// then retain the existing adaptive ladder up to 6.0 Mbps after playback proves
-// healthy. Desktop remains completely unchanged. These are Arcware/Epic WebRTC
-// bitrate requests; the cloud encoder may still override them.
+// Mobile v5: begin at 1.3 Mbps for the lightest stable startup request, then
+// retain the existing adaptive ladder and recover upward only after playback
+// proves healthy. Desktop remains completely unchanged. These are Arcware/Epic
+// WebRTC bitrate requests; the cloud encoder may still override them.
 const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [1300,1600,2000,2800,4000,6000] : [5000,7000,10000,14000];
-let hvsQualityIndex=HVS_QUALITY_MOBILE?1:0;
+let hvsQualityIndex=HVS_QUALITY_MOBILE?0:0;
 let hvsQualityConfig=null;
 let hvsQualityTimer=null;
 let hvsQualityPrevious=null;
@@ -10571,7 +10598,7 @@ window.homeViewQualityStatus=()=>({mobile:HVS_QUALITY_MOBILE,
 
 // TEMPORARY LIVE MOBILE TEST HUD.
 // Set false after the UE 5.8 live test proves requested === decoded aspect.
-const HVS_LIVE_MOBILE_DIAGNOSTICS = true;
+const HVS_LIVE_MOBILE_DIAGNOSTICS = false;
 let hvsLiveMobileDiagnosticTimer = null;
 
 window.homeViewMobileStreamStatus=()=>{
