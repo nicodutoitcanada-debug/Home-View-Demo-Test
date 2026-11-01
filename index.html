@@ -9261,9 +9261,11 @@ let viewportSyncTimer = null;
 let viewportRetryTimers = [];
 
 // DESKTOP ONLY: LUX-proven, colour-neutral adaptive render size.
-// Do NOT change the working mobile bitrate controller, video sizing or rotation logic.
-// Keep a 30 FPS request for BOTH devices; never request 60 FPS.
-const HVS_REQUESTED_MAX_FPS = 30;
+// Mobile performance test: request 24 FPS on phones/tablets; desktop stays 30 FPS.
+// NEVER request 60 FPS on any platform.
+const HVS_MOBILE_STREAM_TARGET = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ||
+  window.matchMedia('(pointer:coarse)').matches;
+const HVS_REQUESTED_MAX_FPS = HVS_MOBILE_STREAM_TARGET ? 24 : 30;
 const HVS_DESKTOP_RESOLUTION_TIERS = [1280, 1600, 1920]; // longest edge, never crop
 const HVS_DESKTOP_RESIZE_ENABLED = !/Android|iPhone|iPod|iPad/i.test(navigator.userAgent) &&
   !window.matchMedia('(pointer:coarse)').matches;
@@ -9294,13 +9296,12 @@ function getStreamingViewportResolution() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   let width = Math.round(cssWidth * dpr);
   let height = Math.round(cssHeight * dpr);
-  // MOBILE PERFORMANCE: cap the LONGEST render edge at 1152 physical pixels.
-  // The UE 5.8 live diagnostic proved the native resize is now taking effect.
-  // 1152 reduces pixels/frame by ~36% versus 1440 at the tested phone ratio,
-  // while preserving the browser aspect and never upscaling a smaller viewport.
-  // Desktop retains its separate colour-safe adaptive tiers unchanged.
+  // MOBILE PERFORMANCE TEST: cap the LONGEST render edge at 960 physical pixels.
+  // The UE 5.8 live diagnostic proved the native resize is taking effect.
+  // 960 substantially reduces render/encode/decode load while preserving the
+  // browser aspect ratio. Desktop retains its colour-safe adaptive tiers unchanged.
   if (window.matchMedia('(pointer:coarse)').matches) {
-    const factor = Math.min(1, 1152 / Math.max(width, height));
+    const factor = Math.min(1, 960 / Math.max(width, height));
     width = Math.round(width * factor);
     height = Math.round(height * factor);
   } else if (HVS_DESKTOP_RESIZE_ENABLED) {
@@ -10506,8 +10507,8 @@ let localStyles = null;
 // cloud-controlled encoder settings can override it. No resolution changes.
 const HVS_QUALITY_MOBILE = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ||
   (window.matchMedia('(pointer:coarse)').matches && Math.min(innerWidth,innerHeight)<900);
-// Mobile v5: begin at 1.3 Mbps for the lightest stable startup request, then
-// retain the existing adaptive ladder and recover upward only after playback
+// Mobile v6 test: begin at 1.3 Mbps, 960px long-edge and 24 FPS, then retain
+// the existing adaptive bitrate ladder and recover upward only after playback
 // proves healthy. Desktop remains completely unchanged. These are Arcware/Epic
 // WebRTC bitrate requests; the cloud encoder may still override them.
 const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [1300,1600,2000,2800,4000,6000] : [5000,7000,10000,14000];
@@ -10565,13 +10566,13 @@ async function hvsMonitorQuality(){
         // Mobile needs earlier protection from jitter; desktop thresholds
         // remain exactly the same as the successfully tested build.
         const bad=HVS_QUALITY_MOBILE
-          ? ((fps<25 && kbps>180) || lossRatio>.025 || (rtt!==null&&rtt>.28))
+          ? ((fps<20 && kbps>180) || lossRatio>.025 || (rtt!==null&&rtt>.28))
           : ((fps<17 && kbps>180) || lossRatio>.075 || (rtt!==null&&rtt>.48));
         const good=HVS_QUALITY_MOBILE
-          ? (fps>=28 && lossRatio<.010 && (rtt===null||rtt<.18))
+          ? (fps>=23 && lossRatio<.010 && (rtt===null||rtt<.18))
           : (fps>=24 && lossRatio<.018 && (rtt===null||rtt<.22));
         const severe=HVS_QUALITY_MOBILE &&
-          ((fps<15 && kbps>180) || lossRatio>.08);
+          ((fps<12 && kbps>180) || lossRatio>.08);
         if(bad){hvsQualityBad++;hvsQualityGood=0;}
         else if(good){hvsQualityGood++;hvsQualityBad=0;}
         else{hvsQualityBad=0;hvsQualityGood=0;}
@@ -10892,7 +10893,7 @@ if (dev_mode) {
     const setup = new ArcwareInit(
       { shareId:SHARE_ID },
        { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
-           WebRTCFPS:HVS_REQUESTED_MAX_FPS, // ALWAYS 30 on every platform
+           WebRTCFPS:HVS_REQUESTED_MAX_FPS, // mobile 24 FPS; desktop 30 FPS; never 60
            // Mobile: exact existing 1300..6000 kbps adaptive controller.
            // Desktop: LUX-style original Arcware bitrate/codec for true colour;
            // adapt only the render resolution, not bitrate.
@@ -12162,7 +12163,7 @@ window.addEventListener('keyup',event=>{
         event.preventDefault();event.stopImmediatePropagation();
     }
 },true);
-  <\/script>
+  </script>
 </template>
 
 <script src="hvs-leads.js" defer></script>
