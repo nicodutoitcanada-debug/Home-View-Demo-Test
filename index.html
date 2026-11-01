@@ -4795,7 +4795,12 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active) #hvsGameSoun
 #hvsGameSoundButton:hover img,#hvsGameSoundButton[aria-pressed="true"] img {opacity:1;}
 #hvsGameSoundButton:hover img {transform:scale(1.06);}
 #hvsGameSoundButton:active img {transform:scale(.94);}
-#hvsGameSoundButton:focus-visible {outline:1px solid rgba(255,255,255,.75);outline-offset:2px;}
+#hvsGameSoundButton:focus,
+#hvsGameSoundButton:focus-visible {
+  outline:none !important;
+  outline-offset:0 !important;
+  box-shadow:none !important;
+}
 @media(max-height:450px) and (orientation:landscape) {
   #hvsGameSoundButton {top:max(5px,env(safe-area-inset-top));width:44px;height:44px;}
   #hvsGameSoundButton img {width:27px;height:27px;}
@@ -6118,6 +6123,7 @@ for (const item of KITCHEN_TARGETS) {
 }
 function openKitchenSelectorMenu() {
   clearModes();
+  window.homeViewPrepareMenuOpen?.('kitchenMenuWrapper');
   body.classList.add('kitchen-mode');
   kitchenShowOverlay(kitchenSelectedTarget);
 }
@@ -6345,7 +6351,9 @@ function openKitchenFinishMenu(zone,returnTo='kitchen'){
         kitchenFinishOptions.appendChild(button);
     }
     kitchenFinishHighlightSelected();
-    clearModes();body.classList.add('kitchen-finish-mode');
+    clearModes();
+    window.homeViewPrepareMenuOpen?.('kitchenFinishMenuWrapper');
+    body.classList.add('kitchen-finish-mode');
     kitchenFinishOptions.scrollTop=0;
 }
 function closeKitchenFinishMenu(restoreSelector=true){
@@ -7123,6 +7131,7 @@ function exitWalkMode() {
 
 function openCameraMenu() {
     clearModes();
+    window.homeViewPrepareMenuOpen?.('cameraMenuWrapper');
     body.classList.add('camera-mode');
 }
 
@@ -7132,6 +7141,7 @@ function closeCameraMenu() {
 
 function openBuildingMenu() {
     clearModes();
+    window.homeViewPrepareMenuOpen?.('buildingMenuWrapper');
     body.classList.add('building-mode');
 }
 
@@ -7141,6 +7151,7 @@ function closeBuildingMenu() {
 
 function openConfirmMenu() {
     clearModes();
+    window.homeViewPrepareMenuOpen?.('confirmMenuWrapper');
     body.classList.add('confirm-mode');
 }
 
@@ -7150,6 +7161,7 @@ function closeConfirmMenu() {
 
 function openProfileMenu() {
     clearModes();
+    window.homeViewPrepareMenuOpen?.('profileMenuWrapper');
     body.classList.add('profile-mode');
     hvsBeginPersonalizeCheck(); // Verify fresh streaming XY+height before offering buttons.
 }
@@ -7181,6 +7193,7 @@ function closeProfileMenu() {
 function openTeleportMenu() {
     closeUpstairsLayoutDialog();
     clearModes();
+    window.homeViewPrepareMenuOpen?.('teleportMenuWrapper');
     body.classList.add('teleport-mode');
     requestMapLocationTracking(true); // use continuously cached Unreal location.
 
@@ -9233,6 +9246,11 @@ let hvsDesktopRtcStream = null;
 let hvsDesktopResolutionTransport = 'not sent';
 let hvsDesktopResolutionError = '';
 let hvsDesktopResolutionCheckToken = 0;
+// UE 5.8 MOBILE: use the same native Resolution.Width/Height transport that
+// is now working correctly on desktop. Keep the older Blueprint r.SetRes route
+// only as a bounded fallback if the decoded mobile aspect still does not move.
+let hvsMobileResolutionTransport = 'not sent';
+let hvsMobileResolutionCheckToken = 0;
 let hvsDesktopMonitorTimer = null;
 let hvsDesktopQualityPrevious = null;
 let hvsDesktopQualityStats = null;
@@ -9343,6 +9361,41 @@ function hvsVerifyDesktopAspect(key) {
     }
   },4300);
 }
+
+function hvsVerifyMobileAspect(key) {
+  if (HVS_DESKTOP_RESIZE_ENABLED) return;
+  const token=++hvsMobileResolutionCheckToken;
+
+  // Give UE/Arcware time to replace the decoded track. If it still presents
+  // the old 16:9 frame, send the SAME target once through the old Blueprint
+  // route. This keeps rotation/startup recovery bounded and predictable.
+  setTimeout(()=>{
+    if(token!==hvsMobileResolutionCheckToken || document.hidden || !levelReady ||
+       key!==lastSentViewportResolution || window.homeViewSessionIntentional ||
+       homeViewTeardownStarted || hvsScreenshotProtected()) return;
+    if(hvsStreamAspectMismatched()){
+      const legacy=`r.SetRes ${key}w`;
+      if(sendUnreal({console:true,Command:legacy})){
+        hvsMobileResolutionTransport += ' + Blueprint aspect fallback';
+        console.warn('[HVS MOBILE] Native resize still mismatched; sent bounded Blueprint fallback:',legacy);
+      }
+    }
+  },1400);
+
+  // One final player-layout refresh only. No reconnect and no new cloud session.
+  setTimeout(()=>{
+    if(token!==hvsMobileResolutionCheckToken || document.hidden || !levelReady ||
+       key!==lastSentViewportResolution || window.homeViewSessionIntentional ||
+       homeViewTeardownStarted || hvsScreenshotProtected()) return;
+    if(hvsStreamAspectMismatched()){
+      window.dispatchEvent(new Event('resize'));
+      try {window.visualViewport?.dispatchEvent(new Event('resize'));}catch(_){}
+      console.warn('[HVS MOBILE] Stream aspect still mismatched after native + fallback.',
+        window.homeViewMobileStreamStatus?.());
+    }
+  },3200);
+}
+
 function sendViewportResolutionToUnreal(reason='viewport', force=false, desktopAspectRetry=false) {
   // Isolate the D3D device-removed crash from any frontend r.SetRes/native resize.
   if (dev_mode && HVS_LOCAL_GPU_CRASH_SAFE_MODE) return false;
@@ -9373,13 +9426,30 @@ function sendViewportResolutionToUnreal(reason='viewport', force=false, desktopA
     if (!desktopAspectRetry) hvsVerifyDesktopAspect(key);
     return true;
   }
-  // MOBILE: exact same r.SetRes/UIInteraction route as the working release.
-  const command = `r.SetRes ${key}w`;
-  if (sendUnreal({console:true, Command:command})) {
+  // MOBILE / UE 5.8:
+  // Use the same native Pixel Streaming Resolution.Width/Height command that
+  // is now confirmed working on desktop. This avoids relying on an older
+  // Blueprint console path that can leave the mobile stream stuck at 16:9.
+  let mobileResult = hvsSendNativeDesktopResolution(width,height);
+  if (mobileResult.sent) {
+    hvsMobileResolutionTransport = mobileResult.via;
     lastSentViewportResolution = key;
-    console.info(`[STREAM] ${reason}: ${command}`);
+    console.info(`[HVS MOBILE] ${reason}: ${key} via ${mobileResult.via}`);
+    hvsVerifyMobileAspect(key);
     return true;
   }
+
+  // If the native API is unavailable/not ready, preserve the proven legacy
+  // Home View route. This is ONE fallback path, not a competing continuous loop.
+  const command = `r.SetRes ${key}w`;
+  if (sendUnreal({console:true, Command:command})) {
+    hvsMobileResolutionTransport = 'Blueprint r.SetRes fallback';
+    lastSentViewportResolution = key;
+    console.info(`[HVS MOBILE] ${reason}: ${command}`);
+    hvsVerifyMobileAspect(key);
+    return true;
+  }
+  hvsMobileResolutionTransport = mobileResult.via || 'not sent';
   return false;
 }
 // LUX-style one-shot layout refresh. A fresh Pixel Streaming connection can
@@ -10114,6 +10184,11 @@ function hvsCompleteGameReveal() {
   setTimeout(()=>window.homeViewShowGameReady?.(),270);
   ui.classList.add('is-ready');
   window.homeViewLevelReady=true;
+  // Re-apply the mobile startup ceiling now that the WebRTC player is definitely
+  // alive. InitialSettings sends it during construction; this confirms it again
+  // without reconnecting or creating a second Arcware session.
+  if (typeof HVS_QUALITY_MOBILE!=='undefined' && HVS_QUALITY_MOBILE)
+    hvsApplyBitrateHint?.();
   window.homeViewOnLevelReadyForAfk?.();
   document.body.classList.add('hvs-audio-ready');
   requestAnimationFrame(()=>{
@@ -10404,12 +10479,12 @@ let localStyles = null;
 // cloud-controlled encoder settings can override it. No resolution changes.
 const HVS_QUALITY_MOBILE = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ||
   (window.matchMedia('(pointer:coarse)').matches && Math.min(innerWidth,innerHeight)<900);
-// Mobile v3: begin at 2.0 Mbps, with finer downward steps to 1.3 Mbps.
-// Drop earlier when frame rate, packet loss or RTT suggest a struggling link;
-// restore quality only after sustained healthy playback. Desktop unchanged.
-// These are Arcware/Epic WebRTC bitrate requests; encoder may override them.
+// Mobile v4: begin at 1.6 Mbps to reduce the heavy first-seconds startup load,
+// then retain the existing adaptive ladder up to 6.0 Mbps after playback proves
+// healthy. Desktop remains completely unchanged. These are Arcware/Epic WebRTC
+// bitrate requests; the cloud encoder may still override them.
 const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [1300,1600,2000,2800,4000,6000] : [5000,7000,10000,14000];
-let hvsQualityIndex=HVS_QUALITY_MOBILE?2:0;
+let hvsQualityIndex=HVS_QUALITY_MOBILE?1:0;
 let hvsQualityConfig=null;
 let hvsQualityTimer=null;
 let hvsQualityPrevious=null;
@@ -10476,7 +10551,7 @@ async function hvsMonitorQuality(){
         // Hysteresis prevents bitrate oscillation. Loss/RTT are hints, not guarantees.
         if((hvsQualityBad>=2 || severe) && hvsQualityIndex>0){
           hvsQualityIndex--;hvsQualityBad=0;hvsQualityGood=0;hvsApplyBitrateHint();
-        } else if(hvsQualityGood>=(HVS_QUALITY_MOBILE?7:4) && hvsQualityIndex<HVS_QUALITY_LEVELS.length-1){
+        } else if(hvsQualityGood>=(HVS_QUALITY_MOBILE?5:4) && hvsQualityIndex<HVS_QUALITY_LEVELS.length-1){
           hvsQualityIndex++;hvsQualityGood=0;hvsQualityBad=0;hvsApplyBitrateHint();
         }
       }
@@ -10493,6 +10568,80 @@ window.homeViewQualityStatus=()=>({mobile:HVS_QUALITY_MOBILE,
   telemetry:HVS_QUALITY_MOBILE?hvsQualityMeasured:null,active:!!hvsQualityTimer,
   caveat:HVS_QUALITY_MOBILE?'Arcware/cloud may override WebRTC bitrate settings':
     'Desktop: original Arcware bitrate/codec, no frontend bitrate override. Check homeViewDesktopResolutionStatus() for desktop adaptive resolution.'});
+
+// TEMPORARY LIVE MOBILE TEST HUD.
+// Set false after the UE 5.8 live test proves requested === decoded aspect.
+const HVS_LIVE_MOBILE_DIAGNOSTICS = true;
+let hvsLiveMobileDiagnosticTimer = null;
+
+window.homeViewMobileStreamStatus=()=>{
+  const stage=document.getElementById('video-container');
+  const video=document.querySelector('#video-container video');
+  const target=getStreamingViewportResolution();
+  const vw=stage?.clientWidth||innerWidth;
+  const vh=stage?.clientHeight||innerHeight;
+  const decoded=video?.videoWidth&&video?.videoHeight
+    ? `${video.videoWidth}x${video.videoHeight}` : 'waiting';
+  const viewport=`${Math.round(vw)}x${Math.round(vh)}`;
+  const targetText=`${target.width}x${target.height}`;
+  const actualAspect=video?.videoWidth&&video?.videoHeight ? video.videoWidth/video.videoHeight : 0;
+  const viewportAspect=vw&&vh ? vw/vh : 0;
+  const mismatch=Boolean(actualAspect && viewportAspect &&
+    Math.abs(actualAspect-viewportAspect)>.025);
+  return {
+    target:targetText,
+    requested:lastSentViewportResolution||'not sent',
+    decoded,
+    viewport,
+    dpr:Math.round((devicePixelRatio||1)*100)/100,
+    aspect:mismatch?'MISMATCH':'MATCH',
+    transport:hvsMobileResolutionTransport,
+    ceilingKbps:HVS_QUALITY_LEVELS[hvsQualityIndex],
+    measured:hvsQualityMeasured
+  };
+};
+
+function hvsUpdateLiveMobileDiagnostics(){
+  if(!HVS_LIVE_MOBILE_DIAGNOSTICS || !HVS_QUALITY_MOBILE || dev_mode) return;
+  let panel=document.getElementById('hvs-live-mobile-diagnostics');
+  if(!panel){
+    panel=document.createElement('div');
+    panel.id='hvs-live-mobile-diagnostics';
+    panel.style.cssText=[
+      'position:fixed',
+      'left:max(7px,env(safe-area-inset-left,0px))',
+      'bottom:max(7px,env(safe-area-inset-bottom,0px))',
+      'z-index:20000',
+      'max-width:min(420px,74vw)',
+      'padding:7px 9px',
+      'border-radius:8px',
+      'border:1px solid rgba(255,255,255,.28)',
+      'background:rgba(0,0,0,.72)',
+      'color:#fff',
+      'font:600 9px/1.25 "HomeView Myriad",Arial,sans-serif',
+      'letter-spacing:.015em',
+      'white-space:pre-line',
+      'pointer-events:none',
+      'user-select:none',
+      '-webkit-user-select:none'
+    ].join(';');
+    document.body.appendChild(panel);
+  }
+  const s=window.homeViewMobileStreamStatus();
+  const m=s.measured;
+  panel.style.borderColor=s.aspect==='MATCH'?'rgba(111,255,146,.65)':'rgba(255,126,77,.82)';
+  panel.textContent=
+    `UE5.8 MOBILE STREAM TEST\n`+
+    `target ${s.target} · sent ${s.requested}\n`+
+    `decoded ${s.decoded} · viewport ${s.viewport} · DPR ${s.dpr}\n`+
+    `aspect ${s.aspect} · transport ${s.transport}\n`+
+    `cap ${s.ceilingKbps} kbps`+
+    (m?` · recv ${m.kbps} kbps · ${m.fps} fps · loss ${(m.loss*100).toFixed(1)}%`:'');
+}
+if(HVS_LIVE_MOBILE_DIAGNOSTICS && HVS_QUALITY_MOBILE && !dev_mode){
+  hvsUpdateLiveMobileDiagnostics();
+  hvsLiveMobileDiagnosticTimer=setInterval(hvsUpdateLiveMobileDiagnostics,800);
+}
 function hvsStartAdaptiveQuality(config){
   if(window.homeViewSessionIntentional)return;
   hvsQualityConfig=config;
@@ -10899,24 +11048,39 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
     const availableHeight=Math.max(80,window.innerHeight-36);
     return Math.max(min,Math.min(1,max,availableWidth/width,availableHeight/height));
   }
+  function prepare(id){
+    const panel=document.getElementById(id);
+    if(!panel)return Number(slider.value)||1;
+    let size=preferred.get(id);
+    if(size===undefined){
+      size=initialScale(panel,id);
+      preferred.set(id,size);
+    }
+    size=Math.max(min,Math.min(max,size));
+    slider.value=String(size);
+    document.documentElement.style.setProperty('--ui-scale',String(size));
+
+    // Force the browser to resolve the final mobile right/top anchor and scale
+    // while the panel is STILL hidden. The following mode-class change can then
+    // animate from the correct geometry on its very first visible frame.
+    void panel.offsetWidth;
+    if(id==='teleportMenuWrapper')window.homeViewResizeTeleportMap?.();
+    return size;
+  }
+  window.homeViewPrepareMenuOpen=prepare;
+
   function choose(){
     const id=menuId();
     if(id===active)return;
     active=id;
-    const panel=document.getElementById(id);
-    if(!panel)return;
-    let size=preferred.get(id);
-    if(size===undefined){size=initialScale(panel,id);preferred.set(id,size);}
-    slider.value=String(Math.max(min,Math.min(max,size)));
-    document.documentElement.style.setProperty('--ui-scale',slider.value);
-    // Only refresh the two-column map when SWITCHING to it, not while dragging.
-    if(id==='teleportMenuWrapper')window.homeViewResizeTeleportMap?.();
-}
+    prepare(id);
+  }
   // The existing slider listener updates --ui-scale. This listener only SAVES
   // the value. It never counters the user's fingers with a second update.
   slider.addEventListener('input',()=>preferred.set(menuId(),Number(slider.value)||1));
-  // Microtask observer coalesces all mode changes BEFORE the first paint,
-  // rather than waiting for the entrance animation to finish and jumping.
+  // Safety net for any future menu opened by directly changing body classes.
+  // Current menu-opening functions call homeViewPrepareMenuOpen() BEFORE the
+  // visible mode is applied, eliminating the mobile entrance-position jump.
   new MutationObserver(changes=>{
     if(changes.some(change=>change.attributeName==='class'))choose();
   }).observe(document.body,{attributes:true,attributeFilter:['class']});
@@ -11114,26 +11278,42 @@ document.querySelectorAll('.hvsCostShortcut').forEach(button => {
     }
     return nativeControl;
   }
+  function actualAudioEnabled(){
+    const video=sdkVideo();
+    const media=remoteMedia();
+    // Arcware can play audio through a detached HTMLAudioElement while the
+    // visible video element has a different mute flag. Treat ANY live remote
+    // media element that is unmuted with non-zero volume as sound-on.
+    const audible=media.some(element=>{
+      try{
+        const audioTracks=element.srcObject?.getAudioTracks?.()||[];
+        const canCarryAudio=audioTracks.length>0 ||
+          element.tagName==='AUDIO' || element===video;
+        return canCarryAudio && !element.muted && element.volume>0.001;
+      }catch(_){return false;}
+    });
+    if(audible)return true;
+    return Boolean(video && !video.muted && video.volume>0.001);
+  }
+  function syncIconToActualAudio(){
+    if(userSelected)return;
+    enabled=actualAudioEnabled();
+    paint();
+  }
   function prepare(){
     const video=sdkVideo();
-    if(video && !userSelected){
-      // Follow the actual SDK state, not an assumed starting mute value.
-      enabled=!video.muted;
-      paint();
-    }
+    syncIconToActualAudio();
     findNative();
     for(const media of remoteMedia()){
       if(observed.has(media))continue;
       observed.add(media);
       media.addEventListener('loadedmetadata',()=>{
         if(userSelected)media.muted=!enabled;
+        else syncIconToActualAudio();
       });
-      if(media===video){
-        media.addEventListener('volumechange',()=>{
-          // SDK may change the mute state during initialization/reconnect.
-          if(!userSelected){enabled=!media.muted;paint();}
-        });
-      }
+      media.addEventListener('volumechange',syncIconToActualAudio);
+      media.addEventListener('play',syncIconToActualAudio);
+      media.addEventListener('playing',syncIconToActualAudio);
     }
   }
   function playIfNeeded(media){
