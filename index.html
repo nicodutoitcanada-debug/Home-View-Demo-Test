@@ -9103,11 +9103,12 @@ const DEV_UE_VERSION = 'ue5.8'; // Match Unreal Engine 5.8 for LOCAL testing onl
 
 
 // Mobile diagnostics are local-only and never appear in Arcware/live mode.
-// UE 5.8 LOCAL TEST: native/automatic resolution resizing RESTORED.
-// If a GPU crash returns specifically when resizing, temporarily set this to true
-// to disable only LOCAL frontend-driven resolution commands for diagnosis.
-// Arcware/live mode is unaffected either way.
-const HVS_LOCAL_GPU_CRASH_SAFE_MODE = false;
+// LOCAL UE 5.8 GPU SAFETY — automatic. Only change dev_mode above.
+// dev_mode=true: suspend all frontend-driven r.SetRes/native/SDK resize commands
+// while testing inside the Unreal Editor to avoid the observed D3D crash.
+// dev_mode=false: Arcware never uses this local safety flag. Its own streaming
+// settings below remain independent; no second switch to remember.
+const HVS_LOCAL_GPU_CRASH_SAFE_MODE = dev_mode;
 const MOBILE_DIAGNOSTICS = dev_mode && dev_mobile_mode;
 let mobileDiagnosticStep = 'Starting mobile test…';
 function mobileDevStatus(message, issue=false) {
@@ -9361,6 +9362,10 @@ function hvsSendLegacyDesktopResolution(key, reason='UE 5.8 aspect fallback') {
   return false;
 }
 function hvsVerifyDesktopAspect(key) {
+  // Arcware: do not initiate secondary Blueprint r.SetRes retries after a native
+  // command. UE 5.8 + H.264/NVENC can be destabilized by repeated reconfiguration.
+  // The live stream already uses the native resize transport above.
+  if (!dev_mode) return;
   const token=++hvsDesktopResolutionCheckToken;
 
   // UE 5.8 / Arcware can expose emitCommand and accept the descriptor while the
@@ -9391,7 +9396,9 @@ function hvsVerifyDesktopAspect(key) {
 }
 
 function hvsVerifyMobileAspect(key) {
-  if (HVS_DESKTOP_RESIZE_ENABLED) return;
+  // Arcware: no extra r.SetRes fallback or synthetic resize-event retry on live
+  // mobile. One native resize request per real viewport size is retained.
+  if (!dev_mode || HVS_DESKTOP_RESIZE_ENABLED) return;
   const token=++hvsMobileResolutionCheckToken;
 
   // Give UE/Arcware time to replace the decoded track. If it still presents
@@ -9431,7 +9438,11 @@ function sendViewportResolutionToUnreal(reason='viewport', force=false, desktopA
       !unrealIsReadyForResolution || !application) return;
   const {width,height} = getStreamingViewportResolution();
   const key = `${width}x${height}`;
-  if (!force && key === lastSentViewportResolution) return;
+  // In live Arcware mode, a duplicate *forced* resize is still a duplicate.
+  // Do not reconfigure NVENC repeatedly for the same geometry. A real phone
+  // rotation, window-size change, or desktop tier change has a NEW key and
+  // continues to work normally.
+  if ((!dev_mode || !force) && key === lastSentViewportResolution) return false;
   if (HVS_DESKTOP_RESIZE_ENABLED) {
     if (hvsScreenshotProtected() || window.homeViewSessionIntentional ||
         homeViewTeardownStarted) return false;
@@ -10897,7 +10908,9 @@ if (dev_mode) {
            // Mobile: exact existing 1300..6000 kbps adaptive controller.
            // Desktop: LUX-style original Arcware bitrate/codec for true colour;
            // adapt only the render resolution, not bitrate.
-           ...(HVS_DESKTOP_RESIZE_ENABLED ? {MatchViewportRes:false} : {}),
+           // We manage one bounded viewport resize ourselves on BOTH mobile
+           // and desktop. Prevent the SDK's automatic resize from racing it.
+           MatchViewportRes:false,
            ...(HVS_QUALITY_MOBILE ? {
              WebRTCMaxBitrate:HVS_QUALITY_LEVELS[hvsQualityIndex],
              WebRTCMinBitrate:0
