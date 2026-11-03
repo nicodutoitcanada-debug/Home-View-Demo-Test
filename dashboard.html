@@ -167,11 +167,29 @@
   async function subscribe(){if(!state.client)return;if(state.channel)await state.client.removeChannel(state.channel);state.channel=state.client.channel('hvs-builder-leads-'+Math.random().toString(36).slice(2)).on('postgres_changes',{event:'*',schema:'public',table:'hvs_buyer_leads'},()=>loadLive({notify:true})).subscribe(status=>{if(status==='CHANNEL_ERROR')toast('Realtime unavailable','The dashboard will still check for new leads periodically.')});clearInterval(state.poll);state.poll=setInterval(()=>loadLive({notify:true}),15000)}
   async function setDemo(){++state.loadSeq;clearInterval(state.poll);state.poll=null;if(state.client&&state.channel)try{await state.client.removeChannel(state.channel)}catch(_){}if(state.client)try{await state.client.auth.signOut()}catch(_){}state.client=null;state.channel=null;state.mode='demo';state.email=null;state.leads=[...SAMPLE];state.selectedId=SAMPLE[0].id;isPrimed=false;render();hideModal();toast('Sample data active','All records are fictional and no streaming is required.');}
   async function logIn(event){event.preventDefault();$('loginSubmit').disabled=true;$('loginMessage').textContent='Connecting…';try{creds.url=$('supabaseUrl').value.trim();creds.key=$('supabaseKey').value.trim();const email=$('adminEmail').value.trim(),password=$('adminPassword').value;await initClient();let {data,error}=await state.client.auth.signInWithPassword({email,password});if(error)throw error;const test=await state.client.from('hvs_buyer_leads').select('id').limit(1);if(test.error)throw new Error('Signed in, but the buyer table is not accessible. Run the dashboard SQL setup first. '+test.error.message);state.email=data.user?.email||email;state.mode='live';state.selectedId=null;state.leads=[];isPrimed=false;saveConfig();hideModal();await loadLive();await subscribe();toast('Connected to Supabase','The live dashboard is now monitoring incoming buyer leads.');}catch(err){$('loginMessage').textContent=err?.message||'Could not connect';}finally{$('loginSubmit').disabled=false}}
+  async function resumeLiveSession(){
+    // Reuse a verified saved Supabase Auth session without re-entering a password.
+    // Only a signed-in account with dashboard RLS can read these records.
+    try {
+      await initClient();
+      const {data,error}=await state.client.auth.getSession();
+      if(error)throw error;
+      if(!data?.session?.user){showModal();return;}
+      const test=await state.client.from('hvs_buyer_leads').select('id').limit(1);
+      if(test.error)throw test.error;
+      state.email=data.session.user.email||'Builder account';
+      state.mode='live';state.selectedId=null;state.leads=[];isPrimed=false;
+      await loadLive();await subscribe();
+    }catch(e){
+      console.warn('[HVS DASHBOARD] Live session unavailable:',e.message||e);
+      state.mode='demo';render();showModal();
+    }
+  }
   function csvField(str){let t=String(str??'');if(/^[=+@\-\t\r]/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"'}
   function exportCsv(){const h=['Buyer name','Email','Phone','Property','Home model','Base price CAD','Upgrade price CAD','Total price CAD','Contact requested','Marketing consent','Lead status','Saved configuration JSON','Created at'];const rows=pickRows().map(x=>[x.buyer_name,x.buyer_email,x.buyer_phone,x.property_name,x.home_model,x.base_price,x.upgrades_price,x.total_price,x.contact_requested,x.marketing_consent,x.lead_status,JSON.stringify(x.saved_configuration||{}),x.created_at]);const csv='\uFEFF'+[h,...rows].map(r=>r.map(csvField).join(',')).join('\r\n');const a=document.createElement('a');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.href=url;a.download=(state.mode==='live'?'home-view-leads-':'home-view-sample-leads-')+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}
   $('search').addEventListener('input',render);$('statusFilter').addEventListener('change',render);$('connectBtn').addEventListener('click',showModal);$('closeModal').addEventListener('click',hideModal);$('connectModal').addEventListener('click',e=>{if(e.target===$('connectModal'))hideModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape')hideModal()});$('connectForm').addEventListener('submit',logIn);$('demoBtn').addEventListener('click',setDemo);$('refreshBtn').addEventListener('click',()=>{if(state.mode==='live')loadLive({notify:true});else{render();toast('Sample leads refreshed','Use Connect live data to see Supabase leads.')}});$('exportBtn').addEventListener('click',exportCsv);
   document.querySelectorAll('[data-nav]').forEach(btn=>btn.addEventListener('click',()=>{const id=btn.dataset.nav;if(id==='settings')showModal();else $(id)?.scrollIntoView({behavior:'smooth',block:'start'});document.querySelectorAll('[data-nav]').forEach(n=>n.classList.toggle('active',n===btn))}));
-  render();if(creds.url&&creds.key){setTimeout(()=>{toast('Ready to connect','Supabase settings are available. Sign in to view live buyer records.');showModal()},500)}
+  render();if(creds.url&&creds.key){resumeLiveSession();}
 })();
 </script>
 </body>
