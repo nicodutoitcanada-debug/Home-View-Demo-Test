@@ -4969,11 +4969,8 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 <style id="hvs-splash-media-fallback-2026-11-02">
 /* Reliable fallback when splash MP4s cannot autoplay, decode or load in time. */
 #introVideo {
-  background-color:#050505;
-  background-image:url('logo_movie.png');
-  background-size:clamp(150px,27vw,315px) auto;
-  background-repeat:no-repeat;
-  background-position:center center;
+  /* The intro displays ONLY logo 01.mp4. No PNG poster or logo background. */
+  background-color:#000;
 }
 #loadingIntroWrap {
   background:radial-gradient(ellipse 85% 75% at 50% 45%,#312018 0%,#160b08 44%,#040404 100%);
@@ -5023,7 +5020,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   <img src="sound off.png" alt="" draggable="false">
 </button>
 <div id="introOverlay">
-  <video id="introVideo" src="logo%2001.mp4?v=20261103-h264" muted autoplay playsinline webkit-playsinline preload="auto" poster="logo_movie.png"></video>
+  <video id="introVideo" src="logo%2001.mp4?v=20261103-h264" muted autoplay playsinline webkit-playsinline preload="auto"></video>
   <div id="loadingIntroWrap">
     <video id="loadingIntroBg" src="LOADING_BG.mp4?v=20261103-h264" muted playsinline webkit-playsinline loop preload="metadata"></video>
     <div id="loadingIntro"></div>
