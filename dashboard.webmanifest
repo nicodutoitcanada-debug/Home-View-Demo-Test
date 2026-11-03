@@ -1,7 +1,7 @@
 {
   "id": "./dashboard.html",
   "name": "Home View Solutions | Builder Dashboard",
-  "short_name": "Home View",
+  "short_name": "HV Dashboard",
   "description": "Branded builder sales dashboard and buyer lead alerts",
   "start_url": "./dashboard.html",
   "scope": "./",
@@ -10,7 +10,7 @@
   "theme_color": "#0c1115",
   "icons": [
     {
-      "src": "./logo_2.png",
+      "src": "./dashboard-icon.png",
       "sizes": "any",
       "type": "image/png",
       "purpose": "any"
