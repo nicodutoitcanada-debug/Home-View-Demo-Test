@@ -1,0 +1,102 @@
+name: Safely optimize Home View PNG assets
+on:
+  push:
+    paths:
+      - .github/workflows/optimize-hvs-static-images.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install lossless PNG optimizer
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq optipng python3-pil
+
+      - name: Safely optimize and verify pixel-perfect assets
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import shutil
+          import subprocess
+          import tempfile
+          from pathlib import Path
+          from PIL import Image
+
+          def fingerprint(path):
+              with Image.open(path) as im:
+                  im.load()
+                  meta = {k: im.info.get(k) for k in ('icc_profile','gamma','srgb','dpi')}
+                  return im.size, hashlib.sha256(im.convert('RGBA').tobytes()).hexdigest(), meta
+
+          changed = []
+          pngs = sorted(p for p in Path('.').rglob('*.png') if not any(part.startswith('.') for part in p.parts))
+          with tempfile.TemporaryDirectory() as td:
+              for file in pngs:
+                  original = Path(td) / 'original.png'
+                  try:
+                      shutil.copy2(file, original)
+                      old_size = original.stat().st_size
+                      old_dims, old_digest, old_meta = fingerprint(original)
+                      if file.as_posix() == '01 PLAY.png':
+                          # This main-menu image is 2,350 x 2,358 pixels but displayed
+                          # at only 40 x 34 CSS pixels. 357px matches all other icons,
+                          # removing 5.5M pixels of unnecessary decode work.
+                          with Image.open(file) as im:
+                              im.load()
+                              im = im.convert('RGBA')
+                              im.thumbnail((357, 357), Image.Resampling.LANCZOS)
+                              im.save(file, format='PNG', optimize=True)
+                      try:
+                          subprocess.run(['optipng','-o2','-quiet',str(file)],
+                                         check=True, capture_output=True, text=True, timeout=75)
+                      except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+                          print('Skipping optimizer error:', file, str(e)[:120])
+                          shutil.copy2(original, file)
+                          continue
+                      new_dims, new_digest, new_meta = fingerprint(file)
+                      if file.as_posix() == '01 PLAY.png':
+                          valid = max(new_dims) <= 357 and min(new_dims) >= 300
+                      else:
+                          # Lossless means identical full-resolution RGBA pixels
+                          # and unchanged display-affecting metadata.
+                          valid = (new_dims == old_dims and new_digest == old_digest
+                                   and new_meta == old_meta)
+                      new_size = file.stat().st_size
+                      if not valid or new_size >= old_size - 1024:
+                          shutil.copy2(original, file)
+                      else:
+                          changed.append((str(file),old_size,new_size,old_dims,new_dims))
+                          print(f'OPTIMIZED {file}: {old_size:,} -> {new_size:,} bytes '
+                                f'({100*(1-new_size/old_size):.1f}% saved), '
+                                f'{old_dims} -> {new_dims}')
+                  except Exception as e:
+                      print('Skipping unsupported PNG', file, str(e)[:130])
+                      shutil.copy2(original, file)
+          print('PNG files audited:', len(pngs))
+          print('Changed:', len(changed))
+          print('Total bytes removed:', sum(a-b for _,a,b,_,_ in changed))
+          PY
+
+      - name: Commit verified PNG reductions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- '*.png' '**/*.png'
+          if git diff --cached --quiet; then
+            echo "All PNGs already sufficiently optimized."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "Losslessly optimize Home View PNGs and right-size menu Play icon"
+          git push origin HEAD:main
