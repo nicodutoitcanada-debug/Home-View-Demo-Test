@@ -121,8 +121,8 @@
       if(!res.ok || !reply.ok)throw new Error(reply.error||'Unable to save online.');
       // The existing lead receiver confirms database persistence first.
       // Branded PWA notification delivery is separate: a push failure never loses the lead.
-      let phoneNote=payload.contact_requested?'No registered phone alerts yet.':'No sales contact alert requested.';
-      if(payload.contact_requested){
+      let phoneNote='No registered phone alerts yet.';
+      if(payload.id){
         try {
           const pushRes=await fetch(config.url+'/functions/v1/hvs-push-deliver',{
             method:'POST',
