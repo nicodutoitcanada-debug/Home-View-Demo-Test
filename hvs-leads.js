@@ -119,8 +119,30 @@
       });
       const reply=await res.json().catch(()=>({}));
       if(!res.ok || !reply.ok)throw new Error(reply.error||'Unable to save online.');
-      const note={sent:'Phone notification delivered.',already_sent:'No duplicate notification needed.',not_requested:'Sales contact not requested.',not_configured:'Telegram is not configured yet.',failed:'Saved, but phone alert failed.'}[reply.notification]||'';
-      status('Saved to Supabase. '+note);
+      // The existing lead receiver confirms database persistence first.
+      // Branded PWA notification delivery is separate: a push failure never loses the lead.
+      let phoneNote=payload.contact_requested?'No registered phone alerts yet.':'No sales contact alert requested.';
+      if(payload.contact_requested){
+        try {
+          const pushRes=await fetch(config.url+'/functions/v1/hvs-push-deliver',{
+            method:'POST',
+            headers:{'Content-Type':'application/json','x-hvs-demo-code':config.code},
+            body:JSON.stringify({id:reply.id||payload.id}),
+            cache:'no-store'
+          });
+          const push=await pushRes.json().catch(()=>({}));
+          if(!pushRes.ok||!push.ok)throw new Error(push.error||'Phone push delivery failed.');
+          phoneNote={
+            sent:'Home View phone notification sent.',
+            already_sent:'No duplicate notification needed.',
+            no_subscribers:'No phones subscribed to Home View alerts yet.',
+            not_configured:'Phone alerts not yet activated.',
+            failed:'Saved, but phone notification failed.',
+            not_requested:'Sales contact not requested.'
+          }[push.push]||'Saved, phone notification status unknown.';
+        }catch(e){console.warn('[HVS LEADS] Web Push failed',e);phoneNote='Saved, but phone alert could not be confirmed.';}
+      }
+      status('Saved to Supabase. '+phoneNote);
       return reply;
     };
     const promise=inFlight.then(work,work);
