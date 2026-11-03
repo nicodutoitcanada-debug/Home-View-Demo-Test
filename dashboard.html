@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c1115">
+<link rel="manifest" href="dashboard.webmanifest">
+<link rel="apple-touch-icon" href="logo_2.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Home View">
 <title>Home View | Builder Sales Intelligence</title>
 <style>
 @font-face{font-family:'HomeView Myriad';src:url('Font/MyriadPro-Light.otf') format('opentype');font-weight:300;font-display:swap}
@@ -48,6 +53,11 @@
 .metric-icon svg{color:#FF8A64}
 .hero{background:radial-gradient(ellipse 60% 100% at 93% 44%,rgba(233,55,11,.20),transparent 75%),linear-gradient(110deg,rgba(35,44,48,.98),rgba(21,29,34,.94))}
 .lead.selected{box-shadow:inset 3px 0 0 #F04410;background:linear-gradient(90deg,rgba(235,57,12,.14),rgba(235,57,12,.012))}
+.hvs-push-panel{margin:0 0 22px;padding:13px 16px;border:1px solid rgba(240,110,62,.22);border-radius:16px;background:rgba(235,110,59,.045);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.hvs-push-copy{flex:1;min-width:210px}.hvs-push-copy strong{color:#f3f3f3;font-size:13px;display:block;margin-bottom:5px}.hvs-push-copy p{font-size:12px;color:#a1afb3;line-height:1.5;margin:0}
+.hvs-push-actions{display:flex;gap:8px;flex-wrap:wrap}
+.hvs-push-actions button:disabled{opacity:.35;cursor:not-allowed}
+#hvsPushStatus{font-size:11px;color:#e7a58c;margin-top:6px}
 </style>
 </head>
 <body>
@@ -82,6 +92,16 @@
 <header class="topline"><div class="crumb">HOME VIEW / BUILDER PORTAL / <b>OVERVIEW</b></div><div class="top-actions"><div class="connection" id="connStatus"><span class="dot"></span><span id="connLabel">DEMO DATA</span></div><button class="btn btn-small" id="connectBtn" type="button">Connect live data</button><button class="iconbtn" id="refreshBtn" title="Refresh leads" aria-label="Refresh leads"><svg><use href="#i-refresh"/></svg></button><button class="iconbtn" id="exportBtn" title="Export currently filtered leads as CSV" aria-label="Export leads"><svg><use href="#i-download"/></svg></button></div></header>
 <section class="hero"><div class="hero-copy"><div class="eyebrow">BUILDER SALES INTELLIGENCE</div><h1 class="headline">Every choice tells <strong>a story.</strong></h1><p>See what your buyers love, understand their budgets, and turn every saved home into a more meaningful sales conversation.</p></div><div class="hero-art" aria-hidden="true"><svg viewBox="0 0 360 215" fill="none"><path d="M38 131 161 47l141 84-140 83L38 131Z" fill="#18252A" stroke="#677780" stroke-width="1.2"/><path d="m161 47 0 108L38 131V95l123-72 141 72v36l-141 83" fill="#29353A" stroke="#899A9F" stroke-width="1.5"/><path d="M161 23v106M38 95l123 75 141-75M161 170v44M103 132v-32l32 20v31M190 148v-31l29-17v29" stroke="#FF9C7A" stroke-width="1.6"/><path d="M38 95 161 23l141 72-141 75L38 95Z" stroke="#FFA081" stroke-width="2"/><path d="m84 89 74-44 48 27-73 44-49-27Z" fill="#F04413" fill-opacity=".10" stroke="#F9683E" stroke-width="1"/><path d="m210 72 37 22-28 17-37-22 28-17Z" fill="#F04413" fill-opacity=".09" stroke="#F9683E" stroke-width="1"/><path d="M234 35h84v50h-84z" fill="#28363B" fill-opacity=".9" stroke="#798A90"/><circle cx="253" cy="52" r="7" fill="#EF481C"/><path d="M268 47h41M268 56h30M246 70h60" stroke="#8B9EA4" stroke-width="2"/><path d="M225 50l12-6" stroke="#EF481C" stroke-width="2" stroke-dasharray="3 4"/><circle cx="224" cy="50" r="3" fill="#FFA081"/><path d="M24 148h69m185-13h48" stroke="#D8340C" stroke-opacity=".4" stroke-dasharray="4 5"/><circle cx="24" cy="148" r="3" fill="#D8340C"/><circle cx="326" cy="135" r="3" fill="#D8340C"/></svg></div></section>
 <p class="mode-banner" id="modeBanner"><strong>Presentation preview.</strong> Showing clearly identified fictional buyer records. Connect Supabase to see the real Sarah Mitchell record and receive future leads.</p>
+<section class="hvs-push-panel" aria-label="Home View phone notifications">
+ <div class="hvs-push-copy"><strong>HOME VIEW · Phone alerts</strong>
+  <p>Add this dashboard to your iPhone Home Screen, open the new Home View app, sign in, then enable notifications. Your Home View logo is used as the app icon.</p>
+  <div id="hvsPushStatus" role="status" aria-live="polite">Connect your live account to activate phone notifications.</div>
+ </div>
+ <div class="hvs-push-actions">
+  <button class="btn btn-small btn-primary" id="hvsPushEnable" type="button" disabled>Enable phone alerts</button>
+  <button class="btn btn-small" id="hvsPushTest" type="button" disabled>Send test alert</button>
+ </div>
+</section>
 <section><div class="section-heading"><h2>At a glance</h2><span id="asOfText">LIVE SALES SNAPSHOT</span></div><div class="metrics">
 <div class="metric"><div class="metric-top"><span>Total buyer leads</span><span class="metric-icon"><svg><use href="#i-people"/></svg></span></div><div class="metric-value" id="mTotal">0</div><div class="metric-foot">Saved buyer profiles</div></div>
 <div class="metric"><div class="metric-top"><span>Contact requests</span><span class="metric-icon"><svg><use href="#i-bell"/></svg></span></div><div class="metric-value" id="mRequests">0</div><div class="metric-foot">Buyers inviting a follow-up</div></div>
@@ -96,6 +116,7 @@
 <div class="modal-backdrop" id="connectModal" role="presentation"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="connectTitle"><div class="modal-top"><h2 id="connectTitle">Connect live buyer data</h2><button class="iconbtn" id="closeModal" aria-label="Close" type="button"><svg><use href="#i-close"/></svg></button></div><p>Your buyer records are stored separately in Supabase, not inside the Home View HTML. Sign in with a Supabase dashboard account that has database permission.</p><form id="connectForm"><label for="supabaseUrl">SUPABASE PROJECT URL</label><input id="supabaseUrl" type="url" placeholder="https://your-project.supabase.co" autocomplete="url" required><label for="supabaseKey">PUBLISHABLE / ANON KEY</label><input id="supabaseKey" type="text" placeholder="sb_publishable_... or legacy anon key" autocomplete="off" required><label for="adminEmail">DASHBOARD ADMIN EMAIL</label><input id="adminEmail" type="email" autocomplete="username" placeholder="you@example.com" required><label for="adminPassword">DASHBOARD ADMIN PASSWORD</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Supabase Auth password" required><div class="modal-msg" id="loginMessage" role="status"></div><div class="modal-actions"><button type="submit" class="btn btn-primary" id="loginSubmit">Connect and sign in <svg><use href="#i-arrow"/></svg></button><button type="button" class="btn" id="demoBtn">Use sample data</button></div></form><div class="tip">Only your public project URL and publishable key are remembered on this browser. Your password is never saved here. Never paste a service_role / secret key into a webpage.</div></div></div>
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
 <script src="dashboard-config.js"></script>
+<script src="dashboard-push.js"></script>
 <script>
 (()=>{'use strict';
   const $=id=>document.getElementById(id);
@@ -126,6 +147,8 @@
   const initials=name=>String(name||'?').split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
   const slug=s=>String(s||'').toLowerCase().replace(/\W+/g,'-');
   function render(){
+    $('hvsPushEnable').disabled=state.mode!=='live';
+    $('hvsPushTest').disabled=state.mode!=='live';
     $('connLabel').textContent=state.mode==='live'?'LIVE · SUPABASE':'DEMO DATA';$('connStatus').classList.toggle('live',state.mode==='live');
     $('connectBtn').textContent=state.mode==='live'?'Account / Disconnect':'Connect live data';
     $('modeBanner').innerHTML=state.mode==='live'?'You are viewing <strong>live Supabase records.</strong> New leads will appear automatically when submitted. Buyer records are accessible only to approved dashboard users.':'<strong>Presentation preview.</strong> These are fictional buyer records for layout demonstration. Click “Connect live data” to access Sarah Mitchell and genuine future submissions.';
@@ -200,6 +223,8 @@
   function exportCsv(){const h=['Buyer name','Email','Phone','Property','Home model','Base price CAD','Upgrade price CAD','Total price CAD','Contact requested','Marketing consent','Lead status','Saved configuration JSON','Created at'];const rows=pickRows().map(x=>[x.buyer_name,x.buyer_email,x.buyer_phone,x.property_name,x.home_model,x.base_price,x.upgrades_price,x.total_price,x.contact_requested,x.marketing_consent,x.lead_status,JSON.stringify(x.saved_configuration||{}),x.created_at]);const csv='\uFEFF'+[h,...rows].map(r=>r.map(csvField).join(',')).join('\r\n');const a=document.createElement('a');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.href=url;a.download=(state.mode==='live'?'home-view-leads-':'home-view-sample-leads-')+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}
   $('search').addEventListener('input',render);$('statusFilter').addEventListener('change',render);$('connectBtn').addEventListener('click',showModal);$('closeModal').addEventListener('click',hideModal);$('connectModal').addEventListener('click',e=>{if(e.target===$('connectModal'))hideModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape')hideModal()});$('connectForm').addEventListener('submit',logIn);$('demoBtn').addEventListener('click',setDemo);$('refreshBtn').addEventListener('click',()=>{if(state.mode==='live')loadLive({notify:true});else{render();toast('Sample leads refreshed','Use Connect live data to see Supabase leads.')}});$('exportBtn').addEventListener('click',exportCsv);
   document.querySelectorAll('[data-nav]').forEach(btn=>btn.addEventListener('click',()=>{const id=btn.dataset.nav;if(id==='settings')showModal();else $(id)?.scrollIntoView({behavior:'smooth',block:'start'});document.querySelectorAll('[data-nav]').forEach(n=>n.classList.toggle('active',n===btn))}));
+  $('hvsPushEnable').addEventListener('click',()=>window.HVS_PHONE_PUSH?.enable(state.client));
+  $('hvsPushTest').addEventListener('click',()=>window.HVS_PHONE_PUSH?.test(state.client));
   render();if(creds.url&&creds.key){resumeLiveSession();}
 })();
 </script>
