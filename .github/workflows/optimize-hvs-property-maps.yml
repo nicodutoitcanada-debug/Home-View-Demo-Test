@@ -1,0 +1,70 @@
+name: Build verified lossless WebP for large property maps
+on:
+  push:
+    paths:
+      - .github/workflows/optimize-hvs-property-maps.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install WebP encoder and image verification
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq webp python3-pil
+
+      - name: Build only pixel-identical and smaller alternatives
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import subprocess
+          from pathlib import Path
+          from PIL import Image
+
+          def snapshot(path):
+              with Image.open(path) as im:
+                  im.load()
+                  return im.size, hashlib.sha256(im.convert('RGBA').tobytes()).hexdigest(), im.info.get('icc_profile')
+
+          for name in ('development_lot12_selected','development_lot18_selected'):
+              png = Path('Property Map') / f'{name}.png'
+              webp = png.with_suffix('.webp')
+              if not png.exists(): raise SystemExit(f'Expected map not found: {png}')
+              dims, pix, icc = snapshot(png)
+              result = subprocess.run(['cwebp','-quiet','-lossless','-z','7','-metadata','all',
+                                       str(png),'-o',str(webp)],capture_output=True,text=True,timeout=180)
+              if result.returncode:
+                  raise SystemExit(f'WebP encoding failed: {png}: {result.stderr[:500]}')
+              new_dims, new_pix, new_icc = snapshot(webp)
+              if (new_dims,new_pix,new_icc) != (dims,pix,icc):
+                  webp.unlink(missing_ok=True)
+                  raise SystemExit(f'Image pixel/color integrity check failed: {png}')
+              original, new = png.stat().st_size, webp.stat().st_size
+              print(f'{png}: {original:,} -> {new:,} bytes; '
+                    f'{(1-new/original)*100:.1f}% saved; pixel-identical: yes')
+              if new >= original * .90:
+                  webp.unlink()
+                  print('Retaining PNG only because WebP savings were too small.')
+          PY
+
+      - name: Commit smaller alternative images
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- 'Property Map/*.webp'
+          if git diff --cached --quiet; then
+            echo "No meaningful pixel-identical alternatives were found."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "Add pixel-identical lightweight WebP alternatives for large property maps"
+          git push origin HEAD:main
