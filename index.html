@@ -4992,7 +4992,7 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 <link rel="preload" as="image" href="01%20DOCK%20MENU.png" fetchpriority="high">
 <link rel="preload" as="image" href="01%20TELEPORT%20MAP.png" fetchpriority="high">
 <link rel="preload" as="image" href="01%20HOME.png" fetchpriority="high">
-<link rel="preload" as="image" href="01%20PLAY.png" fetchpriority="high">
+<link rel="preload" as="image" href="01%20PLAY.png?v=20261103-357" fetchpriority="high">
 <link rel="preload" as="image" href="01%20HOW%20TO.png" fetchpriority="high">
 <link rel="preload" as="image" href="01%20TELEPORT.png" fetchpriority="high">
 <link rel="preload" as="image" href="01%20LOGIN.png" fetchpriority="high">
@@ -5090,7 +5090,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 <span class="hvsTutorialStaticIcon"><img src="01 DOCK MENU.png" alt="" draggable="false"></span>
 <span class="hvsTutorialStaticIcon"><img src="01 TELEPORT MAP.png" alt="" draggable="false"></span>
 <span class="hvsTutorialStaticIcon"><img src="01 HOME.png" alt="" draggable="false"></span>
-<span class="hvsTutorialStaticIcon"><img src="01 PLAY.png" alt="" draggable="false"></span>
+<span class="hvsTutorialStaticIcon"><img src="01 PLAY.png?v=20261103-357" alt="" draggable="false"></span>
 <span class="hvsTutorialStaticIcon"><img src="01 HOW TO.png" alt="" draggable="false"></span>
 <span class="hvsTutorialStaticIcon"><img src="01 TELEPORT.png" alt="" draggable="false"></span>
 <span class="hvsTutorialStaticIcon"><img src="01 LOGIN.png" alt="" draggable="false"></span></div>
@@ -5161,7 +5161,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                     </button>
 
                     <button class="iconButton" id="moviePlayButton" type="button" aria-label="Play cutscene">
-                        <img src="01 PLAY.png" alt="Play" loading="eager" decoding="sync" fetchpriority="high">
+                        <img src="01 PLAY.png?v=20261103-357" alt="Play" loading="eager" decoding="sync" fetchpriority="high">
                     </button>
 
                     <button class="iconButton" id="howToMenuButton" type="button" aria-label="How To">
@@ -5651,7 +5651,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     </header>
     <div id="hvsPropertyOptions" role="group" aria-label="Development lot selection">
       <div id="hvsPropertyMapFrame">
-        <img id="hvsPropertyMapImage" src="Property Map/development_lot12_selected.png" alt="Aerial illustration of a residential community showing lots 12 and 18 available for selection and the other lots unavailable." draggable="false">
+        <img id="hvsPropertyMapImage" src="Property Map/development_lot12_selected.webp" onerror="this.onerror=null;this.src='Property Map/development_lot12_selected.png'" alt="Aerial illustration of a residential community showing lots 12 and 18 available for selection and the other lots unavailable." draggable="false">
         <button type="button" id="hvsPropertyOne" class="hvsMapHotspot hvsMapHotspot12" data-property="one" aria-label="Lot 12, currently selected" title="Lot 12"><span class="hvsVisuallyHidden">Lot 12 / Property 01</span></button>
         <button type="button" id="hvsPropertyTwo" class="hvsMapHotspot hvsMapHotspot18" data-property="two" aria-label="Select Lot 18" title="Lot 18"><span class="hvsVisuallyHidden">Lot 18 / Property 02</span></button>
       </div>
@@ -8593,7 +8593,7 @@ updateUpstairsLayoutButtons();
 
 // ================================================================
 // HVS_CUTSCENE_MOVIE — SEARCH FOR HVS_CUTSCENE_MOVIE
-// Main "01 PLAY.png" button triggers an Unreal-rendered cutscene.
+// Main "01 PLAY.png?v=20261103-357" button triggers an Unreal-rendered cutscene.
 // Keep menu state intact. Suppress/re-enable dotNav ONLY when it was on.
 // ================================================================
 const hvsMovieOverlay=document.getElementById('hvsMovieOverlay');
