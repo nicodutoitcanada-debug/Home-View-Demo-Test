@@ -40,7 +40,7 @@
  }
  function noteSetting(key,value){
    if(!scene)scene={...defaults,PropertyChoice:'one',FirstFloorLayout:'lounge'};
-   if(typeof key==='string'&&(variantKeys.has(key)||key==='PropertyChoice'||key==='FirstFloorLayout'))
+   if(typeof key==='string'&&key.length<128)
       scene[key]=value;
  }
  function cancel(){
@@ -91,7 +91,7 @@
    await waitForReady(id);
    defaults={...opt.defaults};
    variantKeys=new Set(opt.finishKeys||[]);
-   if(!scene)scene={...defaults,PropertyChoice:'one',FirstFloorLayout:'lounge'};
+   scene={...defaults,PropertyChoice:'one',FirstFloorLayout:'lounge',...(scene||{})};
    const want=opt.settings||{};
    const property=['one','two'].includes(want.PropertyChoice)?want.PropertyChoice:'one';
    const layout=['lounge','bedroom'].includes(want.FirstFloorLayout)?want.FirstFloorLayout:'lounge';
