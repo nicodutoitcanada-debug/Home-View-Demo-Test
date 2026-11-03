@@ -1,0 +1,98 @@
+name: Optimize Home View splash MP4s
+on:
+  push:
+    paths:
+      - .github/workflows/optimize-home-view-splash.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout Home View assets
+        uses: actions/checkout@v4
+
+      - name: Re-encode both splash videos for web playback
+        shell: bash
+        run: |
+          set -euo pipefail
+          ffmpeg -hide_banner -version | head -n 1
+          mkdir -p splash-output
+          for file in "logo 01.mp4" "LOADING_BG.mp4"; do
+            if [ ! -f "$file" ]; then
+              echo "Missing required video: $file"
+              exit 1
+            fi
+            if [ "$file" = "logo 01.mp4" ]; then
+              limit=1600
+              crf=23
+            else
+              limit=1280
+              crf=25
+            fi
+            echo "Converting: $file"
+            ffmpeg -hide_banner -loglevel error -nostdin -y \
+              -i "$file" -map 0:v:0 \
+              -vf "fps=24,scale=w='min($limit,iw)':h=-2:flags=lanczos" \
+              -c:v libx264 -preset medium -crf "$crf" \
+              -pix_fmt yuv420p -tag:v avc1 -movflags +faststart \
+              -an "splash-output/$file"
+            ffprobe -v error -select_streams v:0 \
+              -show_entries stream=codec_name,pix_fmt,width,height,r_frame_rate \
+              -of default=noprint_wrappers=1 "splash-output/$file"
+            ffmpeg -hide_banner -loglevel error -nostdin \
+              -i "splash-output/$file" -map 0:v:0 -f null -
+          done
+
+      - name: Validate fast-start MP4s and choose the smaller compatible files
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os, subprocess
+          from pathlib import Path
+
+          def faststart(path):
+              with open(path, "rb") as f:
+                  beginning = f.read(1024 * 1024)
+              moov = beginning.find(b"moov")
+              mdat = beginning.find(b"mdat")
+              return moov > 0 and mdat > 0 and moov < mdat
+
+          for name in ("logo 01.mp4", "LOADING_BG.mp4"):
+              src = Path(name)
+              result = Path("splash-output") / name
+              if not faststart(result):
+                  raise SystemExit(f"Optimized file lacks faststart metadata: {name}")
+              codec = subprocess.check_output(
+                  ["ffprobe", "-v", "error", "-select_streams", "v:0",
+                   "-show_entries", "stream=codec_name,pix_fmt",
+                   "-of", "csv=p=0", name],
+                  text=True).strip()
+              orig_ok = "h264" in codec and "yuv420p" in codec and faststart(src)
+              old_size, new_size = src.stat().st_size, result.stat().st_size
+              # Preserve an already smaller H.264 fast-start master. Otherwise,
+              # replace incompatible/slow-start assets even if slightly larger.
+              use_new = (new_size < old_size * 0.97) or not orig_ok
+              if use_new:
+                  os.replace(result, src)
+              pct = round((1 - new_size / old_size) * 100, 1)
+              print(f"{name}: {old_size:,} -> {new_size:,} bytes "
+                    f"({pct}% smaller); {'REPLACED' if use_new else 'ORIGINAL RETAINED'}")
+          PY
+
+      - name: Commit optimized MP4s only when files changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- "logo 01.mp4" "LOADING_BG.mp4"
+          if git diff --cached --quiet; then
+            echo "Videos were already web-compatible and suitably compressed."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "Optimize Home View startup MP4s for fast web loading"
+          git push origin HEAD:main
