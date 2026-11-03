@@ -4994,9 +4994,9 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
   <img src="sound off.png" alt="" draggable="false">
 </button>
 <div id="introOverlay">
-  <video id="introVideo" src="logo%2001.mp4" muted autoplay playsinline webkit-playsinline preload="auto" poster="logo_movie.png"></video>
+  <video id="introVideo" src="logo%2001.mp4?v=20261103-h264" muted autoplay playsinline webkit-playsinline preload="auto" poster="logo_movie.png"></video>
   <div id="loadingIntroWrap">
-    <video id="loadingIntroBg" src="LOADING_BG.mp4" muted playsinline webkit-playsinline loop preload="metadata"></video>
+    <video id="loadingIntroBg" src="LOADING_BG.mp4?v=20261103-h264" muted playsinline webkit-playsinline loop preload="metadata"></video>
     <div id="loadingIntro"></div>
   </div>
 </div>
@@ -5090,7 +5090,7 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 
 <!-- Separate exit/connection state: intentional end never looks like a crash. -->
 <div id="hvsSessionScreen" hidden role="dialog" aria-modal="true" aria-label="Session status">
-  <video id="hvsSessionBgVideo" src="LOADING_BG.mp4" muted playsinline webkit-playsinline loop preload="none" aria-hidden="true"></video>
+  <video id="hvsSessionBgVideo" src="LOADING_BG.mp4?v=20261103-h264" muted playsinline webkit-playsinline loop preload="none" aria-hidden="true"></video>
   <section class="hvsSystemCard"><img src="logo_movie.png" alt="Home View" class="hvsSystemLogo"><h2 id="hvsSessionTitle">SESSION ENDED</h2><p id="hvsSessionMessage">Your session has ended.</p><div class="hvsSystemActions"><button type="button" id="hvsSessionRecover" class="hvsSystemPrimary" hidden>TRY TO RECONNECT</button><button type="button" id="hvsSessionStop">END SESSION</button><button type="button" id="hvsSessionRelaunch">RELAUNCH</button></div></section>
 </div>
 
