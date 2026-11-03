@@ -153,3 +153,44 @@ before real customers can resume on another device.
 the `hvsBeginSavedHomeRestore(...)` login bridge; otherwise the standalone JS
 cannot be invoked. Keeping the persistence *data* in browser storage still
 protects it from GitHub file replacements.
+
+## Buyer authentication — November 3, 2026 (supersedes all demo-code instructions above)
+
+**No shared browser access code.** Users select **BUYER LOGIN** and sign in with
+their email address and password. New users enter a name, email and password
+and confirm their email if Supabase requests it. The existing **ADMIN LOGIN**
+tab remains a separate, local-only demonstration interface; admin credentials
+do **not** substitute for buyer credentials when sending online saves.
+
+- `hvs-buyer-auth.js` is the standalone frontend Supabase Auth REST client.
+  `dashboard-config.js` contains ONLY the public project URL and publishable key.
+  Do not put secret keys in GitHub or ask buyers for technical codes.
+- `hvs-leads.js` submits confirmed saves using the buyer's Bearer token.
+- Edge Function `hvs-submit-lead` validates the token with
+  `supabase.auth.getUser(jwt)`; it writes `buyer_user_id` and prevents
+  overwriting another buyer's lead. The `hvs-push-deliver` function checks
+  token ownership of the saved lead before sending a branded push.
+- RLS `hvs_buyer_self_read` limits buyer cloud retrieval to their own
+  `buyer_user_id`. The existing builder dashboard owner policy remains.
+- On sign-in, the game reads the latest saved profile from Supabase and
+  restores it through `hvs-design-restore.js`. The local browser cache
+  remains a convenience only. A customized unsaved guest session takes
+  precedence when the buyer selected SAVE and then signed in.
+- Original browser-only usernames/passwords have **not** been migrated into
+  Supabase Auth; buyers must register a standard email account once.
+- For email confirmations and password reset links, set **Authentication →
+  URL Configuration → Site URL** in the HVS Supabase project to
+  `https://www.homeviewsolutions.com/`; add this URL to allowed redirect
+  URLs as necessary. This is a one-time HVS project setting, not a buyer
+  requirement. This app currently does not trigger Arcware while visiting
+  the main website.
+- The HVS Supabase project is `jythgvjtulxivwmlicvi`, **not** the separate
+  Sales CRM Supabase project. Never change the CRM project's auth settings
+  for this buyer flow.
+
+**Verification status:** JS parsed successfully and GitHub files were
+committed; Supabase functions and RLS checked. A real email signup,
+authenticated SAVE, dashboard view and mobile push should still be tested
+with a buyer account before production. Free-tier built-in email sending
+has provider rate/recipient restrictions and may need proper transactional
+email for wider public deployment.
