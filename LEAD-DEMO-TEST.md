@@ -33,3 +33,39 @@
 - Telegram setup remains separate from database saving. The dashboard already provides on-screen lead updates with Realtime plus a periodic refresh.
 - A game streaming problem and a failed lead submission are separate issues; test the lead flow only once streaming itself is stable.
 - Both desktop and mobile streaming must remain capped at **30 FPS**. No streaming settings were modified for this lead-generator work.
+
+
+## Branded Home View phone app — November 3, 2026
+
+The live dashboard now includes `dashboard.webmanifest`, `dashboard-sw.js`,
+and `dashboard-push.js`. Existing `logo_2.png` is the temporary Home Screen
+app icon and notification icon. It can be replaced by a custom square,
+opaque PNG icon designed for Home View.
+
+**Setup once on each authorized phone (no Telegram required):**
+
+1. In Safari on iOS 16.4+, open the [live Builder Dashboard](https://nicodutoitcanada-debug.github.io/Home-View-Demo-Test/dashboard.html).
+2. Tap Share → Add to Home Screen. Open the new Home View app from the Home Screen.
+3. Log into **Home View Demo** Supabase dashboard account, not the separate CRM or game account.
+4. Tap **Enable phone alerts** and allow notifications when iOS asks.
+5. Tap **Send test alert**. The notification should show the Home View branding, and tapping it opens the dashboard.
+6. Each additional recipient (such as Marie) needs their own Supabase Auth user, permission to read leads, and a row in `hvs_push_admins` before they can enable notifications.
+
+**Live demonstration:** With online saving opted in, a fictional buyer's
+SAVE & SHARE ONLINE or SAVE PROGRESS writes to Supabase; then
+`hvs-push-deliver` notifies subscribed dashboard devices. Contact request
+is indicated in the alert and the buyer's dashboard profile. Identical
+saved configurations are deduplicated, so SAVE followed by END SESSION
+should not spam the phone. For the first test, wait for “Saved to Supabase”
+before ending the Arcware session.
+
+**Server:** `hvs-push-subscribe` checks a signed-in dashboard user against
+`hvs_push_admins`, creates the VAPID key pair on first registration,
+and stores subscriptions and private signing keys in RLS-protected
+server-only Supabase tables. `hvs-push-deliver` is called after the existing
+`hvs-submit-lead` receiver confirms the lead was saved.
+Neither Telegram tokens nor private signing keys are in public GitHub files.
+
+This is still a **fictional-buyer demonstration**, not production-grade intake.
+Web Push does not have per-message fees, but service usage is subject to
+GitHub Pages and Supabase free-tier limits.
