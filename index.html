@@ -4986,6 +4986,35 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
 }
 @keyframes hvs-splash-spin {to {transform:rotate(360deg)}}
 </style>
+
+<!-- Critical main-menu icons. Reserve decoder/network priority for the interactive menu. -->
+<link rel="preload" as="image" href="01%20CAMERA%20SETTINGS.png" fetchpriority="high">
+<link rel="preload" as="image" href="01%20DOCK%20MENU.png" fetchpriority="high">
+<link rel="preload" as="image" href="01%20TELEPORT%20MAP.png" fetchpriority="high">
+<link rel="preload" as="image" href="01%20HOME.png" fetchpriority="high">
+<link rel="preload" as="image" href="01%20PLAY.png" fetchpriority="high">
+<link rel="preload" as="image" href="01%20HOW%20TO.png" fetchpriority="high">
+<link rel="preload" as="image" href="01%20TELEPORT.png" fetchpriority="high">
+<link rel="preload" as="image" href="01%20LOGIN.png" fetchpriority="high">
+
+<style id="hvs-main-icon-fallback-2026-11-02">
+/* A broken icon must not look like a missing action; keep its original hitbox. */
+#uiWrapper .iconGrid .iconButton.hvs-icon-load-failed img{display:none}
+#uiWrapper .iconGrid .iconButton.hvs-icon-load-failed::after{
+  content:attr(aria-label);color:#fff;text-align:center;
+  font:600 8px/1.15 "HomeView Myriad",Arial,sans-serif;
+  letter-spacing:.005em;text-shadow:0 1px 3px rgba(0,0,0,.7);
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('#uiWrapper .iconGrid .iconButton img').forEach(img=>{
+    const fallback=()=>img.closest('button')?.classList.add('hvs-icon-load-failed');
+    img.addEventListener('error',fallback,{once:true});
+    if(img.complete && !img.naturalWidth)fallback();
+  });
+},{once:true});
+</script>
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <!-- Stream audio starts muted on devices requiring a user gesture.
@@ -5116,35 +5145,35 @@ body.hvs-audio-ready:not(.hvs-session-ended):not(.hvs-movie-active)
             <div id="innerBox">
                 <div class="iconGrid">
                     <button class="iconButton" id="cameraSettingsButton" type="button" aria-label="Camera Settings">
-                        <img src="01 CAMERA SETTINGS.png" alt="Camera Settings">
+                        <img src="01 CAMERA SETTINGS.png" alt="Camera Settings" loading="eager" decoding="sync" fetchpriority="high">
                     </button>
 
                     <button class="iconButton" id="dockMenuButton" type="button" aria-label="Hide interface">
-                        <img src="01 DOCK MENU.png" alt="Dock Menu">
+                        <img src="01 DOCK MENU.png" alt="Dock Menu" loading="eager" decoding="sync" fetchpriority="high">
                     </button>
 
                     <button class="iconButton" id="teleportMapMenuButton" type="button" aria-label="Open Teleport Map">
-                        <img src="01 TELEPORT MAP.png" alt="Teleport Map">
+                        <img src="01 TELEPORT MAP.png" alt="Teleport Map" loading="eager" decoding="sync" fetchpriority="high">
                     </button>
 
                     <button class="iconButton" id="homeMenuButton" type="button" aria-label="Open Cost Estimate">
-                        <img src="01 HOME.png" alt="Home">
+                        <img src="01 HOME.png" alt="Home" loading="eager" decoding="sync" fetchpriority="high">
                     </button>
 
                     <button class="iconButton" id="moviePlayButton" type="button" aria-label="Play cutscene">
-                        <img src="01 PLAY.png" alt="Play">
+                        <img src="01 PLAY.png" alt="Play" loading="eager" decoding="sync" fetchpriority="high">
                     </button>
 
                     <button class="iconButton" id="howToMenuButton" type="button" aria-label="How To">
-                        <img src="01 HOW TO.png" alt="How To">
+                        <img src="01 HOW TO.png" alt="How To" loading="eager" decoding="sync" fetchpriority="high">
                     </button>
 
                     <button class="iconButton" id="teleportMenuButton" type="button" aria-label="Teleport" aria-pressed="false">
-                        <img src="01 TELEPORT.png" alt="Teleport">
+                        <img src="01 TELEPORT.png" alt="Teleport" loading="eager" decoding="sync" fetchpriority="high">
                     </button>
 
                     <button class="iconButton" id="loginButton" type="button" aria-label="Login">
-                        <img src="01 LOGIN.png" alt="Login">
+                        <img src="01 LOGIN.png" alt="Login" loading="eager" decoding="sync" fetchpriority="high">
                     </button>
                 </div>
             </div>
