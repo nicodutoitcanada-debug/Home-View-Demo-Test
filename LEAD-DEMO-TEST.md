@@ -100,3 +100,56 @@ Arcware session termination and error-reconnect logic.
 - **Not verified in paid Arcware streaming yet.** JavaScript syntax was checked;
   perform the full save → dashboard → push → End Session walkthrough before
   presenting it to a builder.
+
+
+## Buyer design restoration: separate file and branded loading cover (Nov 3, 2026)
+
+The **restoration logic** now lives in `hvs-design-restore.js`, alongside
+`index.html`. Keep both files next to each other in the local VS Code
+frontend folder. The page includes a single
+`<script src="hvs-design-restore.js" defer></script>` reference.
+
+**Buyer data is not in index.html and not in the JS file.**
+Existing buyer accounts and complete design profiles (finish values, property
+choice, first-floor layout, cost overrides and budget) are saved in the browser
+`localStorage` under `homeview_demo_accounts_cost_v1`. A confirmed online
+SAVE also records the design snapshot and prices in Supabase. Replacing
+`index.html` or `hvs-design-restore.js` does not erase browser storage for the
+same domain and browser. However, `localhost`, the GitHub `github.io`
+address, and `www.homeviewsolutions.com` each have **different** browser
+storage. Do not expect prototype logins to transfer between those addresses.
+Do not clear local browser data when testing a returning buyer.
+
+**On successful login or account creation:**
+
+1. The login closes as the existing session displays a new full-screen cover
+   with the existing `LOADING_BG.mp4` and `loading intro.json`.
+2. The frontend calculator and budget read the saved local buyer profile.
+3. The saved Property One/Two choice, lounge/bedroom layout, and all known
+   Level Variant finish keys are replayed to Unreal's existing UIInteraction
+   receivers, **without** calling Arcware connect or reconnect. Commands wait
+   for the first confirmed-ready streaming session.
+4. The cover remains for **at least three seconds**, or longer while variant
+   commands are sent. The MP4 fades first, followed by Lottie/text/cover.
+   If Unreal rejects a send, the cover offers RETRY RESTORE and CONTINUE,
+   rather than silently claiming the restore succeeded.
+5. When a buyer started the flow with SAVE, the existing online-save confirmation
+   is offered after the restoration completes.
+
+**Unreal contract:** The game must continue accepting the existing
+`{property:'one'|'two'}`, `{layout:'lounge'|'bedroom'}`, and
+`{[finishKey]: finishValue}` messages. This frontend can confirm messages
+entered the streaming transport, **not** that Unreal Level Variant Manager
+finished executing them. Test in Unreal before any paid client presentation.
+Do not introduce a new automatic Arcware session or change the 30 FPS cap.
+
+**Cloud restore limitation:** The Supabase dashboard *stores* online buyer
+configurations but the game's buyer accounts are still browser-local.
+There is no secure cross-device buyer-authenticated readback flow yet. It
+requires a separate authenticated API and server-side identity mapping
+before real customers can resume on another device.
+
+**When replacing index.html:** retain the one-line script inclusion and
+the `hvsBeginSavedHomeRestore(...)` login bridge; otherwise the standalone JS
+cannot be invoked. Keeping the persistence *data* in browser storage still
+protects it from GitHub file replacements.
