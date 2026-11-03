@@ -7,6 +7,8 @@
   'use strict';
   const byId = id => document.getElementById(id);
   const STORE_KEY = 'hvs-demo-live-leads-connection-v1';
+  // Public project URL only; the private HVS demo code stays on the testing device.
+  const DEMO_PROJECT_URL = 'https://jythgvjtulxivwmlicvi.supabase.co';
   const CONTACT_KEY = 'hvs-demo-buyer-contact-v1';
   let inFlight = Promise.resolve();
   let lastBuyer = '';
@@ -44,7 +46,7 @@
   }
   function connect(){
     const c=read(STORE_KEY);
-    const project=prompt('Supabase project URL (https://...supabase.co):',c.url||'');
+    const project=prompt('Supabase project URL (already filled for Home View Demo):',c.url||DEMO_PROJECT_URL);
     if(project===null)return;
     const url=project.trim().replace(/\/$/,'');
     if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url))return status('Enter a valid Supabase project URL.');
@@ -100,11 +102,15 @@
     let payload;
     try { payload=buildPayload(source); }
     catch(error) { return Promise.reject(error); }
-    if(!payload)return Promise.resolve({skipped:true});
+    if(!payload){
+      if(source==='share')return Promise.reject(new Error('Sign in to a buyer profile, then enter your details to save online.'));
+      return Promise.resolve({skipped:true});
+    }
     // Serialize actual requests so SAVE followed by END SESSION keeps order.
     const work = async () => {
       const config=read(STORE_KEY);
-      if(!config.url || !config.code)throw new Error('Click CONFIGURE LIVE LEADS first.');
+      config.url = config.url || DEMO_PROJECT_URL;
+      if(!config.code)throw new Error('Click CONFIGURE LIVE LEADS and enter the private demo code once on this device.');
       const res=await fetch(config.url+'/functions/v1/hvs-submit-lead',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-hvs-demo-code':config.code},
