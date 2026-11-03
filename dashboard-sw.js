@@ -5,7 +5,7 @@ self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));
 self.addEventListener('push',event=>{
   let data={};
   try { data=event.data?event.data.json():{}; }catch(_){data={body:event.data?.text()||''};}
-  const icon=new URL('./logo_2.png',self.registration.scope).href;
+  const icon=new URL('./dashboard-icon.png',self.registration.scope).href;
   const dashboard=new URL('./dashboard.html',self.registration.scope).href;
   const title=String(data.title||'HOME VIEW | New buyer lead').slice(0,100);
   const body=String(data.body||'A buyer has requested a sales follow-up.').slice(0,240);
