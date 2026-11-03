@@ -69,3 +69,34 @@ Neither Telegram tokens nor private signing keys are in public GitHub files.
 This is still a **fictional-buyer demonstration**, not production-grade intake.
 Web Push does not have per-message fees, but service usage is subject to
 GitHub Pages and Supabase free-tier limits.
+
+## Save-first session control — November 3, 2026
+
+The original **END SESSION** button at the top of the game is now **SAVE**.
+This uses the existing animated confirmation popup and keeps the original
+Arcware session termination and error-reconnect logic.
+
+- **Signed in:** SAVE persists the current design locally and submits it to
+  Supabase; only after the response confirms online saving does the popup offer
+  **END SESSION** or **KEEP EXPLORING**.
+- **Not signed in:** SAVE asks the player to **LOG IN / CREATE** or **END WITHOUT
+  SAVING**. The existing login/registration flows are retained. Guest selections
+  are carried into the account when logging in via Save, and Save resumes after
+  accepted login or account creation.
+- **Online error or missing device code:** The popup says **ONLINE SAVE NOT
+  CONFIRMED**, shows the error, and offers **RETRY SAVE** or **END WITHOUT ONLINE
+  SAVE**; its close button returns to the running game.
+- SAVE explicitly opts into the fictional-design submission. Ordinary saves do
+  not require contact details, but a checked callback request requires email or
+  phone. The marketing-consent choice is untouched.
+- Existing End Session shutdown still sets `homeViewSessionIntentional`, disables
+  SDK reconnect methods, sends `{end:'session'}`, and detaches the stream. The
+  explicit new popup End choice skips a *second* online save if already confirmed
+  (or deliberately declined) and resets the buyer's per-session lead ID. All
+  pre-existing inactivity, startup-failure, and unexpected-disconnect paths
+  retain their behavior.
+- Network waits are bounded (12 seconds for saving, 6.5 seconds for optional
+  phone push), so a stalled connection cannot keep the save popup busy forever.
+- **Not verified in paid Arcware streaming yet.** JavaScript syntax was checked;
+  perform the full save → dashboard → push → End Session walkthrough before
+  presenting it to a builder.
