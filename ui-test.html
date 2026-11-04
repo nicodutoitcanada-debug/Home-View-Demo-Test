@@ -11856,6 +11856,12 @@ body.hvs-phone-landscape #homeViewUI #profileInnerBox {padding-bottom:14px;}
   letter-spacing:.07em;margin:7px 0 9px;}
 #hvsRotateDialog p {font:300 14px/1.4 "HomeView Myriad",Arial,sans-serif;
   color:rgba(255,255,255,.87);margin:0;}
+#hvsRotateLoginButton {display:block;margin:18px auto 0;width:100%;min-height:43px;
+  padding:10px;border:1px solid rgba(255,147,91,.68);border-radius:100px;
+  color:white;background:linear-gradient(#ef5d22,#b83b12);
+  font:700 12px/1.2 "HomeView Myriad",Arial,sans-serif;
+  cursor:pointer;touch-action:manipulation;}
+#hvsRotateOverlay.is-thanks #hvsRotateLoginButton {display:none;}
 @keyframes hvsPhoneTurn {0%,15%{transform:rotate(0deg)}52%,78%{transform:rotate(90deg)}100%{transform:rotate(0deg)}}
 @keyframes hvsTurnArrow {0%,15%,100%{opacity:.45;transform:rotate(-20deg)}52%,78%{opacity:1;transform:rotate(20deg)}}
 #hvsRotateOverlay.is-thanks #hvsRotatePhone {animation:none;transform:rotate(90deg);}
@@ -11873,6 +11879,7 @@ body.hvs-session-ended #hvsRotateOverlay {display:none!important;pointer-events:
     </div>
     <h2 id="hvsRotateTitle">ROTATE YOUR PHONE</h2>
     <p id="hvsRotateMessage">Turn your phone sideways to explore Home View in landscape mode.</p>
+    <button id="hvsRotateLoginButton" type="button">LOG IN / CREATE ACCOUNT</button>
   </div>
 </div>
 <script id="hvs-portrait-orientation-guide-and-menu-fit-2026-10-26">
@@ -11943,6 +11950,15 @@ body.hvs-session-ended #hvsRotateOverlay {display:none!important;pointer-events:
     if(current!==lastLoginMode){lastLoginMode=current;update();}
   }).observe(body,{attributes:true,attributeFilter:['class']});
   window.homeViewSyncPhoneMenuFit=update;
+  document.getElementById('hvsRotateLoginButton')?.addEventListener('click',()=>{
+    // Allow a buyer to reach the unchanged login form straight from portrait.
+    if(!document.getElementById('homeViewUI')?.classList.contains('is-ready')){
+      message.textContent='Please wait until the Home View interface has loaded.';
+      return;
+    }
+    window.homeViewOpenLogin?.();
+    hide();
+  });
   addEventListener('resize',schedule,{passive:true});
   addEventListener('orientationchange',schedule,{passive:true});
   window.visualViewport?.addEventListener('resize',schedule,{passive:true});
