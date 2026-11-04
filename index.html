@@ -2102,7 +2102,9 @@ body.cost-open #homeViewUI.is-ready #costScaleControl { transform:translate3d(0,
 .hvsTextInput:focus { border-color:rgba(255,78,18,.75); }
 .hvsFormActions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
 .hvsFormActions>* { flex:1; }
-#hvsAuthNotice { margin-top:12px; min-height:15px; color:#ff4e12; font-size:12px; line-height:1.4; }
+#hvsAuthNotice { margin-top:12px; min-height:18px; color:#fff6ef; font-size:15px; font-weight:700; line-height:1.48; padding:10px 12px; border:1px solid rgba(255,177,128,.65); border-radius:9px; background:rgba(69,31,18,.94); overflow-wrap:anywhere; }
+#hvsAuthNotice:empty { display:none; }
+#hvsLoginInlineError:not([hidden]) { color:#fff8f1; background:rgba(80,29,26,.96); border-color:rgba(255,190,175,.85); font-size:15px; line-height:1.5; font-weight:700; overflow-wrap:anywhere; }
 .hvsAccountSummary { margin:0 0 14px; font-size:12px; line-height:1.5; }
 .hvsAccountSummary strong { color:white; }
 #hvsMarieTools { margin-top:14px; padding-top:14px; border-top:1px solid rgba(255,255,255,.16); }
@@ -5535,7 +5537,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       </div>
       <div class="hvsSecondaryHeading">MARIE — ADMIN ACCOUNT MANAGEMENT</div><label class="hvsField" for="hvsManageAdminSelect">EDIT EXISTING ADMIN OR CREATE NEW</label><select id="hvsManageAdminSelect" class="hvsTextInput"><option value="">CREATE A NEW ADMIN</option></select><label class="hvsField" for="hvsManageAdminUsername">ADMIN USERNAME</label><input id="hvsManageAdminUsername" class="hvsTextInput" maxlength="48"><label class="hvsField" for="hvsManageAdminPassword">NEW PASSWORD</label><input id="hvsManageAdminPassword" class="hvsTextInput" type="password" autocomplete="new-password" placeholder="Required for new admin; blank to keep existing"><label class="hvsField" for="hvsMarieVerifyPassword">MARIE'S CURRENT PASSWORD (REQUIRED)</label><input id="hvsMarieVerifyPassword" class="hvsTextInput" type="password" autocomplete="current-password"><div class="hvsFormActions"><button type="button" id="hvsManageAdminSave" class="hvsActionButton primary">SAVE ADMIN</button></div><p class="hvsSettingInfo">Only Marie can use these controls in the local demo. Real admin security requires a server.</p></div></div>
    <div id="hvsAuthNotice" role="status" aria-live="polite"></div>
-   <p class="hvsSettingInfo">Prototype accounts are saved only in this browser on this device. Do not use real customer data or passwords.</p>
+   <p class="hvsSettingInfo">Buyer accounts use Supabase. Your saved home is stored locally and online after SAVE. For cost-free login and alert testing before starting the stream, open <a href="account-test.html" target="_blank" rel="noopener" style="color:#ffcfb2;font-weight:700;text-decoration:underline">FREE ACCOUNT TEST</a>.</p>
  </div></div>
 </div>
 
