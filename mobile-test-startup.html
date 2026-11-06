@@ -3060,6 +3060,16 @@ protected price storage, and user profile database.
     box-sizing:border-box;padding:3px;border:0;border-radius:12px;background:transparent;
 }
 #hvsLayoutRoomDialog .layoutChoiceButton {width:100%;min-height:47px;height:auto;padding:10px 7px;font-size:12px;white-space:normal;overflow-wrap:break-word;}
+/* Keep a touch-sized close control at the top while this card scrolls. */
+#hvsLayoutRoomClose {
+    position:sticky;top:0;float:right;z-index:2;display:grid;place-items:center;
+    width:44px;height:44px;margin:-10px -8px 0 6px;padding:0;
+    border:1px solid rgba(255,255,255,.3);border-radius:50%;
+    background:rgba(20,27,30,.94);color:#fff;font:28px/1 Arial,sans-serif;
+    cursor:pointer;touch-action:manipulation;
+}
+#hvsLayoutRoomClose:focus-visible {outline:2px solid #fff;outline-offset:2px;}
+#hvsLayoutRoomDialog .layoutOfferDescription {clear:both;}
 #hvsLayoutRoomDialog .layoutOfferDismiss {
     display:block;margin:16px auto 0;border:0;background:transparent;cursor:pointer;
     padding:7px 15px;color:rgba(255,255,255,.7);font:600 12px "HomeView Myriad",Arial,sans-serif;
@@ -5632,6 +5642,7 @@ body:is(.hvs-session-ending,.hvs-session-ended) #hvsSessionScreen{z-index:214748
      windows can be temporarily hidden, then restored, without closing. -->
 <div id="hvsLayoutRoomPrompt" role="presentation" aria-hidden="true">
   <section id="hvsLayoutRoomDialog" role="dialog" aria-modal="false" aria-labelledby="hvsLayoutRoomTitle" aria-describedby="hvsLayoutRoomDescription">
+    <button id="hvsLayoutRoomClose" type="button" aria-label="Close layout options">×</button>
     <h2 class="layoutOfferTitle" id="hvsLayoutRoomTitle">MAKE THIS SPACE YOURS</h2>
     <p class="layoutOfferDescription" id="hvsLayoutRoomDescription">Enjoy an open upstairs lounge, or turn this space into an additional bedroom. You can change your choice anytime in <strong>Teleport Map → Upstairs Layout</strong>.</p>
     <div class="layoutOfferButtons">
@@ -7062,6 +7073,7 @@ function hvsShowLayoutRoomPrompt(){
     if(hvsLayoutRoomPrompt.classList.contains('is-open'))return;
     closeUpstairsLayoutDialog();
     hvsSyncLayoutRoomPrompt();
+    document.getElementById('hvsLayoutRoomDialog').scrollTop=0;
     hvsLayoutRoomPrompt.classList.add('is-open');
     hvsLayoutRoomPrompt.setAttribute('aria-hidden','false');
     // Do not move focus into the popup. Keeping focus where it was lets
@@ -7077,6 +7089,7 @@ window.homeViewTestLayoutOffer=()=>hvsShowLayoutRoomPrompt();
 hvsLayoutRoomLounge.addEventListener('click',()=>{chooseFirstFloorLayout('lounge');hvsCloseLayoutRoomPrompt();});
 hvsLayoutRoomBedroom.addEventListener('click',()=>{chooseFirstFloorLayout('bedroom');hvsCloseLayoutRoomPrompt();});
 hvsLayoutRoomDismiss.addEventListener('click',hvsCloseLayoutRoomPrompt);
+document.getElementById('hvsLayoutRoomClose').addEventListener('click',hvsCloseLayoutRoomPrompt);
 document.addEventListener('keydown',event=>{
     if(event.key==='Escape'&&hvsLayoutRoomPrompt.classList.contains('is-open')){
         event.preventDefault();event.stopPropagation();hvsCloseLayoutRoomPrompt();
