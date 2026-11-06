@@ -9198,6 +9198,7 @@ function hvsCloseSessionWindows(){
      !document.activeElement.closest('#hvsSessionScreen'))document.activeElement.blur();
 }
 window.homeViewDisplaySessionState=(intentional,message)=>{
+  window.homeViewDiagnostics?.stop(intentional?'Session ended':'Connection interrupted');
   hvsCloseSessionWindows();
   window.HVSDesignRestore?.cancel?.();
   window.homeViewConnectionProblem=!intentional;
@@ -9644,6 +9645,7 @@ function sendUnreal(payload) {
   if(lotChange && window.homeViewLotIsLoading?.())return false;
   if(lotChange)window.homeViewShowLotLoading?.();
   const sent=hvsSendUnrealTransport(payload);
+  if(sent)window.homeViewDiagnostics?.note(payload);
   if(lotChange && !sent)window.homeViewHideLotLoading?.();
   return sent;
 }
@@ -9907,6 +9909,7 @@ function hvsRegisterVideoForRecovery(video){
   if(info.supportsFrames){
     const onFrame=()=>{
       info.lastFrameAt=Date.now();
+      window.homeViewDiagnostics?.frame(video,performance.now());
       hvsRecoveryLastFrameAt=info.lastFrameAt;
       hvsRecoveryLastFrameVideo=video;
       if(hvsRecoveryInProgress)hvsRecoverySucceeded('new video frames');
@@ -10128,6 +10131,7 @@ function receiveUnrealResponse(response) {
   // Some older Unreal builds return nested serialized strings.
   try { if (typeof data === 'string') data = JSON.parse(data); } catch (_) {}
   window.homeViewReceiveLotStatus?.(data);
+  window.homeViewDiagnostics?.note(data);
   // Character location and yaw arrive each Tick. Handle them without console
   // spam, and without ever interfering with room/finish/game messages.
   if (window.homeViewHandleMapResponse?.(data) === true) return;
@@ -10325,6 +10329,7 @@ function hvsCompleteGameReveal() {
   setTimeout(()=>window.homeViewShowGameReady?.(),270);
   ui.classList.add('is-ready');
   window.homeViewLevelReady=true;
+  window.homeViewDiagnostics?.start();
   window.homeViewOnLevelReadyForAfk?.();
   document.body.classList.add('hvs-audio-ready');
   requestAnimationFrame(()=>{
@@ -10745,6 +10750,7 @@ function homeViewDetachStream(){
   try {document.getElementById('video-container')?.replaceChildren();}catch(_){}
 }
 window.homeViewEndSession=async(message='Your session has ended.',options={})=>{
+  window.homeViewDiagnostics?.stop('Session ended');
   hvsCloseSessionWindows();
   window.homeViewHideLotLoading?.();
   if(homeViewTeardownStarted)return;
@@ -10917,6 +10923,160 @@ async function initialiseEpicLocalPlayer() {
   console.info('[DEV MODE] Local Epic player mounted; waiting for Unreal Game:Loaded.');
   mobileDevStatus('Player mounted; waiting for Unreal Game Loaded');
   if (MOBILE_DIAGNOSTICS) setTimeout(() => { if (!levelReady && !loadRequested) mobileDevStatus('Still waiting for Game Loaded. Check signaling / only one player open.',true); else if (!levelReady) mobileDevStatus('Load requested; waiting for HomeViewLevelLoaded',true); }, 12000);
+}
+
+// HVS_DIAGNOSTICS_V1: read-only, enabled ONLY by ?diagnostics=1.
+// Does not send Unreal commands, alter settings, reconnect, or upload results.
+if(new URLSearchParams(location.search).get('diagnostics')==='1'){
+  class HvsDiagnosticMetrics{
+    constructor(){
+      this.previous=null;this.peer=null;this.samples=[];this.events=[];this.resolutions=[];
+      this.seconds=0;this.frames=0;this.arrivedFrames=0;this.arrivedSeconds=0;this.videoBytes=0;this.byteSeconds=0;this.minFps=null;this.received=0;this.lost=0;
+      this.rttSum=0;this.rttSeconds=0;this.maxRtt=null;this.decodeSeconds=0;this.decodeFrames=0;
+      this.jitterSeconds=0;this.jitterFrames=0;this.nativeCount=null;this.nativeSeconds=null;
+      this.gaps=[];this.gapCount=0;this.gapSeconds=0;this.maxGap=0;this.video=null;this.frameAt=null;
+      this.started=Date.now();this.errors=0;this.noPeer=0;this.unavailable=0;this.skipped=0;
+    }
+    note(kind){this.events.push({at:Math.round((Date.now()-this.started)/1000),kind});if(this.events.length>80)this.events.shift();}
+    reset(){this.previous=null;this.frameAt=null;}
+    frame(video,now){
+      if(this.video!==video){this.video=video;this.frameAt=null;}
+      if(this.frameAt!==null && now-this.frameAt>=250)this.gap((now-this.frameAt)/1000);
+      this.frameAt=now;
+    }
+    gap(seconds){this.gapCount++;this.gapSeconds+=seconds;this.maxGap=Math.max(this.maxGap,seconds);
+      this.gaps.push({at:Math.round((Date.now()-this.started)/1000),seconds:+seconds.toFixed(3)});
+      if(this.gaps.length>80)this.gaps.shift();}
+    resolution(size){if(size && this.resolutions.at(-1)?.size!==size){this.resolutions.push({at:Math.round((Date.now()-this.started)/1000),size});if(this.resolutions.length>30)this.resolutions.shift();}}
+    report(report,peer,resolution){
+      let inbound=null,pair=null;
+      const videos=[];report.forEach(r=>{if(r.type==='inbound-rtp'&&!r.isRemote&&(r.kind==='video'||r.mediaType==='video'))videos.push(r);});
+      inbound=videos.sort((a,b)=>(b.bytesReceived||0)-(a.bytesReceived||0))[0];
+      if(!inbound){this.unavailable++;return null;}
+      const transport=report.get(inbound.transportId);
+      if(transport?.selectedCandidatePairId)pair=report.get(transport.selectedCandidatePairId);
+      if(!pair)report.forEach(r=>{if(!pair&&r.type==='candidate-pair'&&r.state==='succeeded'&&r.nominated)pair=r;});
+      const finite=v=>typeof v==='number'&&Number.isFinite(v)?v:null;
+      const n={id:inbound.id,time:finite(inbound.timestamp),frames:finite(inbound.framesDecoded),arrived:finite(inbound.framesReceived),
+        bytes:finite(inbound.bytesReceived),received:finite(inbound.packetsReceived),lost:finite(inbound.packetsLost),
+        decode:finite(inbound.totalDecodeTime),jitter:finite(inbound.jitterBufferDelay),emitted:finite(inbound.jitterBufferEmittedCount),
+        freezes:finite(inbound.freezeCount),frozen:finite(inbound.totalFreezesDuration)};
+      const p=this.previous;
+      this.previous=n;
+      this.resolution(resolution);
+      if(this.nativeCount===null&&n.freezes!==null)this.nativeCount=0;
+      if(this.nativeSeconds===null&&n.frozen!==null)this.nativeSeconds=0;
+      if(this.peer!==peer || !p || p.id!==n.id){if(p)this.note('Video connection/counter baseline changed');this.peer=peer;return null;}
+      const dt=(n.time-p.time)/1000;
+      if(!Number.isFinite(dt)||dt<=0||dt>5 || n.frames===null||p.frames===null||n.frames<p.frames||(n.bytes!==null&&p.bytes!==null&&n.bytes<p.bytes)){this.skipped++;return null;}
+      const delta=(key)=>n[key]!==null&&p[key]!==null?Math.max(0,n[key]-p[key]):null;
+      const frames=delta('frames');const fps=frames/dt;this.seconds+=dt;this.frames+=frames;this.minFps=this.minFps===null?fps:Math.min(this.minFps,fps);
+      const arrived=delta('arrived');if(arrived!==null){this.arrivedFrames+=arrived;this.arrivedSeconds+=dt;}
+      const videoBytes=delta('bytes');if(videoBytes!==null){this.videoBytes+=videoBytes;this.byteSeconds+=dt;}
+      const received=delta('received'),lost=delta('lost');if(received!==null&&lost!==null){this.received+=received;this.lost+=lost;}
+      const rtt=finite(pair?.currentRoundTripTime);if(rtt!==null){this.rttSum+=rtt*dt;this.rttSeconds+=dt;this.maxRtt=this.maxRtt===null?rtt:Math.max(this.maxRtt,rtt);}
+      const decode=delta('decode');if(decode!==null&&frames>0){this.decodeSeconds+=decode;this.decodeFrames+=frames;}
+      const jitter=delta('jitter'),emitted=delta('emitted');if(jitter!==null&&emitted>0){this.jitterSeconds+=jitter;this.jitterFrames+=emitted;}
+      const freezes=delta('freezes'),frozen=delta('frozen');if(freezes!==null)this.nativeCount+=freezes;if(frozen!==null)this.nativeSeconds+=frozen;
+      // Store only numeric measurements, never IPs, account data or raw reports.
+      const row={at:Math.round((Date.now()-this.started)/1000),seconds:+dt.toFixed(3),fps:+fps.toFixed(1),
+        kbps:delta('bytes')===null?null:Math.round(delta('bytes')*8/dt/1000),rttMs:rtt===null?null:Math.round(rtt*1000),
+        lossPercent:received!==null&&lost!==null&&received+lost>0?+(100*lost/(received+lost)).toFixed(2):null,
+        decodeMs:decode!==null&&frames>0?+(decode*1000/frames).toFixed(2):null,
+        newNativeFreezes:freezes,resolution};
+      this.samples.push(row);if(this.samples.length>600)this.samples.shift();return row;
+    }
+    summary(reason){return{
+      version:'HVS mobile diagnostics 1',reason,finishedAt:new Date().toISOString(),
+      wallSeconds:Math.round((Date.now()-this.started)/1000),measuredSeconds:+this.seconds.toFixed(1),
+      averageIncomingFps:this.arrivedSeconds?+(this.arrivedFrames/this.arrivedSeconds).toFixed(1):null,
+      averageKbps:this.byteSeconds?Math.round(this.videoBytes*8/this.byteSeconds/1000):null,
+      averageFps:this.seconds?+(this.frames/this.seconds).toFixed(1):null,lowestSampleFps:this.minFps===null?null:+this.minFps.toFixed(1),
+      averageRttMs:this.rttSeconds?Math.round(this.rttSum/this.rttSeconds*1000):null,maxRttMs:this.maxRtt===null?null:Math.round(this.maxRtt*1000),
+      intervalLossPercent:this.received+this.lost?+(100*this.lost/(this.received+this.lost)).toFixed(2):null,
+      averageDecodeMs:this.decodeFrames?+(this.decodeSeconds*1000/this.decodeFrames).toFixed(2):null,
+      averageJitterBufferMs:this.jitterFrames?Math.round(this.jitterSeconds*1000/this.jitterFrames):null,
+      nativeFreezeCount:this.nativeCount,nativeFrozenSeconds:this.nativeSeconds===null?null:+this.nativeSeconds.toFixed(2),
+      observedGapCount:this.gapCount,longestObservedGapSeconds:+this.maxGap.toFixed(2),observedGapSeconds:+this.gapSeconds.toFixed(2),
+      frameGapMethod:this.frameSupported?'Video presentation callbacks; gaps >=250 ms':'Unavailable in this browser',
+      resolutions:this.resolutions,timeline:this.samples,events:this.events,worstGaps:[...this.gaps].sort((a,b)=>b.seconds-a.seconds).slice(0,3),
+      statsErrors:this.errors,missingPeerPolls:this.noPeer,missingInboundPolls:this.unavailable,skippedIntervals:this.skipped,
+      limitations:'Browser observations only; no Unreal GPU/CPU or encoder timing. RTT is a round trip, not input latency. Native freezes and presentation gaps are different measures. Hidden tabs, paused video and screenshot generation are excluded; startup before the game reveals is excluded. Missing counters remain unavailable. Final sample may precede ending by about one second.'
+    };}
+  }
+  const metrics=new HvsDiagnosticMetrics();let running=false,finished=false,timer=null,busy=false,last=null,summary=null;
+  const style=document.createElement('style');style.textContent=`
+#hvsDiagBadge{position:fixed;left:max(8px,env(safe-area-inset-left));top:max(8px,env(safe-area-inset-top));z-index:19000;pointer-events:none;background:rgba(10,15,18,.88);color:#fff;border:1px solid #77838c;border-radius:9px;padding:6px 9px;font:12px/1.3 Arial,sans-serif;max-width:70vw}
+#hvsDiagResults[hidden],#hvsDiagResultsButton[hidden]{display:none!important}
+#hvsSessionScreen.hvs-diagnostics-results>.hvsSystemCard{max-height:96dvh;overflow:auto;width:min(560px,96vw)!important;padding:18px!important}
+#hvsSessionScreen.hvs-diagnostics-results .hvsSystemLogo,#hvsSessionScreen.hvs-diagnostics-results #hvsSessionTitle,#hvsSessionScreen.hvs-diagnostics-results #hvsSessionMessage,#hvsSessionScreen.hvs-diagnostics-results .hvsSystemActions{display:none!important}
+#hvsDiagResults{font:13px/1.35 Arial,sans-serif;text-align:left;color:#fff}
+#hvsDiagResults h2{font:700 19px/1.2 Arial,sans-serif;margin:0 0 7px!important;text-align:left}
+#hvsDiagResults p{font:12px/1.35 Arial,sans-serif;margin:7px 0!important;letter-spacing:0;text-transform:none}
+#hvsDiagResults dl{margin:8px 0;display:grid;grid-template-columns:1fr 1fr;gap:5px 10px}
+#hvsDiagResults dt{color:#ccd3d8}#hvsDiagResults dd{margin:0;text-align:right;font-weight:600}
+#hvsDiagResults button{font:600 12px Arial,sans-serif;border:1px solid #8c999f;border-radius:20px;background:#253039;color:white;padding:9px 12px;margin:6px 5px 0 0}
+`;document.head.appendChild(style);
+  const badge=document.createElement('div');badge.id='hvsDiagBadge';badge.textContent='TEST MODE · waiting for game';document.body.appendChild(badge);
+  const card=document.querySelector('#hvsSessionScreen .hvsSystemCard');
+  const button=document.createElement('button');button.id='hvsDiagResultsButton';button.type='button';button.textContent='TEST RESULTS';button.hidden=true;
+  card.querySelector('.hvsSystemActions').appendChild(button);
+  const panel=document.createElement('section');panel.id='hvsDiagResults';panel.hidden=true;panel.setAttribute('aria-label','Mobile test results');card.appendChild(panel);
+  const blocked=(video=document.querySelector('#video-container video'))=>document.hidden||video?.paused||hvsScreenshotProtected();
+  function peer(){
+    const sources=[window.homeViewArcwareAudioStream,localStream,application?.stream,application];
+    for(const s of sources){const c=s?.webRtcController;const p=c?.peerConnectionController?.peerConnection||s?.peerConnectionController?.peerConnection;if(typeof p?.getStats==='function')return p;}
+    const fallback=hvsRtcPeer();return typeof fallback?.getStats==='function'?fallback:null;
+  }
+  async function poll(){
+    if(!running||finished||busy)return;
+    busy=true;
+    try{
+      if(blocked()){metrics.reset();badge.textContent='TEST MODE · paused while hidden / saving';return;}
+      const video=document.querySelector('#video-container video');const size=video?.videoWidth&&video?.videoHeight?`${video.videoWidth} × ${video.videoHeight}`:null;metrics.resolution(size);
+      const pc=peer();if(!pc){metrics.noPeer++;badge.textContent='TEST MODE · video gaps recording; network stats unavailable';return;}
+      const report=await pc.getStats();if(!running||finished||blocked()){metrics.reset();return;}
+      last=metrics.report(report,pc,size)||last;
+      badge.textContent=last?`TEST RECORDING · ${last.fps} FPS · ${size||'size unavailable'} · RTT ${last.rttMs===null?'n/a':last.rttMs+' ms'}`:'TEST RECORDING · waiting for video statistics';
+    }catch(_){metrics.errors++;badge.textContent='TEST RECORDING · browser stats unavailable';}
+    finally{busy=false;if(running&&!finished)timer=setTimeout(poll,1000);}
+  }
+  const value=(n,unit='')=>n===null||n===undefined?'Unavailable':`${n}${unit}`;
+  function show(){
+    if(!summary)return;
+    panel.replaceChildren();const title=document.createElement('h2');title.textContent='MOBILE TEST RESULTS';panel.appendChild(title);
+    const p=document.createElement('p');p.textContent=`Test 1 · ${summary.wallSeconds}s elapsed / ${summary.measuredSeconds}s stats measured · ${summary.reason}`;panel.appendChild(p);
+    const list=document.createElement('dl');
+    const rows=[['Video sizes',summary.resolutions.map(r=>r.size).join(' → ')||'Unavailable'],['Decoded FPS avg / lowest',value(summary.averageFps)+' / '+value(summary.lowestSampleFps)],
+      ['Incoming FPS / video bitrate',value(summary.averageIncomingFps)+' / '+value(summary.averageKbps,' kbps')],
+      ['Network RTT avg / max',value(summary.averageRttMs,' ms')+' / '+value(summary.maxRttMs,' ms')],['Reported interval packet loss',value(summary.intervalLossPercent,'%')],
+      ['Decode time / frame',value(summary.averageDecodeMs,' ms')],['Jitter buffer / frame',value(summary.averageJitterBufferMs,' ms')],
+      ['Native freezes / total time',value(summary.nativeFreezeCount)+' / '+value(summary.nativeFrozenSeconds,' s')],
+      ['Observed gaps ≥250 ms',metrics.frameSupported?String(summary.observedGapCount):'Unavailable'],['Longest / total observed gaps',metrics.frameSupported?`${summary.longestObservedGapSeconds}s / ${summary.observedGapSeconds}s`:'Unavailable']];
+    for(const[label,text]of rows){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=text;list.append(dt,dd);}panel.appendChild(list);
+    const note=document.createElement('p');note.textContent='Gaps include video delivery and browser scheduling; these numbers do not identify an Unreal or server cause. Hidden/paused periods are excluded.';panel.appendChild(note);
+    if(summary.worstGaps.length){const worst=document.createElement('p');worst.textContent='Longest gaps: '+summary.worstGaps.map(g=>`${g.seconds}s at ${g.at}s`).join(' · ');panel.appendChild(worst);}
+    const unsupported=document.createElement('p');unsupported.textContent=`Stats issues: ${summary.statsErrors} errors · ${summary.missingPeerPolls} polls without network stats. Screenshot this summary; save the full report if more detail is needed.`;panel.appendChild(unsupported);
+    const back=document.createElement('button');back.textContent='BACK';back.type='button';back.onclick=()=>{panel.hidden=true;document.getElementById('hvsSessionScreen').classList.remove('hvs-diagnostics-results');};panel.appendChild(back);
+    const download=document.createElement('button');download.textContent='SAVE FULL REPORT';download.type='button';download.onclick=()=>{
+      const blob=new Blob([JSON.stringify(summary,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='HomeView-mobile-test.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),15000);
+    };panel.appendChild(download);
+    document.getElementById('hvsSessionScreen').classList.add('hvs-diagnostics-results');panel.hidden=false;
+  }
+  button.addEventListener('click',show);
+  window.homeViewDiagnostics={
+    start(){if(running||finished)return;running=true;metrics.started=Date.now();metrics.note('Game revealed; recording started');poll();},
+    frame(video,now){if(!running||finished)return;metrics.frameSupported=typeof video.requestVideoFrameCallback==='function';if(blocked(video)){metrics.reset();return;}metrics.frame(video,now);},
+    note(payload){if(!running||finished||!payload||typeof payload!=='object')return;
+      if(payload.teleportMap!==undefined)metrics.note('Teleport requested');else if(payload.property!==undefined)metrics.note('Lot change requested');else if(payload.lot==='loaded')metrics.note('Lot loaded');else if(payload.cutscene!==undefined)metrics.note('Movie '+String(payload.cutscene).slice(0,20));},
+    stop(reason){if(finished)return;finished=true;running=false;clearTimeout(timer);metrics.note('Recording stopped');
+      if(metrics.frameAt!==null && !blocked()){const tail=(performance.now()-metrics.frameAt)/1000;if(tail>=.25)metrics.gap(tail);}
+      summary=metrics.summary(reason);try{sessionStorage.setItem('hvs-last-mobile-diagnostic',JSON.stringify(summary));}catch(_){}
+      button.hidden=false;badge.textContent='TEST COMPLETE · results available after session ends';},
+    snapshot:()=>summary||metrics.summary('recording')
+  };
+  document.addEventListener('visibilitychange',()=>{if(running){metrics.reset();metrics.note(document.hidden?'Page hidden; measurement paused':'Page visible; baseline reset');}});
+  window.addEventListener('pagehide',()=>{if(running)window.homeViewDiagnostics.stop('Page left');});
 }
 
 startLoadingMedia();
