@@ -9698,6 +9698,44 @@ let unrealIsReadyForResolution = false;
 let lastSentViewportResolution = '';
 let viewportSyncTimer = null;
 let viewportRetryTimers = [];
+// Mobile transport repair only: no desktop tiers or automatic reconnects.
+let hvsMobileCommandTransport='not sent';
+let hvsMobileRequestedSize='not sent';
+let hvsMobileResizeKey='';
+let hvsMobileResizeAttempts=0;
+let hvsMobileRateSentKbps=null;
+let hvsMobileRateSendOk=false;
+let hvsMobileLastAttemptAt=0;
+function hvsMobileRtcPeer(){
+  for(const stream of [window.homeViewArcwareAudioStream,localStream,application?.stream,application]){
+    const peer=stream?.webRtcController?.peerConnectionController?.peerConnection;
+    if(typeof peer?.getStats==='function')return peer;
+  }
+  return hvsRtcPeer();
+}
+function hvsSendMobileCommand(command){
+  const seen=new Set();
+  for(const [name,stream] of [['Arcware stream',window.homeViewArcwareAudioStream],['application stream',application?.stream],['application',application]]){
+    if(!stream||seen.has(stream)||typeof stream.emitCommand!=='function')continue;
+    seen.add(stream);
+    try{
+      const sent=stream.emitCommand(command)!==false;
+      hvsMobileCommandTransport=name+'.emitCommand'+(sent?'':' (not ready)');
+      return sent;
+    }catch(error){console.warn('[MOBILE COMMAND] Native command failed:',error?.message||error);}
+  }
+  hvsMobileCommandTransport='native Command unavailable';return false;
+}
+window.homeViewMobileTuningStatus=()=>({
+  mobile:HVS_QUALITY_MOBILE,requestedSize:hvsMobileRequestedSize,
+  desiredMaxKbps:HVS_QUALITY_LEVELS[hvsQualityIndex],lastSentMaxKbps:hvsMobileRateSentKbps,
+  bitrateRequestSent:hvsMobileRateSendOk,requestedFps:HVS_REQUESTED_MAX_FPS,
+  sdkMaxKbps:hvsQualityConfig?.getNumericSettingValue?.('WebRTCMaxBitrate')??null,
+  sdkFps:hvsQualityConfig?.getNumericSettingValue?.('WebRTCFPS')??null,
+  transport:hvsMobileCommandTransport,resizeAttempts:hvsMobileResizeAttempts,
+  note:'Requests are not acknowledgements; compare against received stream.'
+});
+
 function getStreamingViewportResolution() {
   const stage = document.getElementById('video-container');
   // clientWidth/clientHeight are untransformed CSS layout dimensions.
@@ -9709,10 +9747,10 @@ function getStreamingViewportResolution() {
   // Mobile resolution test: cap the LONGEST render edge at 1440 physical pixels.
   // Preserve the browser aspect ratio, and never upscale a smaller viewport.
   // No bitrate, FPS, decoder, desktop, reconnection or session changes.
-  if (window.matchMedia('(pointer:coarse)').matches) {
+  if (HVS_QUALITY_MOBILE) {
     const factor = Math.min(1, 1440 / Math.max(width, height));
-    width = Math.round(width * factor);
-    height = Math.round(height * factor);
+    width = Math.max(2,2*Math.floor(width * factor/2));
+    height = Math.max(2,2*Math.floor(height * factor/2));
   }
   return {width:Math.max(1,width), height:Math.max(1,height)};
 }
@@ -9728,6 +9766,18 @@ function sendViewportResolutionToUnreal(reason='viewport', force=false) {
       !unrealIsReadyForResolution || !application) return;
   const {width,height} = getStreamingViewportResolution();
   const key = `${width}x${height}`;
+  if (!dev_mode && HVS_QUALITY_MOBILE) {
+    hvsMobileRequestedSize=key;
+    if(hvsMobileResizeKey!==key){hvsMobileResizeKey=key;hvsMobileResizeAttempts=0;}
+    const video=document.querySelector('#video-container video');
+    const matched=video?.videoWidth && Math.abs(video.videoWidth-width)<=2 && Math.abs(video.videoHeight-height)<=2;
+    if(key===lastSentViewportResolution && (matched || !force))return false;
+    // At most three startup attempts per geometry. A real rotation gets a new key.
+    if(hvsMobileResizeAttempts>=3)return false;
+    const sent=hvsSendMobileCommand({'Resolution.Width':width,'Resolution.Height':height});
+    if(sent){lastSentViewportResolution=key;hvsMobileResizeAttempts++;}
+    return sent;
+  }
   if (!force && key === lastSentViewportResolution) return;
   const command = `r.SetRes ${key}w`;
   if (sendUnreal({console:true, Command:command})) {
@@ -10329,6 +10379,11 @@ function hvsCompleteGameReveal() {
   setTimeout(()=>window.homeViewShowGameReady?.(),270);
   ui.classList.add('is-ready');
   window.homeViewLevelReady=true;
+  if(!dev_mode && HVS_QUALITY_MOBILE){
+    [0,1200,3500].forEach(ms=>setTimeout(()=>{
+      if(hvsQualityAllowed())hvsApplyBitrateHint();
+    },ms));
+  }
   window.homeViewDiagnostics?.start();
   window.homeViewOnLevelReadyForAfk?.();
   document.body.classList.add('hvs-audio-ready');
@@ -10638,19 +10693,34 @@ function hvsQualityAllowed(){return !dev_mode && !window.homeViewSessionIntentio
 function hvsApplyBitrateHint(){
   if(!hvsQualityAllowed())return false;
   const limit=HVS_QUALITY_LEVELS[hvsQualityIndex];
-  try {
-    // ArcwareInit returns Config, forwarded to Epic Pixel Streaming.
-    if(typeof hvsQualityConfig?.setNumericSetting === 'function'){
+  try{
+    if(typeof hvsQualityConfig?.setNumericSetting==='function'){
       hvsQualityConfig.setNumericSetting('WebRTCMaxBitrate',limit);
-      console.info('[HOME VIEW QUALITY] Requested WebRTC max bitrate (kbps):',limit);
-      return true;
+      if(HVS_QUALITY_MOBILE){
+        hvsQualityConfig.setNumericSetting('WebRTCMinBitrate',0);
+        hvsQualityConfig.setNumericSetting('WebRTCFPS',HVS_REQUESTED_MAX_FPS);
+      }
     }
-  }catch(err){console.warn('[HOME VIEW QUALITY] SDK refused bitrate change:',err);}
-  return false;
+    if(HVS_QUALITY_MOBILE){
+      hvsMobileLastAttemptAt=Date.now();
+      // SDK numeric settings use kbps; the native UE Command uses bits/second.
+      hvsMobileRateSendOk=hvsSendMobileCommand({'WebRTC.MaxBitrate':limit*1000,
+        'WebRTC.MinBitrate':0,'WebRTC.Fps':HVS_REQUESTED_MAX_FPS});
+      if(hvsMobileRateSendOk)hvsMobileRateSentKbps=limit;
+      return hvsMobileRateSendOk;
+    }
+    return typeof hvsQualityConfig?.setNumericSetting==='function';
+  }catch(error){console.warn('[HOME VIEW QUALITY] Request failed:',error);return false;}
 }
 async function hvsMonitorQuality(){
   if(!hvsQualityAllowed() || window.homeViewConnectionProblem || hvsRecoveryInProgress)return;
-  const pc=hvsRtcPeer();
+  if(HVS_QUALITY_MOBILE && Date.now()-hvsMobileLastAttemptAt>=5000){
+    const sdkMax=hvsQualityConfig?.getNumericSettingValue?.('WebRTCMaxBitrate');
+    const sdkFps=hvsQualityConfig?.getNumericSettingValue?.('WebRTCFPS');
+    if(!hvsMobileRateSendOk || sdkMax!==HVS_QUALITY_LEVELS[hvsQualityIndex] || sdkFps!==HVS_REQUESTED_MAX_FPS)
+      hvsApplyBitrateHint();
+  }
+  const pc=HVS_QUALITY_MOBILE?hvsMobileRtcPeer():hvsRtcPeer();
   if(!pc?.getStats)return;
   try {
     const report=await pc.getStats();
@@ -10987,7 +11057,7 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
       this.samples.push(row);if(this.samples.length>600)this.samples.shift();return row;
     }
     summary(reason){return{
-      version:'HVS mobile diagnostics 1',reason,finishedAt:new Date().toISOString(),
+      version:'HVS mobile diagnostics 2 — mobile transport repair',mobileRequest:window.homeViewMobileTuningStatus?.()||null,reason,finishedAt:new Date().toISOString(),
       wallSeconds:Math.round((Date.now()-this.started)/1000),measuredSeconds:+this.seconds.toFixed(1),
       averageIncomingFps:this.arrivedSeconds?+(this.arrivedFrames/this.arrivedSeconds).toFixed(1):null,
       averageKbps:this.byteSeconds?Math.round(this.videoBytes*8/this.byteSeconds/1000):null,
@@ -11045,9 +11115,12 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
   function show(){
     if(!summary)return;
     panel.replaceChildren();const title=document.createElement('h2');title.textContent='MOBILE TEST RESULTS';panel.appendChild(title);
-    const p=document.createElement('p');p.textContent=`Test 1 · ${summary.wallSeconds}s elapsed / ${summary.measuredSeconds}s stats measured · ${summary.reason}`;panel.appendChild(p);
+    const p=document.createElement('p');p.textContent=`Test 2 · ${summary.wallSeconds}s elapsed / ${summary.measuredSeconds}s stats measured · ${summary.reason}`;panel.appendChild(p);
     const list=document.createElement('dl');
-    const rows=[['Video sizes',summary.resolutions.map(r=>r.size).join(' → ')||'Unavailable'],['Decoded FPS avg / lowest',value(summary.averageFps)+' / '+value(summary.lowestSampleFps)],
+    const request=summary.mobileRequest;
+    const rows=[['Video sizes',summary.resolutions.map(r=>r.size).join(' → ')||'Unavailable'],
+      ['Requested size / max bitrate',request?`${request.requestedSize} / ${request.desiredMaxKbps} kbps`:'Unavailable'],
+      ['Bitrate request / SDK max',request?`${request.bitrateRequestSent?'sent':'not confirmed'} / ${value(request.sdkMaxKbps,' kbps')}`:'Unavailable'],['Decoded FPS avg / lowest',value(summary.averageFps)+' / '+value(summary.lowestSampleFps)],
       ['Incoming FPS / video bitrate',value(summary.averageIncomingFps)+' / '+value(summary.averageKbps,' kbps')],
       ['Network RTT avg / max',value(summary.averageRttMs,' ms')+' / '+value(summary.maxRttMs,' ms')],['Reported interval packet loss',value(summary.intervalLossPercent,'%')],
       ['Decode time / frame',value(summary.averageDecodeMs,' ms')],['Jitter buffer / frame',value(summary.averageJitterBufferMs,' ms')],
@@ -11094,6 +11167,7 @@ if (dev_mode) {
       { shareId:SHARE_ID },
       { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
           WebRTCFPS:HVS_REQUESTED_MAX_FPS,
+          ...(HVS_QUALITY_MOBILE?{MatchViewportRes:false}:{}),
           WebRTCMaxBitrate:HVS_QUALITY_LEVELS[hvsQualityIndex],
           WebRTCMinBitrate:0,
           // LUX uses StartVideoMuted:true. Make mobile equally autoplay-safe
