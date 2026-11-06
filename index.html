@@ -9387,6 +9387,8 @@ window.addEventListener('resize',hvsUpdateHowToScale);
 // true  = connect to LOCAL Unreal Pixel Streaming signalling server
 // false = connect to LIVE Arcware cloud
 // ================================================================
+// Pre-Lux streaming baseline, October 30; current buyer features retained.
+const HVS_REQUESTED_MAX_FPS = 30; // Maximum on every platform, including fallbacks.
 const dev_mode = false; // true=local Epic Pixel Streaming, false=Arcware
 const dev_mobile_mode = false; // true=connect local stream by this page's LAN IP (phone testing); false=127.0.0.1 (PC testing)
 // Mobile mode only changes the local signalling URL. Live Arcware mode is unchanged.
@@ -9394,17 +9396,11 @@ const dev_mobile_mode = false; // true=connect local stream by this page's LAN I
 const DEV_SIGNAL_URL = dev_mobile_mode
   ? `ws://${window.location.hostname}` // Signalling server uses port 80, same as existing PC mode
   : 'ws://127.0.0.1'; // Original local desktop signalling address
-const DEV_UE_VERSION = 'ue5.8'; // Match Unreal Engine 5.8 for LOCAL testing only
+const DEV_UE_VERSION = 'ue5.8'; // Local SDK version; live Arcware still uses original Pixel Streaming v1
 // ================================================================
 
 
 // Mobile diagnostics are local-only and never appear in Arcware/live mode.
-// LOCAL UE 5.8 GPU SAFETY — automatic. Only change dev_mode above.
-// dev_mode=true: suspend all frontend-driven r.SetRes/native/SDK resize commands
-// while testing inside the Unreal Editor to avoid the observed D3D crash.
-// dev_mode=false: Arcware never uses this local safety flag. Its own streaming
-// settings below remain independent; no second switch to remember.
-const HVS_LOCAL_GPU_CRASH_SAFE_MODE = dev_mode;
 const MOBILE_DIAGNOSTICS = dev_mode && dev_mobile_mode;
 let mobileDiagnosticStep = 'Starting mobile test…';
 function mobileDevStatus(message, issue=false) {
@@ -9470,107 +9466,39 @@ function hvsScreenshotProtect(ms = HVS_SCREENSHOT_RETURN_GRACE_MS) {
 }
 
 
-// Intro media is decorative, never part of WebRTC readiness. Keep the
-// Lottie/brand visible if the MP4 is slow, blocked or cannot be decoded.
-// No Arcware SDK, bitrate, resolution, FPS or reconnect settings are touched.
-function hvsTryPlaySplash(video, fallback) {
-  if (!video || !video.isConnected) return;
-  video.muted = true;
-  video.defaultMuted = true;
-  video.playsInline = true;
-  const attempt = (() => {
-    try { return video.play(); } catch (error) {
-      console.warn('[SPLASH] Playback unavailable:', error);
-      fallback?.();
-      return null;
-    }
-  })();
-  if (attempt && typeof attempt.catch === 'function') {
-    attempt.catch(error => {
-      console.warn('[SPLASH] Playback prevented:', video.id, error?.name || error);
-      fallback?.();
-    });
-  }
-}
 function startLoadingMedia() {
-  const intro = document.getElementById('introVideo');
-  const bg = document.getElementById('loadingIntroBg');
-  if (!intro || !bg) return;
   if (typeof window.lottie === 'object') {
     try {
       loadingAnimation = window.lottie.loadAnimation({
         container: document.getElementById('loadingIntro'),
         renderer: 'svg', loop:true, autoplay:false, path:'loading intro.json'
       });
-    } catch (err) { console.warn('[SPLASH] Lottie unavailable:', err); }
+    } catch (err) { console.warn('Lottie unavailable:', err); }
   }
-  intro.muted = true;
-  bg.muted = true;
-  intro.setAttribute('webkit-playsinline','');
-  bg.setAttribute('webkit-playsinline','');
-  // Prefer the opening logo; prefetch the loading video once logo playback
-  // starts so it can be ready when the Lottie is revealed on a slower network.
-  bg.preload = 'metadata';
-  intro.addEventListener('playing', () => {
-    bg.preload='auto';
-    try { bg.load(); } catch (error) { console.debug('[SPLASH] Background prefetch:',error); }
-  },{once:true});
-  bg.addEventListener('canplay',()=>{
-    if(introFinished && bg.paused && !bg.error) hvsTryPlaySplash(bg,()=>{});
-  });
+  const intro = document.getElementById('introVideo');
   intro.addEventListener('ended', showLoadingLoop, { once:true });
-  intro.addEventListener('error', () => {
-    console.warn('[SPLASH] Intro MP4 failed to load/decode; using loading animation.');
-    showLoadingLoop();
-  }, { once:true });
+  intro.addEventListener('error', showLoadingLoop, { once:true });
   intro.addEventListener('timeupdate', () => {
-    if (Number.isFinite(intro.duration) && intro.duration > 0 &&
-        intro.currentTime >= intro.duration - 0.12) showLoadingLoop();
+    if (Number.isFinite(intro.duration) && intro.duration > 0 && intro.currentTime >= intro.duration - 1) showLoadingLoop();
   });
-  bg.addEventListener('error', () => {
-    console.warn('[SPLASH] Loading background MP4 unavailable; using CSS fallback.');
-    bg.style.opacity = '0';
-  });
-  bg.addEventListener('playing', () => { bg.style.opacity='1'; });
-  // Pages may be suspended during browser/phone dialogs. A human gesture
-  // can unlock muted playback without intercepting game controls.
-  const resume = () => {
-    if (!document.getElementById('introOverlay')) return;
-    if (introFinished) {
-      if (bg.paused && !bg.error) hvsTryPlaySplash(bg, () => {});
-    } else if (intro.paused && !intro.error) hvsTryPlaySplash(intro, showLoadingLoop);
-  };
-  document.addEventListener('pointerdown', resume, {passive:true});
-  document.addEventListener('touchstart', resume, {passive:true});
-  window.addEventListener('pageshow', event => { if (event.persisted) resume(); });
-  window.hvsSplashMediaState = () => ({
-    intro:{readyState:intro.readyState,networkState:intro.networkState,paused:intro.paused,
-      error:intro.error?.code || null,bytes:intro.buffered?.length || 0},
-    background:{readyState:bg.readyState,networkState:bg.networkState,paused:bg.paused,
-      error:bg.error?.code || null},
-    loadingShown:introFinished,
-    overlayPresent:!!document.getElementById('introOverlay')
-  });
-  hvsTryPlaySplash(intro, showLoadingLoop);
-  // Never hold the loading overlay on a broken intro clip.
+  const play = intro.play();
+  if (play?.catch) play.catch(showLoadingLoop);
+  // If intro media cannot load, leave the loading screen available.
   setTimeout(showLoadingLoop, 12000);
 }
+
 function showLoadingLoop() {
   if (introFinished) return;
   introFinished = true;
   const intro = document.getElementById('introVideo');
   const wrap = document.getElementById('loadingIntroWrap');
   const bg = document.getElementById('loadingIntroBg');
-  if (!wrap || !bg) return;
   wrap.style.visibility = 'visible';
   wrap.style.opacity = '1';
-  if (intro) intro.style.opacity = '0';
-  bg.preload = 'auto';
-  // Start the background only when visible; on failure the branded gradient
-  // remains while the Lottie animation continues.
-  if (!bg.error) hvsTryPlaySplash(bg, () => { bg.style.opacity='0'; });
+  intro.style.opacity = '0';
+  bg.play()?.catch?.(() => {});
   setTimeout(() => {
-    if (intro) { intro.pause(); intro.style.display = 'none'; }
+    intro.pause(); intro.style.display = 'none';
     loadingAnimation?.play();
   }, 500);
 }
@@ -9634,35 +9562,6 @@ let unrealIsReadyForResolution = false;
 let lastSentViewportResolution = '';
 let viewportSyncTimer = null;
 let viewportRetryTimers = [];
-
-// DESKTOP ONLY: LUX-proven, colour-neutral adaptive render size.
-// Proven 5.6 quality preset on UE 5.8: 30 FPS maximum on every platform.
-// NEVER request 60 FPS on any platform.
-const HVS_MOBILE_STREAM_TARGET = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ||
-  window.matchMedia('(pointer:coarse)').matches;
-const HVS_REQUESTED_MAX_FPS = 30;
-const HVS_DESKTOP_RESOLUTION_TIERS = [1280, 1600, 1920]; // longest edge, never crop
-const HVS_DESKTOP_RESIZE_ENABLED = !/Android|iPhone|iPod|iPad/i.test(navigator.userAgent) &&
-  !window.matchMedia('(pointer:coarse)').matches;
-let hvsDesktopResolutionTier = 1; // 1600px balanced default on PC
-let hvsDesktopRtcStream = null;
-let hvsDesktopResolutionTransport = 'not sent';
-let hvsDesktopResolutionError = '';
-let hvsDesktopResolutionCheckToken = 0;
-// UE 5.8 MOBILE: use the same native Resolution.Width/Height transport that
-// is now working correctly on desktop. Keep the older Blueprint r.SetRes route
-// only as a bounded fallback if the decoded mobile aspect still does not move.
-let hvsMobileResolutionTransport = 'not sent';
-let hvsMobileResolutionCheckToken = 0;
-let hvsDesktopMonitorTimer = null;
-let hvsDesktopQualityPrevious = null;
-let hvsDesktopQualityStats = null;
-let hvsDesktopQualityBad = 0;
-let hvsDesktopQualityGood = 0;
-let hvsDesktopQualityLastChanged = 0;
-let hvsDesktopQualityLastReason = 'balanced startup';
-let hvsDesktopStatsUnavailable = false;
-
 function getStreamingViewportResolution() {
   const stage = document.getElementById('video-container');
   // clientWidth/clientHeight are untransformed CSS layout dimensions.
@@ -9671,18 +9570,13 @@ function getStreamingViewportResolution() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   let width = Math.round(cssWidth * dpr);
   let height = Math.round(cssHeight * dpr);
-  // Proven 5.6 mobile quality: 1440px maximum long edge, original aspect.
-  // Keep the UE 5.8 native resolution transport and desktop tiers unchanged.
+  // Mobile resolution test: cap the LONGEST render edge at 1440 physical pixels.
+  // Preserve the browser aspect ratio, and never upscale a smaller viewport.
+  // No bitrate, FPS, decoder, desktop, reconnection or session changes.
   if (window.matchMedia('(pointer:coarse)').matches) {
     const factor = Math.min(1, 1440 / Math.max(width, height));
     width = Math.round(width * factor);
     height = Math.round(height * factor);
-  } else if (HVS_DESKTOP_RESIZE_ENABLED) {
-    const cap = HVS_DESKTOP_RESOLUTION_TIERS[hvsDesktopResolutionTier];
-    const factor = Math.min(1, cap / Math.max(width, height));
-    // Round to even dimensions for the H.264 video encoder.
-    width = Math.max(2, 2 * Math.round(width * factor / 2));
-    height = Math.max(2, 2 * Math.round(height * factor / 2));
   }
   return {width:Math.max(1,width), height:Math.max(1,height)};
 }
@@ -9693,175 +9587,17 @@ function hvsStreamAspectMismatched() {
   if (!stage?.clientWidth || !stage?.clientHeight) return false;
   return Math.abs(video.videoWidth/video.videoHeight - stage.clientWidth/stage.clientHeight) > .025;
 }
-// DESKTOP: use Unreal Pixel Streaming native Command transport (same as fixed LUX).
-// This bypasses the optional Blueprint console handler and works with Arcware
-// Dynamic Resolution OFF. Mobile continues using its original message path.
-function hvsSendNativeDesktopResolution(width, height) {
-  const command = {'Resolution.Width':width, 'Resolution.Height':height};
-  const targets = [
-    ['Arcware PixelStreaming',hvsDesktopRtcStream],
-    ['local PixelStreaming',localStream],
-    ['application stream',application?.stream],
-    ['application pixelStreaming',application?.pixelStreaming],
-    ['application controller',application?.webRtcController],
-    ['application',application]
-  ];
-  const seen=new Set();
-  let supported=false;
-  for (const [name, target] of targets) {
-    if (!target || seen.has(target)) continue;
-    seen.add(target);
-    if (typeof target.emitCommand !== 'function') continue;
-    supported=true;
-    try {
-      if (target.emitCommand(command) !== false)
-        return {sent:true, supported:true, via:name+'.emitCommand'};
-    } catch(err) {hvsDesktopResolutionError=err?.message||String(err);}
-  }
-  return {sent:false, supported, via:supported?'native data channel not ready':'native Command API unavailable'};
-}
-function hvsSendLegacyDesktopResolution(key, reason='UE 5.8 aspect fallback') {
-  if (!HVS_DESKTOP_RESIZE_ENABLED || document.hidden || window.homeViewSessionIntentional ||
-      homeViewTeardownStarted || hvsScreenshotProtected()) return false;
-  const command=`r.SetRes ${key}w`;
-  const sent=sendUnreal({console:true,Command:command});
-  if(sent){
-    hvsDesktopResolutionTransport='native Command + Blueprint r.SetRes fallback';
-    console.info(`[HVS DESKTOP] ${reason}: ${command}`);
-    return true;
-  }
-  console.warn('[HVS DESKTOP] Blueprint resolution fallback could not be sent:',reason,command);
-  return false;
-}
-function hvsVerifyDesktopAspect(key) {
-  // Arcware: do not initiate secondary Blueprint r.SetRes retries after a native
-  // command. UE 5.8 + H.264/NVENC can be destabilized by repeated reconfiguration.
-  // The live stream already uses the native resize transport above.
-  if (!dev_mode) return;
-  const token=++hvsDesktopResolutionCheckToken;
-
-  // UE 5.8 / Arcware can expose emitCommand and accept the descriptor while the
-  // decoded track remains at the launch aspect. If that happens, use Home View's
-  // already-proven Blueprint console route with the SAME target resolution.
-  setTimeout(()=>{
-    if(token!==hvsDesktopResolutionCheckToken || !HVS_DESKTOP_RESIZE_ENABLED ||
-       document.hidden || !levelReady || key!==lastSentViewportResolution ||
-       window.homeViewSessionIntentional || hvsScreenshotProtected())return;
-    if(hvsStreamAspectMismatched()){
-      console.warn('[HVS DESKTOP] Native resize did not change the decoded aspect; using Blueprint fallback.',
-        window.homeViewDesktopResolutionStatus?.());
-      hvsSendLegacyDesktopResolution(key,'desktop aspect mismatch');
-    }
-  },1700);
-
-  // One bounded retry only. Never loop or create a second stream/session.
-  setTimeout(()=>{
-    if(token!==hvsDesktopResolutionCheckToken || document.hidden ||
-       key!==lastSentViewportResolution || window.homeViewSessionIntentional ||
-       hvsScreenshotProtected())return;
-    if(hvsStreamAspectMismatched()){
-      hvsSendLegacyDesktopResolution(key,'desktop aspect mismatch final retry');
-      console.warn('[HVS DESKTOP] Stream still has the wrong aspect after native + Blueprint resize.',
-        window.homeViewDesktopResolutionStatus?.());
-    }
-  },4300);
-}
-
-function hvsVerifyMobileAspect(key) {
-  // Arcware: no extra r.SetRes fallback or synthetic resize-event retry on live
-  // mobile. One native resize request per real viewport size is retained.
-  if (!dev_mode || HVS_DESKTOP_RESIZE_ENABLED) return;
-  const token=++hvsMobileResolutionCheckToken;
-
-  // Give UE/Arcware time to replace the decoded track. If it still presents
-  // the old 16:9 frame, send the SAME target once through the old Blueprint
-  // route. This keeps rotation/startup recovery bounded and predictable.
-  setTimeout(()=>{
-    if(token!==hvsMobileResolutionCheckToken || document.hidden || !levelReady ||
-       key!==lastSentViewportResolution || window.homeViewSessionIntentional ||
-       homeViewTeardownStarted || hvsScreenshotProtected()) return;
-    if(hvsStreamAspectMismatched()){
-      const legacy=`r.SetRes ${key}w`;
-      if(sendUnreal({console:true,Command:legacy})){
-        hvsMobileResolutionTransport += ' + Blueprint aspect fallback';
-        console.warn('[HVS MOBILE] Native resize still mismatched; sent bounded Blueprint fallback:',legacy);
-      }
-    }
-  },1400);
-
-  // One final player-layout refresh only. No reconnect and no new cloud session.
-  setTimeout(()=>{
-    if(token!==hvsMobileResolutionCheckToken || document.hidden || !levelReady ||
-       key!==lastSentViewportResolution || window.homeViewSessionIntentional ||
-       homeViewTeardownStarted || hvsScreenshotProtected()) return;
-    if(hvsStreamAspectMismatched()){
-      window.dispatchEvent(new Event('resize'));
-      try {window.visualViewport?.dispatchEvent(new Event('resize'));}catch(_){}
-      console.warn('[HVS MOBILE] Stream aspect still mismatched after native + fallback.',
-        window.homeViewMobileStreamStatus?.());
-    }
-  },3200);
-}
-
-function sendViewportResolutionToUnreal(reason='viewport', force=false, desktopAspectRetry=false) {
-  // Isolate the D3D device-removed crash from any frontend r.SetRes/native resize.
-  if (dev_mode && HVS_LOCAL_GPU_CRASH_SAFE_MODE) return false;
+function sendViewportResolutionToUnreal(reason='viewport', force=false) {
   if (screenshotRequestInFlight || screenshotBlob || document.hidden ||
       !unrealIsReadyForResolution || !application) return;
   const {width,height} = getStreamingViewportResolution();
   const key = `${width}x${height}`;
-  // In live Arcware mode, a duplicate *forced* resize is still a duplicate.
-  // Do not reconfigure NVENC repeatedly for the same geometry. A real phone
-  // rotation, window-size change, or desktop tier change has a NEW key and
-  // continues to work normally.
-  if ((!dev_mode || !force) && key === lastSentViewportResolution) return false;
-  if (HVS_DESKTOP_RESIZE_ENABLED) {
-    if (hvsScreenshotProtected() || window.homeViewSessionIntentional ||
-        homeViewTeardownStarted) return false;
-    let result=hvsSendNativeDesktopResolution(width,height);
-    // Preserve the old Blueprint path when no native Command API exists.
-    // If native transport reports success but UE 5.8 keeps the wrong decoded
-    // aspect, hvsVerifyDesktopAspect() performs a bounded same-resolution fallback.
-    if (!result.sent && !result.supported) {
-      const legacy=`r.SetRes ${key}w`;
-      result={sent:sendUnreal({console:true,Command:legacy}),
-        via:'legacy Blueprint fallback (not verified)'};
-    }
-    hvsDesktopResolutionTransport=result.via;
-    if (!result.sent) {
-      console.warn('[HVS DESKTOP] Resolution command not ready:',reason,key,result.via);
-      return false;
-    }
-    lastSentViewportResolution=key;
-    console.info(`[HVS DESKTOP] ${reason}: ${key} via ${result.via}`);
-    if (!desktopAspectRetry) hvsVerifyDesktopAspect(key);
-    return true;
-  }
-  // MOBILE / UE 5.8:
-  // Use the same native Pixel Streaming Resolution.Width/Height command that
-  // is now confirmed working on desktop. This avoids relying on an older
-  // Blueprint console path that can leave the mobile stream stuck at 16:9.
-  let mobileResult = hvsSendNativeDesktopResolution(width,height);
-  if (mobileResult.sent) {
-    hvsMobileResolutionTransport = mobileResult.via;
-    lastSentViewportResolution = key;
-    console.info(`[HVS MOBILE] ${reason}: ${key} via ${mobileResult.via}`);
-    hvsVerifyMobileAspect(key);
-    return true;
-  }
-
-  // If the native API is unavailable/not ready, preserve the proven legacy
-  // Home View route. This is ONE fallback path, not a competing continuous loop.
+  if (!force && key === lastSentViewportResolution) return;
   const command = `r.SetRes ${key}w`;
   if (sendUnreal({console:true, Command:command})) {
-    hvsMobileResolutionTransport = 'Blueprint r.SetRes fallback';
     lastSentViewportResolution = key;
-    console.info(`[HVS MOBILE] ${reason}: ${command}`);
-    hvsVerifyMobileAspect(key);
-    return true;
+    console.info(`[STREAM] ${reason}: ${command}`);
   }
-  hvsMobileResolutionTransport = mobileResult.via || 'not sent';
-  return false;
 }
 // LUX-style one-shot layout refresh. A fresh Pixel Streaming connection can
 // start with a 16:9 *decoded track* despite the phone already being landscape.
@@ -9988,148 +9724,6 @@ function startViewportResolutionSync() {
   prepareVideos();
   update('initial viewport',true);
 }
-
-// ============================================================================
-// HVS DESKTOP ONLY: LUX's successful adaptive *resolution*, NOT adaptive bitrate.
-// Starts at 1600px longest edge, downshifts to 1280px on congestion, cautiously
-// recovers to 1920px. Never alters colour encoding, codec, browser video fit or
-// mobile's bitrate/rotation/recovery logic. Uses the EXISTING Arcware session.
-// ============================================================================
-function hvsDesktopQualityAllowed() {
-  return HVS_DESKTOP_RESIZE_ENABLED && !!application && !document.hidden &&
-    !window.homeViewSessionIntentional && !homeViewTeardownStarted &&
-    !window.homeViewConnectionProblem && !hvsScreenshotProtected() &&
-    window.homeViewLevelReady === true && !hvsRecoveryInProgress;
-}
-function hvsSwitchDesktopResolutionTier(next,reason) {
-  if (!hvsDesktopQualityAllowed() || next<0 ||
-      next>=HVS_DESKTOP_RESOLUTION_TIERS.length || next===hvsDesktopResolutionTier)return false;
-  const previous=hvsDesktopResolutionTier;
-  hvsDesktopResolutionTier=next;
-  if (!sendViewportResolutionToUnreal('desktop adaptive: '+reason,true)) {
-    hvsDesktopResolutionTier=previous;
-    return false;
-  }
-  hvsDesktopQualityLastChanged=performance.now();
-  hvsDesktopQualityLastReason=reason;
-  hvsDesktopQualityBad=hvsDesktopQualityGood=0;
-  console.info('[HVS DESKTOP] Requested max-long-edge',HVS_DESKTOP_RESOLUTION_TIERS[next],
-    'pixels for',reason,'(bitrate and colour settings unchanged)');
-  return true;
-}
-async function hvsMonitorDesktopResolution() {
-  if (!hvsDesktopQualityAllowed()) {
-    hvsDesktopQualityPrevious=null;
-    hvsDesktopQualityBad=hvsDesktopQualityGood=0;
-    return;
-  }
-  const pc=hvsRtcPeer();
-  if (typeof pc?.getStats !== 'function') {hvsDesktopStatsUnavailable=true;return;}
-  try {
-    const report=await pc.getStats();
-    if (!hvsDesktopQualityAllowed())return;
-    let inbound=null,pair=null;
-    report.forEach(row=>{
-      if (row.type==='inbound-rtp' && !row.isRemote &&
-          (row.kind==='video'||row.mediaType==='video')) inbound=row;
-      if (row.type==='candidate-pair' && row.state==='succeeded' &&
-          (row.nominated||row.selected)) pair=row;
-    });
-    if(!inbound){hvsDesktopStatsUnavailable=true;return;}
-    hvsDesktopStatsUnavailable=false;
-    const current={
-      timestamp:Number(inbound.timestamp)||Date.now(),
-      bytes:Number(inbound.bytesReceived)||0,
-      received:Number(inbound.packetsReceived)||0,
-      lost:Number(inbound.packetsLost)||0,
-      decoded:Number(inbound.framesDecoded)||0,
-      freezes:Number(inbound.freezeCount)||0,
-      jitterDelay:Number(inbound.jitterBufferDelay)||0,
-      jitterCount:Number(inbound.jitterBufferEmittedCount)||0,
-      rtt:typeof pair?.currentRoundTripTime==='number'?pair.currentRoundTripTime:null
-    };
-    if(!hvsDesktopQualityPrevious){hvsDesktopQualityPrevious=current;return;}
-    const prev=hvsDesktopQualityPrevious;
-    hvsDesktopQualityPrevious=current;
-    const seconds=(current.timestamp-prev.timestamp)/1000;
-    if(seconds<2||seconds>20)return;
-    const received=Math.max(0,current.received-prev.received);
-    const lost=Math.max(0,current.lost-prev.lost);
-    const total=received+lost;
-    const packetLoss=total>=30?lost/total:null;
-    const decodedFps=Math.max(0,current.decoded-prev.decoded)/seconds;
-    const freezes=Math.max(0,current.freezes-prev.freezes);
-    const emitted=current.jitterCount-prev.jitterCount;
-    const jitterSeconds=emitted>0?
-      Math.max(0,current.jitterDelay-prev.jitterDelay)/emitted:null;
-    const kbps=Math.max(0,current.bytes-prev.bytes)*8/seconds/1000;
-    hvsDesktopQualityStats={
-      receivedKbps:Math.round(kbps),
-      decodedFps:Math.round(decodedFps*10)/10,
-      packetLossPercent:packetLoss===null?null:Math.round(packetLoss*10000)/100,
-      rttMs:current.rtt===null?null:Math.round(current.rtt*1000),
-      jitterBufferMs:jitterSeconds===null?null:Math.round(jitterSeconds*1000),
-      newFreezes:freezes
-    };
-    // Low fps alone can mean Unreal GPU load, not network congestion.
-    // Never infer weak Wi-Fi from fps alone; never touch encoder bitrate.
-    const bad=(packetLoss!==null&&packetLoss>=.025)||
-      (current.rtt!==null&&current.rtt>=.38)||
-      (jitterSeconds!==null&&jitterSeconds>=.18)||freezes>0;
-    const severe=(packetLoss!==null&&packetLoss>=.10)||
-      freezes>=2||(current.rtt!==null&&current.rtt>=.75);
-    const good=(packetLoss!==null&&packetLoss<.006)&&
-      (current.rtt===null||current.rtt<.20)&&
-      (jitterSeconds===null||jitterSeconds<.09)&&
-      freezes===0&&decodedFps>=26;
-    if(bad){hvsDesktopQualityBad++;hvsDesktopQualityGood=0;}
-    else if(good){hvsDesktopQualityGood++;hvsDesktopQualityBad=0;}
-    else{hvsDesktopQualityBad=hvsDesktopQualityGood=0;}
-    if(performance.now()-hvsDesktopQualityLastChanged<20000)return;
-    if((severe||hvsDesktopQualityBad>=2)&&hvsDesktopResolutionTier>0)
-      hvsSwitchDesktopResolutionTier(hvsDesktopResolutionTier-1,'congested network');
-    else if(hvsDesktopQualityGood>=12&&hvsDesktopResolutionTier<HVS_DESKTOP_RESOLUTION_TIERS.length-1)
-      hvsSwitchDesktopResolutionTier(hvsDesktopResolutionTier+1,'stable network');
-  } catch(err) {
-    hvsDesktopStatsUnavailable=true;
-    console.debug('[HVS DESKTOP] WebRTC stats unavailable; keeping current resolution tier:',err?.message||err);
-  }
-}
-function hvsStartDesktopAdaptiveResolution() {
-  if (dev_mode && HVS_LOCAL_GPU_CRASH_SAFE_MODE) return;
-  if(!HVS_DESKTOP_RESIZE_ENABLED||hvsDesktopMonitorTimer)return;
-  hvsDesktopMonitorTimer=setInterval(hvsMonitorDesktopResolution,5000);
-}
-function hvsStopDesktopAdaptiveResolution() {
-  clearInterval(hvsDesktopMonitorTimer);
-  hvsDesktopMonitorTimer=null;
-  hvsDesktopQualityPrevious=null;
-}
-window.homeViewDesktopResolutionStatus=()=>{
-  const video=document.querySelector('#video-container video');
-  const stage=document.getElementById('video-container');
-  const target=getStreamingViewportResolution();
-  return {
-    mode:dev_mode?'LOCAL':'ARCWARE',
-    device:HVS_DESKTOP_RESIZE_ENABLED?'desktop adaptive':'mobile (original, unchanged)',
-    nativeDesktopResize:HVS_DESKTOP_RESIZE_ENABLED,
-    fpsRequestedMax:HVS_REQUESTED_MAX_FPS,
-    requestedPixels:target.width+'x'+target.height,
-    lastSentPixels:lastSentViewportResolution,
-    streamPixels:video?.videoWidth?video.videoWidth+'x'+video.videoHeight:'waiting for video',
-    viewportPixels:stage?stage.clientWidth+'x'+stage.clientHeight:'unknown',
-    aspectMismatch:video?.videoWidth? hvsStreamAspectMismatched():null,
-    transport:hvsDesktopResolutionTransport,
-    transportError:hvsDesktopResolutionError,
-    tiers:HVS_DESKTOP_RESOLUTION_TIERS.slice(),
-    currentMaxLongEdge:HVS_DESKTOP_RESOLUTION_TIERS[hvsDesktopResolutionTier],
-    monitoring:!!hvsDesktopMonitorTimer,
-    statsUnavailable:hvsDesktopStatsUnavailable,
-    networkSample:hvsDesktopQualityStats,
-    lastTierChange:hvsDesktopQualityLastReason,
-    note:'Desktop: native Pixel Streaming Command, adaptive render resolution, original Arcware bitrate/codec; mobile: unchanged quality settings.'
-  };
-};
 
 // ============================================================================
 // HVS_STREAM_RECOVERY: Mobile Save/Share can suspend WebRTC on iOS/Android.
@@ -10596,11 +10190,6 @@ function hvsCompleteGameReveal() {
   setTimeout(()=>window.homeViewShowGameReady?.(),270);
   ui.classList.add('is-ready');
   window.homeViewLevelReady=true;
-  // Re-apply the mobile startup ceiling now that the WebRTC player is definitely
-  // alive. InitialSettings sends it during construction; this confirms it again
-  // without reconnecting or creating a second Arcware session.
-  if (typeof HVS_QUALITY_MOBILE!=='undefined' && HVS_QUALITY_MOBILE)
-    hvsApplyBitrateHint?.();
   window.homeViewOnLevelReadyForAfk?.();
   document.body.classList.add('hvs-audio-ready');
   requestAnimationFrame(()=>{
@@ -10891,9 +10480,10 @@ let localStyles = null;
 // cloud-controlled encoder settings can override it. No resolution changes.
 const HVS_QUALITY_MOBILE = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ||
   (window.matchMedia('(pointer:coarse)').matches && Math.min(innerWidth,innerHeight)<900);
-// Proven 5.6 mobile quality on UE 5.8: start at 2.0 Mbps; adapt within
-// 1.3–6.0 Mbps using the same 30 FPS thresholds and recovery hysteresis.
-// Desktop bitrate/colour settings are unchanged. Cloud may override hints.
+// Mobile v3: begin at 2.0 Mbps, with finer downward steps to 1.3 Mbps.
+// Drop earlier when frame rate, packet loss or RTT suggest a struggling link;
+// restore quality only after sustained healthy playback. Desktop unchanged.
+// These are Arcware/Epic WebRTC bitrate requests; encoder may override them.
 const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [1300,1600,2000,2800,4000,6000] : [5000,7000,10000,14000];
 let hvsQualityIndex=HVS_QUALITY_MOBILE?2:0;
 let hvsQualityConfig=null;
@@ -10972,87 +10562,11 @@ async function hvsMonitorQuality(){
 }
 window.homeViewStopAdaptiveQuality=()=>{
   clearInterval(hvsQualityTimer);hvsQualityTimer=null;hvsQualityConfig=null;
-  hvsStopDesktopAdaptiveResolution();
 };
 window.homeViewQualityStatus=()=>({mobile:HVS_QUALITY_MOBILE,
-  requestedMaxKbps:HVS_QUALITY_MOBILE?HVS_QUALITY_LEVELS[hvsQualityIndex]:null,
-  telemetry:HVS_QUALITY_MOBILE?hvsQualityMeasured:null,active:!!hvsQualityTimer,
-  caveat:HVS_QUALITY_MOBILE?'Arcware/cloud may override WebRTC bitrate settings':
-    'Desktop: original Arcware bitrate/codec, no frontend bitrate override. Check homeViewDesktopResolutionStatus() for desktop adaptive resolution.'});
-
-// TEMPORARY LIVE MOBILE TEST HUD.
-// Set false after the UE 5.8 live test proves requested === decoded aspect.
-const HVS_LIVE_MOBILE_DIAGNOSTICS = false;
-let hvsLiveMobileDiagnosticTimer = null;
-
-window.homeViewMobileStreamStatus=()=>{
-  const stage=document.getElementById('video-container');
-  const video=document.querySelector('#video-container video');
-  const target=getStreamingViewportResolution();
-  const vw=stage?.clientWidth||innerWidth;
-  const vh=stage?.clientHeight||innerHeight;
-  const decoded=video?.videoWidth&&video?.videoHeight
-    ? `${video.videoWidth}x${video.videoHeight}` : 'waiting';
-  const viewport=`${Math.round(vw)}x${Math.round(vh)}`;
-  const targetText=`${target.width}x${target.height}`;
-  const actualAspect=video?.videoWidth&&video?.videoHeight ? video.videoWidth/video.videoHeight : 0;
-  const viewportAspect=vw&&vh ? vw/vh : 0;
-  const mismatch=Boolean(actualAspect && viewportAspect &&
-    Math.abs(actualAspect-viewportAspect)>.025);
-  return {
-    target:targetText,
-    requested:lastSentViewportResolution||'not sent',
-    decoded,
-    viewport,
-    dpr:Math.round((devicePixelRatio||1)*100)/100,
-    aspect:mismatch?'MISMATCH':'MATCH',
-    transport:hvsMobileResolutionTransport,
-    ceilingKbps:HVS_QUALITY_LEVELS[hvsQualityIndex],
-    measured:hvsQualityMeasured
-  };
-};
-
-function hvsUpdateLiveMobileDiagnostics(){
-  if(!HVS_LIVE_MOBILE_DIAGNOSTICS || !HVS_QUALITY_MOBILE || dev_mode) return;
-  let panel=document.getElementById('hvs-live-mobile-diagnostics');
-  if(!panel){
-    panel=document.createElement('div');
-    panel.id='hvs-live-mobile-diagnostics';
-    panel.style.cssText=[
-      'position:fixed',
-      'left:max(7px,env(safe-area-inset-left,0px))',
-      'bottom:max(7px,env(safe-area-inset-bottom,0px))',
-      'z-index:20000',
-      'max-width:min(420px,74vw)',
-      'padding:7px 9px',
-      'border-radius:8px',
-      'border:1px solid rgba(255,255,255,.28)',
-      'background:rgba(0,0,0,.72)',
-      'color:#fff',
-      'font:600 9px/1.25 "HomeView Myriad",Arial,sans-serif',
-      'letter-spacing:.015em',
-      'white-space:pre-line',
-      'pointer-events:none',
-      'user-select:none',
-      '-webkit-user-select:none'
-    ].join(';');
-    document.body.appendChild(panel);
-  }
-  const s=window.homeViewMobileStreamStatus();
-  const m=s.measured;
-  panel.style.borderColor=s.aspect==='MATCH'?'rgba(111,255,146,.65)':'rgba(255,126,77,.82)';
-  panel.textContent=
-    `UE5.8 MOBILE STREAM TEST\n`+
-    `target ${s.target} · sent ${s.requested}\n`+
-    `decoded ${s.decoded} · viewport ${s.viewport} · DPR ${s.dpr}\n`+
-    `aspect ${s.aspect} · transport ${s.transport}\n`+
-    `cap ${s.ceilingKbps} kbps`+
-    (m?` · recv ${m.kbps} kbps · ${m.fps} fps · loss ${(m.loss*100).toFixed(1)}%`:'');
-}
-if(HVS_LIVE_MOBILE_DIAGNOSTICS && HVS_QUALITY_MOBILE && !dev_mode){
-  hvsUpdateLiveMobileDiagnostics();
-  hvsLiveMobileDiagnosticTimer=setInterval(hvsUpdateLiveMobileDiagnostics,800);
-}
+  requestedMaxKbps:HVS_QUALITY_LEVELS[hvsQualityIndex],
+  telemetry:hvsQualityMeasured,active:!!hvsQualityTimer,
+  caveat:'Arcware/cloud may override WebRTC bitrate settings'});
 function hvsStartAdaptiveQuality(config){
   if(window.homeViewSessionIntentional)return;
   hvsQualityConfig=config;
@@ -11229,7 +10743,7 @@ async function initialiseEpicLocalPlayer() {
       AutoConnect:true,
       AutoPlayVideo:true,
       StartVideoMuted:true,
-      MatchViewportRes:(dev_mode && HVS_LOCAL_GPU_CRASH_SAFE_MODE) ? false : !HVS_DESKTOP_RESIZE_ENABLED, // no auto resolution commands in local crash-isolation mode
+      MatchViewportRes:true,
       WebRTCFPS:HVS_REQUESTED_MAX_FPS,
       HoveringMouse:true,
       FakeMouseWithTouches:true,
@@ -11264,7 +10778,6 @@ async function initialiseEpicLocalPlayer() {
   root.style.margin = '0';
   root.style.padding = '0';
   configureStreamingInputTarget(root);
-  hvsStartDesktopAdaptiveResolution();
   console.info('[DEV MODE] Local Epic player mounted; waiting for Unreal Game:Loaded.');
   mobileDevStatus('Player mounted; waiting for Unreal Game Loaded');
   if (MOBILE_DIAGNOSTICS) setTimeout(() => { if (!levelReady && !loadRequested) mobileDevStatus('Still waiting for Game Loaded. Check signaling / only one player open.',true); else if (!levelReady) mobileDevStatus('Load requested; waiting for HomeViewLevelLoaded',true); }, 12000);
@@ -11283,30 +10796,20 @@ if (dev_mode) {
     const { ArcwareInit } = await import('https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs');
     const setup = new ArcwareInit(
       { shareId:SHARE_ID },
-       { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
-           WebRTCFPS:HVS_REQUESTED_MAX_FPS, // 30 FPS maximum on mobile and desktop; never 60
-           // Mobile: exact existing 1300..6000 kbps adaptive controller.
-           // Desktop: LUX-style original Arcware bitrate/codec for true colour;
-           // adapt only the render resolution, not bitrate.
-           // We manage one bounded viewport resize ourselves on BOTH mobile
-           // and desktop. Prevent the SDK's automatic resize from racing it.
-           MatchViewportRes:false,
-           ...(HVS_QUALITY_MOBILE ? {
-             WebRTCMaxBitrate:HVS_QUALITY_LEVELS[hvsQualityIndex],
-             WebRTCMinBitrate:0
-           } : {}),
-           // LUX uses StartVideoMuted:true. Make mobile equally autoplay-safe
+      { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
+          WebRTCFPS:HVS_REQUESTED_MAX_FPS,
+          WebRTCMaxBitrate:HVS_QUALITY_LEVELS[hvsQualityIndex],
+          WebRTCMinBitrate:0,
+          // LUX uses StartVideoMuted:true. Make mobile equally autoplay-safe
           // after the OS Save/Share interface; preserve desktop game audio.
           StartVideoMuted:/Android|iPhone|iPod|iPad/i.test(navigator.userAgent)
             || (window.matchMedia('(pointer:coarse)').matches && window.innerWidth<=1280) },
         settings:{ infoButton:false, micButton:false, audioButton:true, fullscreenButton:false,
                    settingsButton:false, connectionStrengthIcon:false } }
     );
-     application = setup.Application;
-     hvsDesktopRtcStream = setup.PixelStreaming || null;
-     if (HVS_QUALITY_MOBILE) hvsStartAdaptiveQuality(setup.Config); // original mobile bitrate optimizer
-     hvsStartDesktopAdaptiveResolution(); // desktop resolution only, original codec/bitrate
-     // Let the custom sound icon reach Arcware's separate (sometimes detached)
+    application = setup.Application;
+    hvsStartAdaptiveQuality(setup.Config);
+    // Let the custom sound icon reach Arcware's separate (sometimes detached)
     // WebRTC audio element and its own toggleAudio(video, muted) method.
     window.homeViewArcwareAudioStream = setup.PixelStreaming;
     application.getApplicationResponse(receiveUnrealResponse);
