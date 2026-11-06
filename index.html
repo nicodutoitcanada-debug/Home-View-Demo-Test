@@ -5062,6 +5062,12 @@ document.addEventListener('DOMContentLoaded',()=>{
 @media(prefers-reduced-motion:reduce){.hvsLotSpinner{animation-duration:2s}#hvsLotLoadingOverlay{transition:none}}
 </style>
 
+
+<style id="hvs-session-ui-isolation">
+/* Session status owns the UI, including late dynamically inserted dialogs. */
+body:is(.hvs-session-ending,.hvs-session-ended)>:not(#hvsSessionScreen):not(#video-container):not(script):not(style){display:none!important;pointer-events:none!important}
+body:is(.hvs-session-ending,.hvs-session-ended) #hvsSessionScreen{z-index:2147483000!important}
+</style>
 </head><body>
 <div id="video-container" tabindex="0"></div>
 <!-- Stream audio starts muted on devices requiring a user gesture.
@@ -5870,6 +5876,7 @@ let teleportStatusSequence = 0;
 // Shared two-line AE-style status animation: Teleport + successful login.
 // A new notice replaces the old one and invalidates its pending exit timers.
 function showHomeViewAnimatedStatus(title, subtitle = '') {
+    if(window.homeViewCanOpenUi?.()===false)return false;
     const sequence = ++teleportStatusSequence;
     clearTimeout(teleportStatusExitTimer);
     clearTimeout(teleportStatusHideTimer);
@@ -6976,6 +6983,7 @@ function closeUpstairsLayoutDialog() {
     if (document.activeElement?.closest?.('#upstairsLayoutOverlay')) document.activeElement.blur();
 }
 function openUpstairsLayoutDialog() {
+    if(window.homeViewCanOpenUi?.()===false)return false;
     if (currentTeleportFloor !== 'first' || !body.classList.contains('teleport-mode')) return;
     // UPSTAIRS_LAYOUT_OFFER_GUARD: The act of opening the manual selector is
     // enough to explain the alternative layout. Mark the introduction seen
@@ -7050,6 +7058,7 @@ function hvsCloseLayoutRoomPrompt(){
     // Existing UI mode, calculator, map state and animations were never reset.
 }
 function hvsShowLayoutRoomPrompt(){
+    if(window.homeViewCanOpenUi?.()===false)return false;
     if(hvsLayoutRoomPrompt.classList.contains('is-open'))return;
     closeUpstairsLayoutDialog();
     hvsSyncLayoutRoomPrompt();
@@ -7107,6 +7116,7 @@ function hvsClosePropertyPrompt(){
     if(document.activeElement?.closest?.('#hvsPropertyPrompt'))document.activeElement.blur();
 }
 function hvsShowPropertyPrompt(){
+    if(window.homeViewCanOpenUi?.()===false)return false;
     if(hvsPropertyPrompt.classList.contains('is-open'))return false;
     hvsRefreshPropertyChoices();
     document.body.classList.add('hvs-property-offer-visible');
@@ -7122,6 +7132,7 @@ function hvsClosePropertyIntroduction(){
     if(document.activeElement?.closest?.('#hvsPropertyIntroduction'))document.activeElement.blur();
 }
 function hvsShowPropertyIntroduction(){
+    if(window.homeViewCanOpenUi?.()===false)return false;
     if(hvsPropertyIntroduction.classList.contains('is-open'))return false;
     hvsPropertyIntroduction.classList.add('is-open');
     hvsPropertyIntroduction.setAttribute('aria-hidden','false');
@@ -8333,6 +8344,7 @@ window.homeViewOnLevelReady=function(){
     console.info('[HOME VIEW] Unreal packaged defaults retained; no finish/property startup overrides.');
 };
 function hvsOpenCost(){
+    if(window.homeViewCanOpenUi?.()===false)return false;
     document.body.classList.add('cost-open'); hvsPreviousTotal=null;hvsLastChangedKey=null;
     hvsRenderCost();
 }
@@ -8379,6 +8391,7 @@ function hvsCloseLoginAfterSuccess(title,description){
     },850);
 }
 function hvsOpenLogin(){
+    if(window.homeViewCanOpenUi?.()===false)return false;
     hvsCloseCost();clearModes();document.body.classList.add('login-mode');
     if(hvsResumeSaveAfterLogin)hvsLoginTab='user';
     hvsCreatingAccount=false;hvsDismissAdminSwitch();hvsLoginError('');hvsRenderLogin();
@@ -8877,6 +8890,7 @@ function hvsMovieToggleTargets(suppress){
     }
 }
 function hvsMovieBegin(){
+    if(window.homeViewCanOpenUi?.()===false)return false;
     if(hvsMoviePhase!=='idle')return;
     if(!document.getElementById('homeViewUI').classList.contains('is-ready')){
         console.warn('[MOVIE] Game is not ready yet');return;
@@ -8991,6 +9005,7 @@ hvsMovieExitButton.addEventListener('click',hvsMovieExit);
 let HVS_AFK_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 let HVS_AFK_COUNTDOWN_SECONDS = 15;
 let hvsIdleTimer = null;
+let hvsLastActivityAt=Date.now();
 let hvsCountdownTimer = null;
 let hvsAfkRemaining = HVS_AFK_COUNTDOWN_SECONDS;
 let hvsAfkPromptShowing = false;
@@ -9107,9 +9122,23 @@ function hvsMonitorAfk(){
   return window.homeViewLevelReady===true&&!window.homeViewSessionIntentional&&!window.homeViewConnectionProblem;
 }
 function hvsResetAfkTimer(){
+  hvsLastActivityAt=Date.now();
   clearTimeout(hvsIdleTimer);hvsIdleTimer=null;
   if(hvsAfkPromptShowing||!hvsMonitorAfk()||document.hidden)return;
-  hvsIdleTimer=setTimeout(hvsShowAfk,HVS_AFK_IDLE_TIMEOUT_MS);
+  hvsIdleTimer=setTimeout(hvsCheckAfkIdle,HVS_AFK_IDLE_TIMEOUT_MS);
+}
+// High-frequency input updates a timestamp rather than rebuilding a timer.
+function hvsCheckAfkIdle(){
+  hvsIdleTimer=null;
+  if(hvsAfkPromptShowing||!hvsMonitorAfk()||document.hidden)return;
+  const remaining=HVS_AFK_IDLE_TIMEOUT_MS-(Date.now()-hvsLastActivityAt);
+  if(remaining>0)hvsIdleTimer=setTimeout(hvsCheckAfkIdle,remaining);
+  else hvsShowAfk();
+}
+function hvsRecordAfkActivity(){
+  hvsLastActivityAt=Date.now();
+  if(!hvsAfkPromptShowing && hvsIdleTimer===null && hvsMonitorAfk() && !document.hidden)
+    hvsIdleTimer=setTimeout(hvsCheckAfkIdle,HVS_AFK_IDLE_TIMEOUT_MS);
 }
 function hvsShowAfk(){
   if(hvsAfkPromptShowing||!hvsMonitorAfk())return;
@@ -9132,9 +9161,44 @@ window.homeViewAfkDebug=()=>({idleMinutes:HVS_AFK_IDLE_TIMEOUT_MS/60000,countdow
 window.homeViewAfkTest=()=>hvsShowAfk();
 document.getElementById('hvsAfkContinue')?.addEventListener('click',()=>{hvsHideAfk();hvsResetAfkTimer();});
 document.getElementById('hvsAfkEnd')?.addEventListener('click',()=>{hvsHideAfk();window.homeViewEndSession?.('Your session has ended.');});
-['pointerdown','pointermove','keydown','wheel','touchstart','mousedown'].forEach(evt=>window.addEventListener(evt,()=>{if(!hvsAfkPromptShowing)hvsResetAfkTimer();},{passive:true}));
+['pointerdown','pointermove','keydown','wheel','touchstart','mousedown'].forEach(evt=>window.addEventListener(evt,hvsRecordAfkActivity,{passive:true}));
 document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(hvsIdleTimer);hvsIdleTimer=null;}else hvsResetAfkTimer();});
+// Close transient UI and cancel callbacks before showing session status.
+window.homeViewCanOpenUi=()=>!window.homeViewSessionIntentional &&
+  !document.body.classList.contains('hvs-session-ended') &&
+  !document.body.classList.contains('hvs-session-ending');
+function hvsCloseSessionWindows(){
+  document.body.classList.add('hvs-session-ending');
+  window.homeViewPendingPropertyOffer=false;
+  window.homeViewHideLotLoading?.();
+  hvsHideAfk();
+  clearTimeout(hvsIdleTimer);hvsIdleTimer=null;
+  clearTimeout(hvsHowToCloseTimer);
+  hvsCloseHowTo();
+  if(hvsHowToWindow){hvsHowToWindow.hidden=true;hvsHowToWindow.classList.remove('is-visible');}
+  hvsClosePropertyIntroduction();hvsClosePropertyPrompt();hvsCloseLayoutRoomPrompt();
+  closeUpstairsLayoutDialog();hvsStopPersonalizeCheck();
+  hvsCloseCost();hvsClosePriceEditor();hvsCloseLogin();clearModes();
+  hvsMovieCancelTimers();hvsMovieRunId++;hvsMoviePhase='idle';
+  hvsMovieOverlay.classList.remove('is-active','hvs-cutscene-soft-reveal');
+  hvsMovieOverlay.setAttribute('aria-hidden','true');
+  hvsMovieBlack.classList.remove('is-opaque');hvsMovieLogo.classList.remove('is-visible');
+  hvsMovieSetControlsVisible(false);
+  clearTimeout(teleportStatusExitTimer);clearTimeout(teleportStatusHideTimer);teleportStatusSequence++;
+  clearTimeout(gameReadyExitTimer);clearTimeout(gameReadyHideTimer);
+  clearInterval(dotNavRetryTimer);dotNavRetryTimer=null;
+  for(const id of ['hvsAdminSettingsDialog','hvsAdminSwitchPrompt','hvsStandaloneImagePreview',
+                    'hvsAfkOverlay','hvsHowToWindow','teleportStatusOverlay','gameReadyOverlay']){
+    const el=document.getElementById(id);if(el){el.hidden=true;el.classList.remove('is-visible','is-entering','is-leaving');}
+  }
+  const shot=document.getElementById('screenshotOverlay');if(shot)shot.style.display='none';
+  document.body.classList.remove('hvs-property-offer-visible','hvs-layout-offer-visible',
+    'hvs-property-flight-active','hvs-movie-active','hvs-tutorial-open','hvs-login-exiting');
+  if(document.activeElement?.closest?.('#homeViewUI,[role="dialog"]') &&
+     !document.activeElement.closest('#hvsSessionScreen'))document.activeElement.blur();
+}
 window.homeViewDisplaySessionState=(intentional,message)=>{
+  hvsCloseSessionWindows();
   window.HVSDesignRestore?.cancel?.();
   window.homeViewConnectionProblem=!intentional;
   hvsHideAfk();clearTimeout(hvsIdleTimer);hvsIdleTimer=null;
@@ -9150,6 +9214,7 @@ window.homeViewDisplaySessionState=(intentional,message)=>{
         ? 'Streaming session unavailable'
         : 'Connection to session was lost');
   document.body.classList.add('hvs-session-ended');
+  document.body.classList.remove('hvs-session-ending');
   hvsSessionScreen.hidden=false;
   // Muted inline playback is allowed on iOS; load it only when needed.
   if(hvsSessionBgVideo){
@@ -9165,7 +9230,7 @@ window.homeViewDisplaySessionState=(intentional,message)=>{
 window.homeViewClearConnectionNotice=()=>{
   if(window.homeViewSessionIntentional)return;
   window.homeViewConnectionProblem=false;
-  document.body.classList.remove('hvs-session-ended');
+  document.body.classList.remove('hvs-session-ended','hvs-session-ending');
   hvsSessionScreen.classList.remove('is-visible');
   hvsSessionScreen.hidden=true;
   if(hvsSessionBgVideo)hvsSessionBgVideo.pause();
@@ -9574,6 +9639,7 @@ function showLoadingLoop() {
 // Lot swaps share one transport hook in local and cloud modes. Show BEFORE
 // sending so even an immediate acknowledgement can dismiss the overlay.
 function sendUnreal(payload) {
+  if(window.homeViewSessionIntentional && payload?.end!=='session')return false;
   const lotChange=payload && ['one','two'].includes(payload.property);
   if(lotChange && window.homeViewLotIsLoading?.())return false;
   if(lotChange)window.homeViewShowLotLoading?.();
@@ -10055,6 +10121,7 @@ for (const { id, messageKey } of cameraSliderBindings) {
 }
 
 function receiveUnrealResponse(response) {
+  if(window.homeViewSessionIntentional || homeViewTeardownStarted)return;
   if (MOBILE_DIAGNOSTICS && !levelReady) mobileDevStatus('Received message from Unreal');
   let data = response;
   try { if (typeof response === 'string') data = JSON.parse(response); } catch (_) {}
@@ -10678,6 +10745,7 @@ function homeViewDetachStream(){
   try {document.getElementById('video-container')?.replaceChildren();}catch(_){}
 }
 window.homeViewEndSession=async(message='Your session has ended.',options={})=>{
+  hvsCloseSessionWindows();
   window.homeViewHideLotLoading?.();
   if(homeViewTeardownStarted)return;
   window.HVSDesignRestore?.cancel?.();
