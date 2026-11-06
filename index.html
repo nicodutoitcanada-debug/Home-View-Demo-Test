@@ -9466,39 +9466,107 @@ function hvsScreenshotProtect(ms = HVS_SCREENSHOT_RETURN_GRACE_MS) {
 }
 
 
+// Intro media is decorative, never part of WebRTC readiness. Keep the
+// Lottie/brand visible if the MP4 is slow, blocked or cannot be decoded.
+// No Arcware SDK, bitrate, resolution, FPS or reconnect settings are touched.
+function hvsTryPlaySplash(video, fallback) {
+  if (!video || !video.isConnected) return;
+  video.muted = true;
+  video.defaultMuted = true;
+  video.playsInline = true;
+  const attempt = (() => {
+    try { return video.play(); } catch (error) {
+      console.warn('[SPLASH] Playback unavailable:', error);
+      fallback?.();
+      return null;
+    }
+  })();
+  if (attempt && typeof attempt.catch === 'function') {
+    attempt.catch(error => {
+      console.warn('[SPLASH] Playback prevented:', video.id, error?.name || error);
+      fallback?.();
+    });
+  }
+}
 function startLoadingMedia() {
+  const intro = document.getElementById('introVideo');
+  const bg = document.getElementById('loadingIntroBg');
+  if (!intro || !bg) return;
   if (typeof window.lottie === 'object') {
     try {
       loadingAnimation = window.lottie.loadAnimation({
         container: document.getElementById('loadingIntro'),
         renderer: 'svg', loop:true, autoplay:false, path:'loading intro.json'
       });
-    } catch (err) { console.warn('Lottie unavailable:', err); }
+    } catch (err) { console.warn('[SPLASH] Lottie unavailable:', err); }
   }
-  const intro = document.getElementById('introVideo');
-  intro.addEventListener('ended', showLoadingLoop, { once:true });
-  intro.addEventListener('error', showLoadingLoop, { once:true });
-  intro.addEventListener('timeupdate', () => {
-    if (Number.isFinite(intro.duration) && intro.duration > 0 && intro.currentTime >= intro.duration - 1) showLoadingLoop();
+  intro.muted = true;
+  bg.muted = true;
+  intro.setAttribute('webkit-playsinline','');
+  bg.setAttribute('webkit-playsinline','');
+  // Prefer the opening logo; prefetch the loading video once logo playback
+  // starts so it can be ready when the Lottie is revealed on a slower network.
+  bg.preload = 'metadata';
+  intro.addEventListener('playing', () => {
+    bg.preload='auto';
+    try { bg.load(); } catch (error) { console.debug('[SPLASH] Background prefetch:',error); }
+  },{once:true});
+  bg.addEventListener('canplay',()=>{
+    if(introFinished && bg.paused && !bg.error) hvsTryPlaySplash(bg,()=>{});
   });
-  const play = intro.play();
-  if (play?.catch) play.catch(showLoadingLoop);
-  // If intro media cannot load, leave the loading screen available.
+  intro.addEventListener('ended', showLoadingLoop, { once:true });
+  intro.addEventListener('error', () => {
+    console.warn('[SPLASH] Intro MP4 failed to load/decode; using loading animation.');
+    showLoadingLoop();
+  }, { once:true });
+  intro.addEventListener('timeupdate', () => {
+    if (Number.isFinite(intro.duration) && intro.duration > 0 &&
+        intro.currentTime >= intro.duration - 0.12) showLoadingLoop();
+  });
+  bg.addEventListener('error', () => {
+    console.warn('[SPLASH] Loading background MP4 unavailable; using CSS fallback.');
+    bg.style.opacity = '0';
+  });
+  bg.addEventListener('playing', () => { bg.style.opacity='1'; });
+  // Pages may be suspended during browser/phone dialogs. A human gesture
+  // can unlock muted playback without intercepting game controls.
+  const resume = () => {
+    if (!document.getElementById('introOverlay')) return;
+    if (introFinished) {
+      if (bg.paused && !bg.error) hvsTryPlaySplash(bg, () => {});
+    } else if (intro.paused && !intro.error) hvsTryPlaySplash(intro, showLoadingLoop);
+  };
+  document.addEventListener('pointerdown', resume, {passive:true});
+  document.addEventListener('touchstart', resume, {passive:true});
+  window.addEventListener('pageshow', event => { if (event.persisted) resume(); });
+  window.hvsSplashMediaState = () => ({
+    intro:{readyState:intro.readyState,networkState:intro.networkState,paused:intro.paused,
+      error:intro.error?.code || null,bytes:intro.buffered?.length || 0},
+    background:{readyState:bg.readyState,networkState:bg.networkState,paused:bg.paused,
+      error:bg.error?.code || null},
+    loadingShown:introFinished,
+    overlayPresent:!!document.getElementById('introOverlay')
+  });
+  hvsTryPlaySplash(intro, showLoadingLoop);
+  // Never hold the loading overlay on a broken intro clip.
   setTimeout(showLoadingLoop, 12000);
 }
-
 function showLoadingLoop() {
   if (introFinished) return;
   introFinished = true;
   const intro = document.getElementById('introVideo');
   const wrap = document.getElementById('loadingIntroWrap');
   const bg = document.getElementById('loadingIntroBg');
+  if (!wrap || !bg) return;
   wrap.style.visibility = 'visible';
   wrap.style.opacity = '1';
-  intro.style.opacity = '0';
-  bg.play()?.catch?.(() => {});
+  if (intro) intro.style.opacity = '0';
+  bg.preload = 'auto';
+  // Start the background only when visible; on failure the branded gradient
+  // remains while the Lottie animation continues.
+  if (!bg.error) hvsTryPlaySplash(bg, () => { bg.style.opacity='0'; });
   setTimeout(() => {
-    intro.pause(); intro.style.display = 'none';
+    if (intro) { intro.pause(); intro.style.display = 'none'; }
     loadingAnimation?.play();
   }, 500);
 }
