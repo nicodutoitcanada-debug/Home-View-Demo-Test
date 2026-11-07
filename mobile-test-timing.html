@@ -10446,7 +10446,9 @@ function hvsCompleteGameReveal() {
   ui.classList.add('is-ready');
   window.homeViewLevelReady=true;
   // Mobile settings were settled while loading; revealing sends no new resize/bitrate command.
-  window.homeViewDiagnostics?.markRevealed();
+  // Diagnostic failure must never leave the black curtain over a ready stream.
+  try{window.homeViewDiagnostics?.markRevealed();}
+  catch(error){console.warn('[TIMING TEST] Reveal measurement failed; continuing game reveal.',error);} 
   window.homeViewOnLevelReadyForAfk?.();
   document.body.classList.add('hvs-audio-ready');
   requestAnimationFrame(()=>{
@@ -11068,7 +11070,7 @@ async function initialiseEpicLocalPlayer() {
 
 // Built-in Epic latency requests only. No console commands or quality changes.
 class HvsServerTimingProbe {
-  constructor({stream,allowed,clock=()=>performance.now(),wall=()=>Date.now(),schedule=setTimeout,cancel=clearTimeout}){
+  constructor({stream,allowed,clock=()=>performance.now(),wall=()=>Date.now(),schedule=(fn,ms)=>setTimeout(fn,ms),cancel=id=>clearTimeout(id)}){
     Object.assign(this,{stream,allowed,clock,wall,schedule,cancel});
     this.samples=[];this.marks=[];this.attempts=0;this.sent=0;this.pending=null;this.stopped=false;this.disabled=false;
     this.status='waiting for gameplay';this.startedAt=null;this.lastAttempt=-Infinity;this.timer=null;this.timeout=null;this.boundStream=null;
