@@ -10364,7 +10364,38 @@ class HvsStartupPlaybackGate {
 }
 const hvsStartupPlaybackGate=new HvsStartupPlaybackGate();
 let hvsStartupSettingsAttemptAt=0;
+// Isolated comparison: retain all Test 8 streaming controls, request only MaxQP 40.
+const HVS_TEST_MAX_QP=40;
+let hvsQPSent=false,hvsQPAttempts=0,hvsQPLastAttempt=0,hvsQPFirstRequestAt=null;
+const hvsQPSamples=[];
+function hvsApplyQPComparison(){
+  if(!HVS_QUALITY_MOBILE||dev_mode||!hvsQualityAllowed()||hvsQPSent||hvsQPAttempts>=5)return;
+  const video=document.querySelector('#video-container video');
+  if(!video||video.readyState<2||!video.videoWidth||video.paused||Date.now()-hvsQPLastAttempt<1000)return;
+  hvsQPLastAttempt=Date.now();hvsQPAttempts++;
+  hvsQPSent=hvsSendMobileCommand({'Encoder.MaxQP':HVS_TEST_MAX_QP});
+  if(hvsQPSent)hvsQPFirstRequestAt=Date.now();
+}
+function hvsRecordEncoderQP(event){
+  if(!hvsQPSent||window.homeViewSessionIntentional||homeViewTeardownStarted)return;
+  const value=event?.data?.avgQP;
+  if(typeof value!=='number'||!Number.isFinite(value)||value<0||value>51)return;
+  hvsQPSamples.push({secondsAfterRequest:+((Date.now()-hvsQPFirstRequestAt)/1000).toFixed(2),qp:+value.toFixed(2)});
+  if(hvsQPSamples.length>120)hvsQPSamples.shift();
+}
+function hvsQPComparisonSnapshot(){
+  const initial=hvsServerTimingProbe.serverConfiguration?.encoder?.maxQP??null;
+  const values=hvsQPSamples.map(s=>s.qp);
+  return {requestedMaxQP:HVS_TEST_MAX_QP,commandSent:hvsQPSent,sendAttempts:hvsQPAttempts,
+    serverInitialMaxQP:initial,reportedQPMin:values.length?Math.min(...values):null,
+    reportedQPMax:values.length?Math.max(...values):null,
+    observedAboveInitialMax:initial===null||!values.length?null:values.some(q=>q>initial),
+    samples:hvsQPSamples.map(s=>({...s})),
+    note:'Command sent is not an acknowledgement. Reported QP above the original limit is supporting evidence of use; absence may mean the extra range was unnecessary or the request was not applied.'};
+}
+
 function hvsEnsureMobileStartupSettings(){
+  hvsApplyQPComparison();
   if(!HVS_QUALITY_MOBILE || dev_mode)return true;
   const configReady=hvsQualityConfig?.getNumericSettingValue?.('WebRTCMaxBitrate')===HVS_QUALITY_LEVELS[hvsQualityIndex] &&
     hvsQualityConfig?.getNumericSettingValue?.('WebRTCFPS')===HVS_REQUESTED_MAX_FPS;
@@ -10446,7 +10477,9 @@ function hvsCompleteGameReveal() {
   ui.classList.add('is-ready');
   window.homeViewLevelReady=true;
   // Mobile settings were settled while loading; revealing sends no new resize/bitrate command.
-  window.homeViewDiagnostics?.markRevealed();
+  // Diagnostic failure must never leave the black curtain over a ready stream.
+  try{window.homeViewDiagnostics?.markRevealed();}
+  catch(error){console.warn('[TIMING TEST] Reveal measurement failed; continuing game reveal.',error);} 
   window.homeViewOnLevelReadyForAfk?.();
   document.body.classList.add('hvs-audio-ready');
   requestAnimationFrame(()=>{
@@ -11066,6 +11099,101 @@ async function initialiseEpicLocalPlayer() {
   if (MOBILE_DIAGNOSTICS) setTimeout(() => { if (!levelReady && !loadRequested) mobileDevStatus('Still waiting for Game Loaded. Check signaling / only one player open.',true); else if (!levelReady) mobileDevStatus('Load requested; waiting for HomeViewLevelLoaded',true); }, 12000);
 }
 
+// Built-in Epic latency requests only. No console commands or quality changes.
+class HvsServerTimingProbe {
+  constructor({stream,allowed,clock=()=>performance.now(),wall=()=>Date.now(),schedule=(fn,ms)=>setTimeout(fn,ms),cancel=id=>clearTimeout(id)}){
+    Object.assign(this,{stream,allowed,clock,wall,schedule,cancel});
+    this.samples=[];this.marks=[];this.attempts=0;this.sent=0;this.pending=null;this.stopped=false;this.disabled=false;
+    this.status='waiting for gameplay';this.startedAt=null;this.lastAttempt=-Infinity;this.timer=null;this.timeout=null;this.boundStream=null;
+    this.serverConfiguration=null;
+    this.receive=event=>this.onResult(event?.data?.latencyTimings);
+    this.receiveSettings=event=>this.onSettings(event?.data?.settings);
+  }
+  bind(){
+    const stream=this.stream();
+    if(typeof stream?.requestLatencyTest!=='function'||typeof stream?.addEventListener!=='function')return false;
+    if(this.boundStream!==stream){
+      this.boundStream?.removeEventListener?.('latencyTestResult',this.receive);
+      this.boundStream?.removeEventListener?.('initialSettings',this.receiveSettings);
+      stream.addEventListener('latencyTestResult',this.receive);stream.addEventListener('initialSettings',this.receiveSettings);this.boundStream=stream;
+    }
+    return true;
+  }
+  start(){
+    if(this.startedAt!==null||this.stopped)return;
+    this.startedAt=this.clock();
+    if(this.disabled)return;
+    if(!this.bind()){this.status='SDK timing API unavailable';this.disabled=true;return;}
+    this.status='waiting for first sample';this.arm(2500);
+  }
+  arm(ms=10000){this.cancel(this.timer);if(!this.stopped&&!this.disabled&&this.sent<8)this.timer=this.schedule(()=>{this.request('scheduled');},ms);}
+  request(reason){
+    if(this.stopped||this.disabled||this.pending||this.sent>=8)return false;
+    if(!this.allowed()){this.arm();return false;}
+    if(this.clock()-this.lastAttempt<5000){this.arm();return false;}
+    if(!this.bind()){this.status='SDK timing API unavailable';this.disabled=true;return false;}
+    this.lastAttempt=this.clock();this.attempts++;
+    this.pending={at:this.clock(),wall:this.wall(),reason};
+    try{
+      if(this.boundStream.requestLatencyTest()!==true){this.pending=null;this.status='video not ready for timing request';if(this.attempts<3)this.arm();else this.disabled=true;return false;}
+      this.sent++;this.status='waiting for server timing';
+      // A single unanswered request stops probes; no connection reset or retry storm.
+      if(this.pending)this.timeout=this.schedule(()=>{
+        if(this.stopped||!this.pending)return;
+        this.pending=null;this.disabled=true;this.status='no server reply; timing may be disabled or unavailable';this.cancel(this.timer);
+      },6000);
+      return true;
+    }catch(_){this.pending=null;this.disabled=true;this.status='SDK timing request failed';return false;}
+  }
+  onSettings(settings){
+    if(this.stopped||!settings)return;
+    const n=v=>typeof v==='number'&&Number.isFinite(v)?v:null;
+    const encoder=settings.EncoderSettings||{},web=settings.WebRTCSettings||{};
+    this.serverConfiguration={latencyTestDisabled:settings.PixelStreamingSettings?.DisableLatencyTest===true,
+      encoder:{minQP:n(encoder.MinQP),maxQP:n(encoder.MaxQP),targetBitrateBps:n(encoder.TargetBitrate),maxBitrateBps:n(encoder.MaxBitrate)},
+      webRTC:{maxBitrateBps:n(web.MaxBitrate),minBitrateBps:n(web.MinBitrate),fps:n(web.FPS)}};
+    if(this.serverConfiguration.latencyTestDisabled){this.disabled=true;this.pending=null;this.cancel(this.timer);this.cancel(this.timeout);this.status='server reports latency testing disabled';}
+  }
+  onResult(raw){
+    if(this.stopped||!this.pending||!raw||typeof raw!=='object')return;
+    if(typeof raw.testStartTimeMs==='number'&&raw.testStartTimeMs>0&&Math.abs(raw.testStartTimeMs-this.pending.wall)>250)return;
+    if(!this.allowed()){this.pending=null;this.cancel(this.timeout);this.status='reply excluded while hidden or ending';this.arm();return;}
+    const finite=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0?n:null;
+    const rounded=n=>n===null?null:+n.toFixed(2);
+    const receipt=finite(raw.ReceiptTimeMs),transmission=finite(raw.TransmissionTimeMs);
+    const serverHandling=receipt!==null&&transmission!==null&&transmission>=receipt?transmission-receipt:null;
+    // Do not use the SDK's computed endToEndLatency: this SDK has no dependable
+    // browser display measurement. These are sampled timings, not engine frame times.
+    this.samples.push({atSeconds:+((this.clock()-this.startedAt)/1000).toFixed(2),trigger:this.pending.reason,
+      probeRoundTripMs:rounded(Math.max(0,this.clock()-this.pending.at)),
+      serverEncodeMs:rounded(finite(raw.EncodeMs)),serverCaptureToSendMs:rounded(finite(raw.CaptureToSendMs)),
+      serverHandlingMs:rounded(serverHandling)});
+    this.pending=null;this.cancel(this.timeout);
+    this.status=this.sent>=8?'sampling complete':'server timing replies received';this.arm();
+  }
+  mark(reason,milliseconds){
+    if(this.stopped||this.startedAt===null)return;
+    this.marks.push({atSeconds:+((this.clock()-this.startedAt)/1000).toFixed(2),kind:reason,milliseconds:+milliseconds.toFixed(2)});
+    if(this.marks.length>60)this.marks.shift();
+    this.request(reason);
+  }
+  stop(){
+    this.stopped=true;this.cancel(this.timer);this.cancel(this.timeout);
+    if(this.pending){this.status='session ended before timing reply';this.pending=null;}
+    this.boundStream?.removeEventListener?.('latencyTestResult',this.receive);
+    this.boundStream?.removeEventListener?.('initialSettings',this.receiveSettings);
+  }
+  snapshot(){return {status:this.status,serverConfiguration:this.serverConfiguration?JSON.parse(JSON.stringify(this.serverConfiguration)):null,requestsSent:this.sent,repliesReceived:this.samples.length,
+    samples:this.samples.map(s=>({...s})),presentationMarks:this.marks.map(s=>({...s})),
+    limitations:'Point-in-time server capture/encode probes, at most eight. No engine CPU/GPU frame times. Probe round trip includes server work and data-channel travel; it is not input-to-display latency. Missing timing fields remain null. Unanswered requests do not prove a server fault.'};}
+}
+function hvsTimingStream(){
+  return [window.homeViewArcwareAudioStream,localStream,application?.stream,application].find(s=>typeof s?.requestLatencyTest==='function')||null;
+}
+const hvsServerTimingProbe=new HvsServerTimingProbe({stream:hvsTimingStream,
+  allowed:()=>window.homeViewLevelReady===true&&!document.hidden&&!window.homeViewSessionIntentional&&!homeViewTeardownStarted&&!hvsScreenshotProtected()});
+window.homeViewServerTiming=hvsServerTimingProbe;
+
 // HVS_DIAGNOSTICS_V1: read-only, enabled ONLY by ?diagnostics=1.
 // Does not send Unreal commands, alter settings, reconnect, or upload results.
 if(new URLSearchParams(location.search).get('diagnostics')==='1'){
@@ -11129,6 +11257,8 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
         bytes:finite(inbound.bytesReceived),received:finite(inbound.packetsReceived),lost:finite(inbound.packetsLost),
         decode:finite(inbound.totalDecodeTime),jitter:finite(inbound.jitterBufferDelay),emitted:finite(inbound.jitterBufferEmittedCount),
         dropped:finite(inbound.framesDropped),targetDelay:finite(inbound.jitterBufferTargetDelay),
+        minimumDelay:finite(inbound.jitterBufferMinimumDelay),processing:finite(inbound.totalProcessingDelay),
+        assembly:finite(inbound.totalAssemblyTime),assembled:finite(inbound.framesAssembledFromMultiplePackets),
         freezes:finite(inbound.freezeCount),frozen:finite(inbound.totalFreezesDuration)};
       const p=this.previous;
       this.previous=n;
@@ -11156,11 +11286,15 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
         newNativeFreezes:freezes,resolution,framesDropped:dropped,
         jitterBufferMs:jitter!==null&&emitted>0?+(jitter*1000/emitted).toFixed(2):null,
         jitterBufferTargetMs:delta('targetDelay')!==null&&emitted>0?+(delta('targetDelay')*1000/emitted).toFixed(2):null,
+        rtpJitterMs:finite(inbound.jitter)===null?null:+(inbound.jitter*1000).toFixed(2),
+        jitterBufferMinimumMs:delta('minimumDelay')!==null&&emitted>0?+(delta('minimumDelay')*1000/emitted).toFixed(2):null,
+        receiveToDecodeMs:delta('processing')!==null&&frames>0?+(delta('processing')*1000/frames).toFixed(2):null,
+        frameAssemblyMs:delta('assembly')!==null&&delta('assembled')>0?+(delta('assembly')*1000/delta('assembled')).toFixed(2):null,
         callbackGaps50to100:this.callbackTiming.from50to100,callbackGaps100to250:this.callbackTiming.from100to250};
       this.samples.push(row);if(this.samples.length>600)this.samples.shift();return row;
     }
     summary(reason){return{
-      version:'HVS mobile diagnostics 6 — walking frame timing',mobileRequest:window.homeViewMobileTuningStatus?.()||null,reason,finishedAt:new Date().toISOString(),
+      version:'HVS mobile diagnostics 9 — MaxQP 40 comparison',mobileRequest:window.homeViewMobileTuningStatus?.()||null,reason,finishedAt:new Date().toISOString(),
       wallSeconds:Math.round((Date.now()-this.started)/1000),measuredSeconds:+this.seconds.toFixed(1),
       averageIncomingFps:this.arrivedSeconds?+(this.arrivedFrames/this.arrivedSeconds).toFixed(1):null,
       averageKbps:this.byteSeconds?Math.round(this.videoBytes*8/this.byteSeconds/1000):null,
@@ -11225,10 +11359,18 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
   function show(){
     if(!summary)return;
     panel.replaceChildren();const title=document.createElement('h2');title.textContent='MOBILE TEST RESULTS';panel.appendChild(title);
-    const p=document.createElement('p');p.textContent=`Test 6 · ${summary.wallSeconds}s elapsed / ${summary.measuredSeconds}s stats measured · ${summary.reason}`;panel.appendChild(p);
+    const p=document.createElement('p');p.textContent=`Test 9 · ${summary.wallSeconds}s elapsed / ${summary.measuredSeconds}s stats measured · ${summary.reason}`;panel.appendChild(p);
     const list=document.createElement('dl');
     const request=summary.mobileRequest;
-    const rows=[['Loading before reveal',summary.startupSeconds===null?'Game not revealed':value(summary.startupSeconds,' s')],
+    const probes=summary.serverTiming;
+    const samples=probes?.samples||[];
+    const lastProbe=samples.at(-1);
+    const qp=summary.qpComparison;
+    const rows=[['Requested MaxQP / command',qp?`${qp.requestedMaxQP} / ${qp.commandSent?'sent':'not confirmed'}`:'Unavailable'],
+      ['Reported encoder QP range',qp?value(qp.reportedQPMin)+' – '+value(qp.reportedQPMax):'Unavailable'],
+      ['Server timing replies',probes?`${probes.repliesReceived} / ${probes.requestsSent}`:'Unavailable'],
+      ['Latest server encode / capture',lastProbe?value(lastProbe.serverEncodeMs,' ms')+' / '+value(lastProbe.serverCaptureToSendMs,' ms'):'Unavailable'],
+      ['Loading before reveal',summary.startupSeconds===null?'Game not revealed':value(summary.startupSeconds,' s')],
       ['Playing FPS avg / lowest',summary.playback?value(summary.playback.averageFps)+' / '+value(summary.playback.lowestSampleFps):'Game not revealed'],
       ['Playing freezes / time',summary.playback?value(summary.playback.nativeFreezeCount)+' / '+value(summary.playback.nativeFrozenSeconds,' s'):'Game not revealed'],
       ['Playing gaps 50–100 ms',summary.playback?.frameTiming?String(summary.playback.frameTiming.callbackIntervals.from50to100):'Unavailable'],
@@ -11244,6 +11386,7 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
       ['Observed gaps ≥250 ms',metrics.frameSupported?String(summary.observedGapCount):'Unavailable'],['Longest / total observed gaps',metrics.frameSupported?`${summary.longestObservedGapSeconds}s / ${summary.observedGapSeconds}s`:'Unavailable']];
     for(const[label,text]of rows){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=text;list.append(dt,dd);}panel.appendChild(list);
     const note=document.createElement('p');note.textContent='Overall measurements include loading. Playing measurements begin at reveal. Gaps include delivery and browser scheduling, and cannot identify an Unreal/server cause. Hidden/paused periods are excluded.';panel.appendChild(note);
+    if(probes){const state=document.createElement('p');state.textContent='Server timing: '+probes.status+'. These samples do not measure Unreal CPU/GPU frame times.';panel.appendChild(state);}
     if(summary.worstGaps.length){const worst=document.createElement('p');worst.textContent='Longest gaps: '+summary.worstGaps.map(g=>`${g.seconds}s at ${g.at}s`).join(' · ');panel.appendChild(worst);}
     const unsupported=document.createElement('p');unsupported.textContent=`Stats issues: ${summary.statsErrors} errors · ${summary.missingPeerPolls} polls without network stats. Screenshot this summary; save the full report if more detail is needed.`;panel.appendChild(unsupported);
     const back=document.createElement('button');back.textContent='BACK';back.type='button';back.onclick=()=>{panel.hidden=true;document.getElementById('hvsSessionScreen').classList.remove('hvs-diagnostics-results');};panel.appendChild(back);
@@ -11252,15 +11395,15 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
     };panel.appendChild(download);
     document.getElementById('hvsSessionScreen').classList.add('hvs-diagnostics-results');panel.hidden=false;
   }
-  function diagnosticSummary(reason){return {...metrics.summary(reason),startupSeconds:revealedAt===null?null:+((revealedAt-metrics.started)/1000).toFixed(1),startup:startupSummary||metrics.summary('Still loading'),playback:revealedAt===null?null:playbackMetrics.summary(reason)};}
+  function diagnosticSummary(reason){return {...metrics.summary(reason),serverTiming:hvsServerTimingProbe.snapshot(),qpComparison:hvsQPComparisonSnapshot(),startupSeconds:revealedAt===null?null:+((revealedAt-metrics.started)/1000).toFixed(1),startup:startupSummary||metrics.summary('Still loading'),playback:revealedAt===null?null:playbackMetrics.summary(reason)};}
   button.addEventListener('click',show);
   window.homeViewDiagnostics={
     start(){if(running||finished)return;running=true;metrics.started=Date.now();metrics.note('Player created; loading diagnostics started');poll();},
-    markRevealed(){if(!running||finished||revealedAt!==null)return;revealedAt=Date.now();startupSummary=metrics.summary('Loading completed');playbackMetrics.started=revealedAt;metrics.note('Game revealed after sustained playback');},
-    frame(video,now,metadata){if(!running||finished)return;metrics.frameSupported=typeof video.requestVideoFrameCallback==='function';playbackMetrics.frameSupported=metrics.frameSupported;if(blocked(video)){metrics.reset();playbackMetrics.reset();return;}metrics.frame(video,now,metadata);if(revealedAt!==null)playbackMetrics.frame(video,now,metadata);},
+    markRevealed(){if(!running||finished||revealedAt!==null)return;revealedAt=Date.now();startupSummary=metrics.summary('Loading completed');playbackMetrics.started=revealedAt;metrics.note('Game revealed after sustained playback');hvsServerTimingProbe.start();},
+    frame(video,now,metadata){if(!running||finished)return;metrics.frameSupported=typeof video.requestVideoFrameCallback==='function';playbackMetrics.frameSupported=metrics.frameSupported;if(blocked(video)){metrics.reset();playbackMetrics.reset();return;}if(revealedAt!==null&&playbackMetrics.frameAt!==null&&now-playbackMetrics.frameAt>=100)hvsServerTimingProbe.mark('presentation gap',now-playbackMetrics.frameAt);metrics.frame(video,now,metadata);if(revealedAt!==null)playbackMetrics.frame(video,now,metadata);},
     note(payload){if(!running||finished||!payload||typeof payload!=='object')return;
       if(payload.teleportMap!==undefined)metrics.note('Teleport requested');else if(payload.property!==undefined)metrics.note('Lot change requested');else if(payload.lot==='loaded')metrics.note('Lot loaded');else if(payload.cutscene!==undefined)metrics.note('Movie '+String(payload.cutscene).slice(0,20));},
-    stop(reason){if(finished)return;finished=true;running=false;clearTimeout(timer);metrics.note('Recording stopped');
+    stop(reason){if(finished)return;hvsServerTimingProbe.stop();finished=true;running=false;clearTimeout(timer);metrics.note('Recording stopped');
       if(metrics.frameAt!==null && !blocked()){const tail=(performance.now()-metrics.frameAt)/1000;if(tail>=.25)metrics.gap(tail);}
       if(revealedAt!==null && playbackMetrics.frameAt!==null && !blocked()){const tail=(performance.now()-playbackMetrics.frameAt)/1000;if(tail>=.25)playbackMetrics.gap(tail);}
       summary=diagnosticSummary(reason);try{sessionStorage.setItem('hvs-last-mobile-diagnostic',JSON.stringify(summary));}catch(_){}
@@ -11270,6 +11413,9 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
   document.addEventListener('visibilitychange',()=>{if(running){metrics.reset();playbackMetrics.reset();metrics.note(document.hidden?'Page hidden; measurement paused':'Page visible; baseline reset');}});
   window.addEventListener('pagehide',()=>{if(running)window.homeViewDiagnostics.stop('Page left');});
 }
+
+// Production demo keeps its existing automatic intro and connection flow.
+
 
 startLoadingMedia();
 mobileDevStatus('Page loaded; contacting local Unreal stream');
@@ -11301,6 +11447,11 @@ if (dev_mode) {
     // Let the custom sound icon reach Arcware's separate (sometimes detached)
     // WebRTC audio element and its own toggleAudio(video, muted) method.
     window.homeViewArcwareAudioStream = setup.PixelStreaming;
+    // Diagnostic listeners are opt-in; normal visitors get only the tested encoder setting.
+    if(new URLSearchParams(location.search).get('diagnostics')==='1'){
+      hvsServerTimingProbe.bind();
+      setup.PixelStreaming.addEventListener('videoEncoderAvgQP',hvsRecordEncoderQP);
+    }
     application.getApplicationResponse(receiveUnrealResponse);
     homeViewRegisterArcwareConnectionErrors();
     document.getElementById('video-container').appendChild(application.rootElement);
