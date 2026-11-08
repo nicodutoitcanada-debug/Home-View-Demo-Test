@@ -1,5 +1,25 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" />
+<!-- HVS launch freshness: refresh once before starting a new stream. -->
+<meta name="hvs-release" content="2026-11-08-refresh-1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<script>
+(function(){
+  if(location.protocol!=='https:' && location.protocol!=='http:')return;
+  var url=new URL(location.href);
+  var token=Number(url.searchParams.get('_hvs_launch'));
+  if(!token || Math.abs(Date.now()-token)>300000){
+    url.searchParams.set('_hvs_launch',String(Date.now()));
+    window.stop();
+    location.replace(url.href);
+  }else{
+    url.searchParams.delete('_hvs_launch');
+    history.replaceState(history.state,'',url.href);
+  }
+  window.homeViewRelease='2026-11-08-refresh-1';
+})();
+</script>
+
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
