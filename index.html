@@ -10213,8 +10213,10 @@ function receiveUnrealResponse(response) {
     // Unreal may broadcast 'generating' during startup. Ignore it unless the
     // user actually clicked GENERATE IMAGE, preventing a permanent overlay.
     if(screenshotRequestInFlight && ['createscreenshot','filetransfer'].includes(String(data.type||'').toLowerCase()))handleScreenshotCompleted();
-    if (data.screenshot === 'generating' && screenshotRequestInFlight)
+    if (data.screenshot === 'generating' && screenshotRequestInFlight){
+      hvsScreenshotAcknowledged=true;
       showScreenshotOverlay('Generating high resolution image', true, false);
+    }
     if (data.Game === 'Loaded' && !loadRequested && !levelReady) {
       mobileDevStatus('Game Loaded received; requesting homeViewDemo');
       // Do NOT send until Unreal explicitly declares Game:Loaded.
@@ -10771,6 +10773,24 @@ async function savePendingScreenshot(){
     }
   }
 }
+// The SDK serializes descriptors itself. Passing JSON text here quotes the
+// entire request on the wire; send the screenshot descriptor as an object once.
+let hvsScreenshotAcknowledged=false;
+function hvsSendScreenshotRequest(){
+  if(window.homeViewSessionIntentional || homeViewTeardownStarted)return false;
+  const stream=dev_mode?localStream:(window.homeViewArcwareAudioStream||application?.stream);
+  if(!stream||typeof stream.emitUIInteraction!=='function')return false;
+  try{return stream.emitUIInteraction({frontEnd:'screenshot'})!==false;}
+  catch(error){console.warn('[SCREENSHOT] Request failed:',error);return false;}
+}
+function hvsScreenshotFailureMessage(){
+  const file=screenshotFileFromSdk();
+  if(hvsScreenshotFileFresh(file)&&file?.receiving===true)
+    return 'The image transfer did not finish. You can continue exploring and try again.';
+  if(hvsScreenshotAcknowledged)
+    return 'Unreal started the screenshot but returned no complete image. You can continue exploring.';
+  return 'No screenshot reply was received from Unreal. You can continue exploring.';
+}
 function requestHomeViewScreenshot(){
   if(screenshotRequestInFlight)return;
   if(hvsScreenshotIgnoreUntil>Date.now()){
@@ -10781,16 +10801,17 @@ function requestHomeViewScreenshot(){
   if(!levelReady){screenshotNotice('The game is still loading. Please try again shortly.');return;}
   const file=screenshotFileFromSdk();
   hvsScreenshotBaseline=file?{file,data:file.data,timestamp:file.timestampStart||0}:null;
+  hvsScreenshotAcknowledged=false;
   const token=++hvsScreenshotToken;hvsScreenshotStartedAt=Date.now();hvsScreenshotOwnTransfer=true;screenshotRequestInFlight=true;
   hvsScreenshotProtect();showScreenshotOverlay('Generating high resolution image',true,false);
   screenshotTimeout=setTimeout(()=>{
     if(token!==hvsScreenshotToken||!screenshotRequestInFlight)return;
     hvsScreenshotToken++;screenshotFinishWaiting();
     hvsScreenshotIgnoreUntil=Date.now()+5000;
-    screenshotNotice('The screenshot took too long. You can continue exploring and try again.',5000);
+    screenshotNotice(hvsScreenshotFailureMessage(),12000);
   },SCREENSHOT_TIMEOUT_MS);
-  // Keep the existing explicit Unreal screenshot command unchanged.
-  if(!sendUnreal({frontEnd:'screenshot'})){
+  // One native object request; never send both object and legacy text copies.
+  if(!hvsSendScreenshotRequest()){
     hvsScreenshotOwnTransfer=false;screenshotFinishWaiting();screenshotNotice('Unable to request a screenshot. Please check the streaming connection.');return;
   }
   hvsPollScreenshot(token);
@@ -10799,7 +10820,7 @@ function requestHomeViewScreenshot(){
 document.getElementById('generateImageButton')?.addEventListener('click',requestHomeViewScreenshot);
 document.getElementById('saveScreenshotButton')?.addEventListener('click',savePendingScreenshot);
 document.getElementById('closeScreenshotOverlayButton')?.addEventListener('click',hideScreenshotOverlay);
-window.homeViewScreenshotDebug=()=>({waiting:screenshotRequestInFlight,ready:!!screenshotBlob,timeoutMs:SCREENSHOT_TIMEOUT_MS, LuxSafeNativeSave:true, protectionSeconds:Math.max(0,Math.ceil((hvsScreenshotProtectionUntil-Date.now())/1000))});
+window.homeViewScreenshotDebug=()=>({waiting:screenshotRequestInFlight,ready:!!screenshotBlob,acknowledged:hvsScreenshotAcknowledged,timeoutMs:SCREENSHOT_TIMEOUT_MS, LuxSafeNativeSave:true, protectionSeconds:Math.max(0,Math.ceil((hvsScreenshotProtectionUntil-Date.now())/1000))});
 
 // Local development mode: the EXACT library-based connection pattern used
 // by your existing working LUX Visualizer project (not a custom WebRTC client).
