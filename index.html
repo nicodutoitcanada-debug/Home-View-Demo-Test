@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" />
 <!-- HVS launch freshness: refresh once before starting a new stream. -->
-<meta name="hvs-release" content="2026-11-14-launch-reveal-hotfix-1">
+<meta name="hvs-release" content="2026-11-14-launch-handshake-rescue-1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function(){
@@ -16,7 +16,7 @@
     url.searchParams.delete('_hvs_launch');
     history.replaceState(history.state,'',url.href);
   }
-  window.homeViewRelease='2026-11-14-launch-reveal-hotfix-1';
+  window.homeViewRelease='2026-11-14-launch-handshake-rescue-1';
 })();
 </script>
 
@@ -5716,6 +5716,8 @@ body:is(.hvs-session-ending,.hvs-session-ended) #hvsSessionScreen{z-index:214748
   <span id="hvsStartupVideoText">Unreal has loaded. Waiting for the first picture from Arcware.</span>
   <div id="hvsStartupVideoActions" hidden>
     <button id="hvsStartupTryPlayback" type="button">TRY VIDEO PLAYBACK</button>
+    <button id="hvsStartupTryHomeLoad" type="button">LOAD HOME</button>
+    <button id="hvsStartupShowVideo" type="button">SHOW LIVE VIDEO</button>
     <button id="hvsStartupEndSession" type="button">END SESSION</button>
   </div>
 </section>
@@ -9634,6 +9636,13 @@ const SHARE_ID = 'share-49b3b4a2-4484-4850-b567-5ad8d7ac0df8';
 let application = null;
 let loadRequested = false;
 let levelReady = false;
+// Startup recovery observability: a message can be missed if a packaged game
+// starts before the Arcware UIInteraction listener is registered.
+let hvsLastGameSignal = 'none';
+let hvsLastHomeLoadSentAt = 0;
+let hvsStartupRescueAttempted = false;
+let hvsStartupRescueSentAt = 0;
+let hvsStartupRescueStartedAt = 0;
 let introFinished = false;
 let loadingAnimation = null;
 let screenshotCounter = 1;
@@ -10329,9 +10338,14 @@ function receiveUnrealResponse(response) {
   try { if (typeof data === 'string') data = JSON.parse(data); } catch (_) {}
   window.homeViewReceiveLotStatus?.(data);
   window.homeViewDiagnostics?.note(data);
+  // Accept both old and newer packaged builds' Game/game key casing. A
+  // location message must not swallow a simultaneous level-loaded signal.
+  const hvsGameSignal = data && typeof data === 'object'
+    ? String(data.Game ?? data.game ?? '').trim().toLowerCase() : '';
+  if(hvsGameSignal)hvsLastGameSignal=hvsGameSignal;
   // Character location and yaw arrive each Tick. Handle them without console
-  // spam, and without ever interfering with room/finish/game messages.
-  if (window.homeViewHandleMapResponse?.(data) === true) return;
+  // spam, and without interfering with room/finish/game messages.
+  if (window.homeViewHandleMapResponse?.(data) === true && !hvsGameSignal) return;
   if (data && typeof data === 'object' && data.cutscene === 'done') {
     window.homeViewOnCutsceneDone?.();
     return;
@@ -10346,15 +10360,15 @@ function receiveUnrealResponse(response) {
     // user actually clicked GENERATE IMAGE, preventing a permanent overlay.
     if (data.screenshot === 'generating' && screenshotRequestInFlight)
       showScreenshotOverlay('Generating high resolution image', true, false);
-    if (data.Game === 'Loaded' && !loadRequested && !levelReady) {
+    if (hvsGameSignal === 'loaded' && !loadRequested && !levelReady) {
       mobileDevStatus('Game Loaded received; requesting homeViewDemo');
-      // Do NOT send until Unreal explicitly declares Game:Loaded.
       unrealIsReadyForResolution = true;
       loadRequested = sendUnreal({ load:'homeViewDemo' });
+      if(loadRequested)hvsLastHomeLoadSentAt=Date.now();
       // Unreal is changing levels. Wait until HomeViewLevelLoaded before
       // requesting the initial rendering resolution to avoid an early resize.
     }
-    if (data.Game === 'HomeViewLevelLoaded') {
+    if (hvsGameSignal === 'homeviewlevelloaded') {
       mobileDevStatus('HomeViewLevelLoaded received; opening UI');
       if (MOBILE_DIAGNOSTICS) setTimeout(() => document.getElementById('homeview-mobile-diagnostics')?.remove(), 4000);
       unrealIsReadyForResolution = true;
@@ -10440,6 +10454,29 @@ document.getElementById('hvsStartupEndSession')?.addEventListener('click',()=>{
   hvsStartupMonitorToken++;
   hvsStartupSetNotice('hide');
   window.homeViewEndSession?.('Your session has ended.');
+});
+// Phone-accessible recovery actions use the EXISTING Arcware session only.
+document.getElementById('hvsStartupTryHomeLoad')?.addEventListener('click',()=>{
+  if(window.homeViewSessionIntentional || homeViewTeardownStarted)return;
+  const sent=sendUnreal({load:'homeViewDemo'});
+  if(sent){
+    loadRequested=true;
+    hvsLastHomeLoadSentAt=Date.now();
+    hvsStartupSetNotice('slow','Load-home command sent. Waiting for Unreal to return its level-ready message.');
+  }else{
+    hvsStartupSetNotice('stuck','The frontend cannot send commands to Arcware yet. No Unreal connection is available.');
+  }
+});
+document.getElementById('hvsStartupShowVideo')?.addEventListener('click',()=>{
+  if(window.homeViewSessionIntentional || homeViewTeardownStarted)return;
+  const state=hvsStartupInspectVideo();
+  if(!state.good){
+    hvsStartupSetNotice('stuck','No usable live video is coming from Arcware. Showing the game cannot fix a missing or failed Unreal process.');
+    return;
+  }
+  if(!levelReady)revealHomeView();
+  // The user explicitly chose to inspect the real stream, not the loading art.
+  hvsCompleteGameReveal();
 });
 
 // Read just 32x18 pixels, only during startup. The WebRTC decoder can output
@@ -10588,9 +10625,11 @@ function hvsStartupInspectVideo() {
 }
 window.homeViewStartupVideoStatus=()=>({
   unrealLevelLoaded:levelReady,uiRevealed:hvsGameRevealStarted,
+  lastGameMessage:hvsLastGameSignal,loadRequested,
+  rescueAttempted:hvsStartupRescueAttempted,rescueSentAt:hvsStartupRescueSentAt,
   waitingSeconds:hvsStartupVideoWaitStarted ? Math.round((performance.now()-hvsStartupVideoWaitStarted)/100)/10:0,
   ...hvsStartupVideoLastInspection,
-  note:'No automatic cloud reconnection is performed during startup.'
+  note:'Rescue reuses the existing Arcware connection; no new cloud session is created.'
 });
 
 function hvsCompleteGameReveal() {
@@ -10684,6 +10723,62 @@ function hvsWaitForStartupFit() {
     setTimeout(check,250);
   };
   setTimeout(check,250);
+}
+// A fast-starting or directly loaded Unreal package can miss the original
+// Game:Loaded handshake before the frontend has installed its callback.
+// Once real WebRTC frames arrive, retry the HOME command just ONCE on this
+// existing session. If the final ready message is also missing, show a
+// confirmed visible picture rather than trapping the visitor on a loader.
+// No package writes, SDK reinitialization, or automatic paid reconnects.
+function hvsStartStartupRescue(){
+  if(hvsStartupRescueStartedAt)return;
+  hvsStartupRescueStartedAt=Date.now();
+  let firstFramesAt=0;
+  const tick=()=>{
+    if(hvsGameRevealStarted || window.homeViewSessionIntentional || homeViewTeardownStarted)return;
+    if(document.hidden){setTimeout(tick,800);return;}
+    const video=document.querySelector('#video-container video');
+    if(video)hvsRegisterVideoForRecovery(video);
+    const state=hvsStartupInspectVideo();
+    const now=Date.now();
+    if(state.hasFrames && !firstFramesAt)firstFramesAt=now;
+    if(!levelReady && state.hasFrames && !loadRequested && !hvsStartupRescueAttempted &&
+       firstFramesAt && now-firstFramesAt>=3500){
+      hvsStartupRescueAttempted=true;
+      const sent=sendUnreal({load:'homeViewDemo'});
+      if(sent){
+        loadRequested=true;
+        hvsLastHomeLoadSentAt=now;
+        hvsStartupRescueSentAt=now;
+        console.info('[STARTUP RESCUE] Initial Loaded message absent. Sent homeViewDemo once on existing stream.');
+      }else{
+        console.warn('[STARTUP RESCUE] Home-load message could not be sent.');
+      }
+    }
+    // The loading signal might be missing even when the home is visibly
+    // rendering. Keep the loaded-level handshake preferred where available.
+    if(!levelReady && state.good && state.checks>=3 &&
+       hvsLastHomeLoadSentAt && now-hvsLastHomeLoadSentAt>=11000){
+      console.warn('[STARTUP RESCUE] Video is visible but final Unreal message is absent. Showing the real stream.');
+      revealHomeView();
+      return;
+    }
+    if(!levelReady && now-hvsStartupRescueStartedAt>=20000){
+      let detail;
+      if(!state.hasVideo){
+        detail='Arcware has not attached a video stream. The cloud session or running Unreal package needs investigation.';
+      }else if(!state.hasFrames){
+        detail='Arcware video is attached, but no decoded frames are arriving. The running Unreal package or stream may have stalled.';
+      }else if(hvsLastGameSignal==='loaded'){
+        detail='Unreal started and the home-load command was sent, but HomeViewLevelLoaded never arrived. Try LOAD HOME or SHOW LIVE VIDEO.';
+      }else{
+        detail='Video arrived, but no final home-level message was received. A one-time load request was attempted. Try LOAD HOME or SHOW LIVE VIDEO.';
+      }
+      hvsStartupSetNotice('stuck',detail);
+    }
+    setTimeout(tick,500);
+  };
+  setTimeout(tick,500);
 }
 function revealHomeView() {
   if(levelReady)return;
@@ -11593,7 +11688,11 @@ if (dev_mode) {
     document.getElementById('video-container').appendChild(application.rootElement);
     configureStreamingInputTarget(application.rootElement);
     window.homeViewDiagnostics?.start();
-  } catch (error) { console.error('Arcware initialization failed:', error); }
+    hvsStartStartupRescue();
+  } catch (error) {
+    console.error('Arcware initialization failed:', error);
+    hvsStartupSetNotice('stuck','Arcware could not initialize the session: '+(error?.message||'unknown error'));
+  }
 }
 
 </script>
