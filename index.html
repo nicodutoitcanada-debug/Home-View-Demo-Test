@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" />
 <!-- HVS launch freshness: refresh once before starting a new stream. -->
-<meta name="hvs-release" content="2026-11-13-facade-front-lot18-3">
+<meta name="hvs-release" content="2026-11-14-launch-reveal-hotfix-1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function(){
@@ -16,7 +16,7 @@
     url.searchParams.delete('_hvs_launch');
     history.replaceState(history.state,'',url.href);
   }
-  window.homeViewRelease='2026-11-13-facade-front-lot18-3';
+  window.homeViewRelease='2026-11-14-launch-reveal-hotfix-1';
 })();
 </script>
 
@@ -10648,8 +10648,11 @@ function hvsWaitForStartupFit() {
     // A slight encoded-aspect discrepancy must not hide usable picture forever.
     const pictureReady=state.good && state.checks>=3;
     const fitSettled=state.aspectMatched || elapsed>=3000;
-    const mobilePlaybackReady=HVS_QUALITY_MOBILE&&!dev_mode ? hvsStartupPlaybackGate.update(state,Date.now()) : true;
-    if(pictureReady && fitSettled && mobilePlaybackReady){
+    // LAUNCH HOTFIX 2026-11-14: Once Unreal confirms its level has loaded,
+    // show a genuinely decoded, visible picture without demanding four
+    // consecutive >=27 FPS windows. Mobile encoder/fit diagnostics may
+    // fluctuate even while the game is fully playable.
+    if(pictureReady && fitSettled){
       if(!hvsStartupVideoSettlingSince){
         hvsStartupVideoSettlingSince=performance.now();
         hvsStartupSetNotice('hide');
