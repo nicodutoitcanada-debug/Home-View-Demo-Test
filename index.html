@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" />
 <!-- HVS launch freshness: refresh once before starting a new stream. -->
-<meta name="hvs-release" content="2026-11-15-mobile-test-12-1280px-4000kbps">
+<meta name="hvs-release" content="2026-11-15-mobile-test-13-1440px-reveal-gate">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function(){
@@ -16,7 +16,7 @@
     url.searchParams.delete('_hvs_launch');
     history.replaceState(history.state,'',url.href);
   }
-  window.homeViewRelease='2026-11-15-mobile-test-12-1280px-4000kbps';
+  window.homeViewRelease='2026-11-15-mobile-test-13-1440px-reveal-gate';
 })();
 </script>
 
@@ -9898,11 +9898,11 @@ function getStreamingViewportResolution() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   let width = Math.round(cssWidth * dpr);
   let height = Math.round(cssHeight * dpr);
-  // Mobile resolution test: cap the LONGEST render edge at 1280 physical pixels.
+  // Mobile resolution test: cap the LONGEST render edge at 1440 physical pixels.
   // Preserve the browser aspect ratio, and never upscale a smaller viewport.
   // No bitrate, FPS, decoder, desktop, reconnection or session changes.
   if (HVS_QUALITY_MOBILE) {
-    const factor = Math.min(1, 1280 / Math.max(width, height));
+    const factor = Math.min(1, 1440 / Math.max(width, height));
     width = Math.max(2,2*Math.floor(width * factor/2));
     height = Math.max(2,2*Math.floor(height * factor/2));
   }
@@ -10685,8 +10685,8 @@ function hvsCompleteGameReveal() {
   },1240);
 }
 // Reveal promptly once Unreal reports ready and decoded video is confirmed.
-// Extra 2.5-second scene settling hold disabled; stream safety is unchanged.
-const HVS_STARTUP_SETTLE_MS = 0;
+// Test 13: require four seconds of uninterrupted mobile video before revealing the world.
+const HVS_STARTUP_SETTLE_MS = HVS_QUALITY_MOBILE ? 4000 : 0;
 function hvsWaitForStartupFit() {
   const token=++hvsStartupMonitorToken;
   hvsStartupVideoWaitStarted=performance.now();
