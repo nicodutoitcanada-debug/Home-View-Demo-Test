@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" />
 <!-- HVS launch freshness: refresh once before starting a new stream. -->
-<meta name="hvs-release" content="2026-11-15-mobile-test-13-1440px-reveal-gate">
+<meta name="hvs-release" content="2026-11-15-mobile-test-14-reveal-rollback">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function(){
@@ -16,7 +16,7 @@
     url.searchParams.delete('_hvs_launch');
     history.replaceState(history.state,'',url.href);
   }
-  window.homeViewRelease='2026-11-15-mobile-test-13-1440px-reveal-gate';
+  window.homeViewRelease='2026-11-15-mobile-test-14-reveal-rollback';
 })();
 </script>
 
@@ -10685,8 +10685,8 @@ function hvsCompleteGameReveal() {
   },1240);
 }
 // Reveal promptly once Unreal reports ready and decoded video is confirmed.
-// Test 13: require four seconds of uninterrupted mobile video before revealing the world.
-const HVS_STARTUP_SETTLE_MS = HVS_QUALITY_MOBILE ? 4000 : 0;
+// Restore immediate reveal after confirmed decoded frames; the four-second gate was unreliable on mobile.
+const HVS_STARTUP_SETTLE_MS = 0;
 function hvsWaitForStartupFit() {
   const token=++hvsStartupMonitorToken;
   hvsStartupVideoWaitStarted=performance.now();
