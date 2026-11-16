@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" />
 <!-- HVS launch freshness: refresh once before starting a new stream. -->
-<meta name="hvs-release" content="2026-11-14-launch-handshake-rescue-1">
+<meta name="hvs-release" content="2026-11-15-mobile-test-10-initial-viewport">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function(){
@@ -16,7 +16,7 @@
     url.searchParams.delete('_hvs_launch');
     history.replaceState(history.state,'',url.href);
   }
-  window.homeViewRelease='2026-11-14-launch-handshake-rescue-1';
+  window.homeViewRelease='2026-11-15-mobile-test-10-initial-viewport';
 })();
 </script>
 
@@ -11665,7 +11665,7 @@ if (dev_mode) {
       { shareId:SHARE_ID },
       { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
           WebRTCFPS:HVS_REQUESTED_MAX_FPS,
-          ...(HVS_QUALITY_MOBILE?{MatchViewportRes:false}:{}),
+          ...(HVS_QUALITY_MOBILE?{MatchViewportRes:true}:{}),
           WebRTCMaxBitrate:HVS_QUALITY_LEVELS[hvsQualityIndex],
           WebRTCMinBitrate:0,
           // LUX uses StartVideoMuted:true. Make mobile equally autoplay-safe
