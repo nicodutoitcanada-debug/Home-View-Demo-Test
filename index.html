@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" />
 <!-- HVS launch freshness: refresh once before starting a new stream. -->
-<meta name="hvs-release" content="2026-11-15-mobile-test-10-initial-viewport">
+<meta name="hvs-release" content="2026-11-15-mobile-test-11-3000kbps">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function(){
@@ -16,7 +16,7 @@
     url.searchParams.delete('_hvs_launch');
     history.replaceState(history.state,'',url.href);
   }
-  window.homeViewRelease='2026-11-15-mobile-test-10-initial-viewport';
+  window.homeViewRelease='2026-11-15-mobile-test-11-3000kbps';
 })();
 </script>
 
@@ -11018,7 +11018,7 @@ const HVS_QUALITY_MOBILE = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent)
 // Do not interpret low incoming FPS as network congestion: Unreal/encoder
 // stalls can cause it too. The former FPS ladder could stick at 1.3 Mbps.
 // Preserve the existing desktop controller and bitrate tiers.
-const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [4000] : [5000,7000,10000,14000];
+const HVS_QUALITY_LEVELS = HVS_QUALITY_MOBILE ? [3000] : [5000,7000,10000,14000];
 let hvsQualityIndex=0;
 let hvsQualityConfig=null;
 let hvsQualityTimer=null;
@@ -11665,7 +11665,7 @@ if (dev_mode) {
       { shareId:SHARE_ID },
       { initialSettings:{ AutoConnect:true, AutoPlayVideo:true,
           WebRTCFPS:HVS_REQUESTED_MAX_FPS,
-          ...(HVS_QUALITY_MOBILE?{MatchViewportRes:true}:{}),
+          ...(HVS_QUALITY_MOBILE?{MatchViewportRes:false}:{}),
           WebRTCMaxBitrate:HVS_QUALITY_LEVELS[hvsQualityIndex],
           WebRTCMinBitrate:0,
           // LUX uses StartVideoMuted:true. Make mobile equally autoplay-safe
