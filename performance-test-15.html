@@ -11800,7 +11800,7 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
   function show(){
     if(!summary)return;
     panel.replaceChildren();const title=document.createElement('h2');title.textContent='MOBILE TEST RESULTS';panel.appendChild(title);
-    const p=document.createElement('p');p.textContent=`Test 9 · ${summary.wallSeconds}s elapsed / ${summary.measuredSeconds}s stats measured · ${summary.reason}`;panel.appendChild(p);
+    const p=document.createElement('p');p.textContent=`Test 15 · ${summary.wallSeconds}s elapsed / ${summary.measuredSeconds}s stats measured · ${summary.reason}`;panel.appendChild(p);
     const list=document.createElement('dl');
     const request=summary.mobileRequest;
     const probes=summary.serverTiming;
@@ -11832,7 +11832,7 @@ if(new URLSearchParams(location.search).get('diagnostics')==='1'){
     const unsupported=document.createElement('p');unsupported.textContent=`Stats issues: ${summary.statsErrors} errors · ${summary.missingPeerPolls} polls without network stats. Screenshot this summary; save the full report if more detail is needed.`;panel.appendChild(unsupported);
     const back=document.createElement('button');back.textContent='BACK';back.type='button';back.onclick=()=>{panel.hidden=true;document.getElementById('hvsSessionScreen').classList.remove('hvs-diagnostics-results');};panel.appendChild(back);
     const download=document.createElement('button');download.textContent='SAVE FULL REPORT';download.type='button';download.onclick=()=>{
-      const blob=new Blob([JSON.stringify(summary,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='HomeView-mobile-test.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),15000);
+      const blob=new Blob([JSON.stringify(summary,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='HomeView-mobile-test-15.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),15000);
     };panel.appendChild(download);
     document.getElementById('hvsSessionScreen').classList.add('hvs-diagnostics-results');panel.hidden=false;
   }
